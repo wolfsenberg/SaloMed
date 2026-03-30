@@ -455,7 +455,7 @@
         const tx  = await buildTx(op, '1000000');
         const sim = await rpc.simulateTransaction(tx);
 
-        if (sim.error) throw new Error(sim.error);
+        if (sim.error) throw new Error(typeof sim.error === 'string' ? sim.error : JSON.stringify(sim.error));
 
         const prepared = assemble(tx, sim).build();
 
@@ -472,7 +472,9 @@
           prepared.toXDR('base64'),
           { networkPassphrase: NP }
         );
-        const signedXdr = typeof raw === 'string' ? raw : (raw.signedTxXdr ?? raw);
+        if (raw && raw.error) throw new Error('Signing failed: ' + (raw.error.message || JSON.stringify(raw.error)));
+        const signedXdr = typeof raw === 'string' ? raw : raw.signedTxXdr;
+        if (!signedXdr) throw new Error('No signed XDR returned — did you reject the transaction in Freighter?');
 
         const signedTx = StellarSdk.TransactionBuilder.fromXDR(signedXdr, NP);
         const sent     = await rpc.sendTransaction(signedTx);
