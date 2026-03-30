@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LusogChain</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-sdk/11.3.0/stellar-sdk.min.js"></script>
+  <style>
+    :root {
+      --ink: #0c1a24;
+      --deep: #0f2231;
+      --navy: #163048;
+      --steel: #1e4060;
+      --teal: #0d9488;
+      --teal-bright: #2dd4bf;
+      --teal-dim: rgba(13,148,136,0.08);
+      --teal-glow: rgba(45,212,191,0.12);
+      --mint: #a7f3d0;
+      --red: #ef4444;
+      --red-dim: rgba(239,68,68,0.08);
+      --amber: #f59e0b;
+      --amber-dim: rgba(245,158,11,0.08);
+      --white: #f8fafc;
+      --cloud: #f1f5f9;
+      --silver: #e2e8f0;
+      --mist: #cbd5e1;
+      --slate: #94a3b8;
+      --dim: #64748b;
+      --text: #1e293b;
+      --text-mid: #475569;
+      --line: #e2e8f0;
+      --line-soft: #f1f5f9;
+      --r: 10px;
+      --rs: 6px;
+      --display: 'Syne', sans-serif;
+      --body: 'Source Serif 4', Georgia, serif;
+      --mono: 'IBM Plex Mono', monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: var(--body);
+      background: var(--cloud);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .ecg-bg {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.02;
+    }
+
+    .app { position: relative; z-index: 1; max-width: 1140px; margin: 0 auto; padding: 0 28px 100px; }
+
+    .nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 0; border-bottom: 1.5px solid var(--line); margin-bottom: 32px;
+    }
+    .nav-left { display: flex; align-items: center; gap: 12px; }
+    .nav-mark {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: var(--ink); display: flex; align-items: center; justify-content: center;
+    }
+    .nav-mark svg { width: 16px; height: 16px; }
+    .nav-brand {
+      font-family: var(--display); font-size: 16px; font-weight: 800;
+      color: var(--ink); letter-spacing: -0.3px;
+    }
+    .nav-chip {
+      font-family: var(--mono); font-size: 9px; font-weight: 600;
+      color: var(--teal); background: var(--teal-dim);
+      padding: 3px 9px; border-radius: 100px; letter-spacing: 0.8px;
+      text-transform: uppercase; margin-left: 6px;
+    }
+    .wallet-pill {
+      font-family: var(--mono); font-size: 11px; color: var(--dim);
+      background: var(--white); border: 1.5px solid var(--line);
+      padding: 7px 16px; border-radius: 100px; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .wallet-pill:hover { border-color: var(--teal); color: var(--teal); }
+    .wallet-pill.on { border-color: var(--teal); color: var(--teal); }
+
+    .landing {
+      min-height: 88vh; display: grid; grid-template-columns: 1fr 1fr;
+      gap: 60px; align-items: center; padding: 40px 0;
+    }
+    .l-copy { max-width: 480px; }
+    .l-eyebrow {
+      font-family: var(--mono); font-size: 11px; font-weight: 600;
+      color: var(--teal); letter-spacing: 2px; text-transform: uppercase;
+      margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
+    }
+    .l-eyebrow-bar { width: 28px; height: 2px; background: var(--teal); }
+    .l-h1 {
+      font-family: var(--display); font-size: clamp(36px,5vw,52px);
+      font-weight: 800; line-height: 1.08; letter-spacing: -2px;
+      color: var(--ink); margin-bottom: 22px;
+    }
+    .l-h1 .em {
+      color: var(--teal);
+      font-family: var(--body); font-weight: 300; font-style: italic; letter-spacing: -1px;
+    }
+    .l-sub {
+      font-size: 17px; line-height: 1.65; color: var(--text-mid);
+      margin-bottom: 36px; max-width: 400px;
+    }
+    .l-cta {
+      font-family: var(--display); font-size: 13px; font-weight: 700;
+      letter-spacing: 0.8px; text-transform: uppercase;
+      padding: 15px 36px; background: var(--ink); color: var(--mint);
+      border: none; border-radius: var(--r); cursor: pointer;
+      transition: all 0.25s; position: relative; overflow: hidden;
+    }
+    .l-cta::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(45,212,191,0.12), transparent);
+      transform: translateX(-100%); transition: transform 0.5s;
+    }
+    .l-cta:hover::before { transform: translateX(100%); }
+    .l-cta:hover { background: var(--deep); transform: translateY(-2px); box-shadow: 0 8px 28px rgba(12,26,36,0.15); }
+    .l-stats {
+      display: flex; gap: 36px; margin-top: 44px; padding-top: 24px; border-top: 1.5px solid var(--line);
+    }
+    .l-stat-v { font-family: var(--display); font-size: 22px; font-weight: 800; color: var(--ink); letter-spacing: -1px; }
+    .l-stat-l { font-family: var(--mono); font-size: 10px; color: var(--slate); letter-spacing: 0.8px; text-transform: uppercase; margin-top: 2px; }
+
+    .l-visual {
+      display: flex; align-items: center; justify-content: center;
+      position: relative; height: 400px;
+    }
+    .pulse-ring {
+      position: absolute; border-radius: 50%;
+      border: 1.5px solid var(--line);
+      animation: ringPulse 3s ease-out infinite;
+    }
+    .pulse-ring:nth-child(1) { width: 280px; height: 280px; }
+    .pulse-ring:nth-child(2) { width: 200px; height: 200px; animation-delay: 0.5s; border-color: var(--teal-glow); border-width: 2px; }
+    .pulse-ring:nth-child(3) { width: 120px; height: 120px; animation-delay: 1s; border-style: dashed; }
+    @keyframes ringPulse {
+      0% { transform: scale(0.95); opacity: 0.6; }
+      50% { transform: scale(1.03); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.6; }
+    }
+    .pulse-core {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: var(--ink); z-index: 2;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 0 10px rgba(12,26,36,0.06), 0 0 0 24px rgba(12,26,36,0.03);
+    }
+    .pulse-core svg { width: 28px; height: 28px; }
+    .float-card {
+      position: absolute; background: var(--white);
+      border: 1.5px solid var(--line); border-radius: var(--rs);
+      padding: 10px 14px; font-family: var(--mono); font-size: 10px;
+      color: var(--text-mid); box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+      animation: float 4s ease-in-out infinite;
+    }
+    .float-card strong { color: var(--ink); display: block; font-size: 14px; margin-bottom: 1px; font-family: var(--display); font-weight: 700; }
+    .fc-1 { top: 40px; right: 20px; animation-delay: 0s; }
+    .fc-2 { bottom: 60px; left: 10px; animation-delay: 1.2s; }
+    .fc-3 { top: 50%; right: -10px; animation-delay: 2s; }
+    @keyframes float {
+      0%,100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    .stat-row {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 12px; margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--white); border: 1.5px solid var(--line);
+      border-radius: var(--r); padding: 22px 24px;
+      transition: border-color 0.2s;
+    }
+    .stat-card:hover { border-color: var(--mist); }
+    .stat-card .sc-label {
+      font-family: var(--mono); font-size: 10px; font-weight: 600;
+      color: var(--slate); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px;
+    }
+    .stat-card .sc-val {
+      font-family: var(--display); font-size: 28px; font-weight: 800;
+      color: var(--ink); letter-spacing: -1.5px;
+    }
+    .stat-card .sc-val .sc-unit {
+      font-size: 13px; font-weight: 500; color: var(--slate); margin-left: 3px;
+    }
+    .stat-card.accent { border-left: 3px solid var(--teal); }
+    .stat-card.accent .sc-val { color: var(--teal); }
+
+    .sh { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+    .sh-t { font-family: var(--display); font-size: 18px; font-weight: 800; color: var(--ink); letter-spacing: -0.5px; }
+    .sh-line { flex: 1; height: 1.5px; background: var(--line); }
+    .sh-meta { font-family: var(--mono); font-size: 10px; color: var(--slate); letter-spacing: 0.5px; }
+
+    .actions { display: flex; gap: 10px; margin-bottom: 28px; flex-wrap: wrap; }
+    .btn {
+      font-family: var(--display); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.8px; text-transform: uppercase;
+      padding: 12px 24px; border-radius: var(--r); border: none; cursor: pointer; transition: all 0.2s;
+    }
+    .btn:disabled { opacity: 0.25; cursor: not-allowed; }
+    .btn-dark { background: var(--ink); color: var(--mint); }
+    .btn-dark:hover:not(:disabled) { background: var(--deep); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(12,26,36,0.1); }
+    .btn-out { background: transparent; border: 1.5px solid var(--line); color: var(--text-mid); }
+    .btn-out:hover:not(:disabled) { border-color: var(--teal); color: var(--teal); }
+    .btn-ghost { background: transparent; border: 1.5px solid var(--line-soft); color: var(--slate); }
+    .btn-ghost:hover:not(:disabled) { border-color: var(--red); color: var(--red); }
+
+    .bill-table {
+      width: 100%; background: var(--white); border: 1.5px solid var(--line);
+      border-radius: var(--r); overflow: hidden; margin-bottom: 32px;
+      border-collapse: separate; border-spacing: 0;
+    }
+    .bill-table th {
+      font-family: var(--mono); font-size: 10px; font-weight: 600;
+      color: var(--slate); text-transform: uppercase; letter-spacing: 1px;
+      text-align: left; padding: 14px 18px; background: var(--cloud);
+      border-bottom: 1.5px solid var(--line);
+    }
+    .bill-table td {
+      padding: 14px 18px; border-bottom: 1px solid var(--line-soft);
+      font-size: 13px; vertical-align: middle;
+    }
+    .bill-table tr:last-child td { border-bottom: none; }
+    .bill-table tr:hover td { background: rgba(241,245,249,0.5); }
+    .svc-tag {
+      font-family: var(--mono); font-size: 10px; font-weight: 600;
+      padding: 3px 10px; border-radius: 100px; letter-spacing: 0.5px;
+      display: inline-block;
+    }
+    .svc-consult { background: rgba(99,102,241,0.08); color: #6366f1; }
+    .svc-lab { background: rgba(245,158,11,0.08); color: #d97706; }
+    .svc-pharmacy { background: rgba(16,185,129,0.08); color: #059669; }
+    .svc-imaging { background: rgba(236,72,153,0.08); color: #db2777; }
+    .svc-emergency { background: rgba(239,68,68,0.08); color: #dc2626; }
+    .pay-badge {
+      font-family: var(--mono); font-size: 10px; font-weight: 600;
+      padding: 3px 10px; border-radius: 100px;
+    }
+    .pay-yes { background: var(--teal-dim); color: var(--teal); }
+    .pay-no { background: var(--red-dim); color: var(--red); }
+    .pay-btn {
+      font-family: var(--display); font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      padding: 6px 14px; border-radius: var(--rs);
+      background: var(--ink); color: var(--mint); border: none;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .pay-btn:hover:not(:disabled) { background: var(--deep); }
+    .pay-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .amt-cell { font-family: var(--mono); font-weight: 600; color: var(--ink); }
+    .addr-cell { font-family: var(--mono); font-size: 11px; color: var(--slate); }
+    .desc-cell { color: var(--text-mid); }
+    .id-cell { font-family: var(--mono); font-size: 10px; color: var(--mist); }
+
+    .log {
+      background: var(--white); border: 1.5px solid var(--line);
+      border-radius: var(--r); max-height: 220px; overflow-y: auto;
+    }
+    .log::-webkit-scrollbar { width: 3px; }
+    .log::-webkit-scrollbar-thumb { background: var(--mist); border-radius: 3px; }
+    .log-r {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 10px 18px; border-bottom: 1px solid var(--line-soft); font-size: 13px;
+    }
+    .log-r:last-child { border-bottom: none; }
+    .log-t {
+      font-family: var(--mono); font-size: 9px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.8px;
+      padding: 2px 7px; border-radius: 3px; flex-shrink: 0; margin-top: 2px;
+    }
+    .lt-bill { background: rgba(99,102,241,0.06); color: #6366f1; }
+    .lt-pay { background: var(--teal-dim); color: var(--teal); }
+    .lt-sys { background: rgba(0,0,0,0.03); color: var(--slate); }
+    .log-m { color: var(--text); flex: 1; line-height: 1.4; }
+    .log-ts { font-family: var(--mono); font-size: 10px; color: var(--mist); flex-shrink: 0; }
+    .log-empty { padding: 16px 18px; color: var(--slate); font-size: 13px; font-style: italic; }
+
+    .overlay {
+      position: fixed; inset: 0; background: rgba(12,26,36,0.5);
+      backdrop-filter: blur(6px); display: flex; align-items: center;
+      justify-content: center; z-index: 100;
+    }
+    .modal {
+      background: var(--white); border: 1.5px solid var(--line);
+      border-radius: 14px; padding: 40px; max-width: 480px; width: 92%;
+      position: relative;
+    }
+    .modal::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--teal), var(--teal-bright), var(--amber));
+      border-radius: 14px 14px 0 0;
+    }
+    .modal h2 {
+      font-family: var(--display); font-size: 20px; font-weight: 800;
+      color: var(--ink); margin-bottom: 4px;
+    }
+    .modal p { font-size: 14px; color: var(--text-mid); margin-bottom: 24px; line-height: 1.6; }
+    .fg { margin-bottom: 16px; }
+    .fg label {
+      display: block; font-family: var(--mono); font-size: 10px; font-weight: 600;
+      color: var(--slate); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 6px;
+    }
+    .fg input, .fg select {
+      width: 100%; padding: 11px 14px; background: var(--cloud);
+      border: 1.5px solid var(--line); border-radius: var(--rs);
+      color: var(--ink); font-family: var(--mono); font-size: 13px;
+      outline: none; transition: border-color 0.2s; -webkit-appearance: none; appearance: none;
+    }
+    .fg input:focus, .fg select:focus { border-color: var(--teal); }
+    .fg .hint { font-size: 10px; color: var(--mist); margin-top: 4px; }
+    .modal-btns { display: flex; gap: 10px; margin-top: 24px; }
+    .modal-btns .btn { flex: 1; text-align: center; }
+
+    .toasts { position: fixed; bottom: 24px; right: 24px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
+    .toast {
+      background: var(--ink); border-radius: var(--rs);
+      padding: 12px 22px; font-family: var(--display); font-size: 12px;
+      font-weight: 600; color: var(--teal-bright); letter-spacing: 0.3px;
+      animation: tIn 0.3s ease; box-shadow: 0 10px 36px rgba(12,26,36,0.2);
+    }
+    .toast.err { color: var(--red); }
+    @keyframes tIn { from{transform:translateY(14px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+    .fu { opacity:0; transform:translateY(14px); animation:fadeU 0.45s ease forwards; }
+    @keyframes fadeU { to{opacity:1;transform:translateY(0)} }
+    .d1{animation-delay:.05s}.d2{animation-delay:.1s}.d3{animation-delay:.15s}
+    .d4{animation-delay:.2s}.d5{animation-delay:.25s}.d6{animation-delay:.3s}
+
+    .submitting-overlay {
+      position: fixed; inset: 0; background: rgba(12,26,36,0.4);
+      z-index: 50; display: flex; align-items: center; justify-content: center;
+    }
+    .submitting-box {
+      background: var(--white); border: 1.5px solid var(--line);
+      border-radius: var(--r); padding: 28px 48px;
+      font-family: var(--mono); font-size: 13px; color: var(--ink);
+      display: flex; align-items: center; gap: 14px;
+    }
+    .spin {
+      width: 18px; height: 18px; border: 2px solid var(--line);
+      border-top-color: var(--teal); border-radius: 50%;
+      animation: spin 0.7s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 768px) {
+      .landing { grid-template-columns: 1fr; text-align: center; gap: 20px; }
+      .l-copy { max-width: 100%; margin: 0 auto; }
+      .l-sub { margin: 0 auto 36px; }
+      .l-stats { justify-content: center; }
+      .l-visual { height: 240px; }
+      .stat-row { grid-template-columns: 1fr 1fr; }
+      .actions { flex-direction: column; }
+      .bill-table { font-size: 12px; }
+      .bill-table th, .bill-table td { padding: 10px 12px; }
+    }
+  </style>
+</head>
+<body>
+  <svg class="ecg-bg" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+    <defs>
+      <pattern id="ecg" width="200" height="40" patternUnits="userSpaceOnUse">
+        <polyline fill="none" stroke="#0d9488" stroke-width="1"
+          points="0,20 30,20 40,20 50,8 55,32 60,4 65,36 70,20 80,20 120,20 130,20 140,14 150,26 155,20 200,20" />
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#ecg)"/>
+  </svg>
+
+  <div class="app" id="app"></div>
+  <div class="toasts" id="toasts"></div>
+
+  <script>
+    // ── CONFIG ────────────────────────────────────────────────────────────────
+    const CONTRACT_ID  = 'CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS';
+    const RPC_URL      = 'https://soroban-testnet.stellar.org';
+    const NP           = StellarSdk.Networks.TESTNET;
+
+    // ── SOROBAN SETUP ─────────────────────────────────────────────────────────
+    // Support stellar-sdk v11 (SorobanRpc) and v12+ (rpc)
+    const RpcNS   = StellarSdk.SorobanRpc ?? StellarSdk.rpc;
+    const rpc     = new RpcNS.Server(RPC_URL);
+    const assemble = RpcNS.assembleTransaction;
+    const sorobanContract = new StellarSdk.Contract(CONTRACT_ID);
+
+    // ── STATE ─────────────────────────────────────────────────────────────────
+    const SERVICES = ['Consultation','Laboratory','Pharmacy','Imaging','Emergency'];
+    const SVC_CLS  = {
+      Consultation:'svc-consult', Laboratory:'svc-lab',
+      Pharmacy:'svc-pharmacy',   Imaging:'svc-imaging', Emergency:'svc-emergency'
+    };
+    const DESCS = {
+      Consultation:['OPD General Checkup','Pediatric Consult','Follow-up Visit','ENT Evaluation'],
+      Laboratory:  ['Complete Blood Count','Urinalysis','X-Ray Chest PA','Blood Chemistry'],
+      Pharmacy:    ['Paracetamol 500mg','Amoxicillin 500mg','Salbutamol Nebule','Omeprazole 20mg'],
+      Imaging:     ['Chest X-Ray','Ultrasound Abdomen','CT Scan Head','ECG 12-Lead'],
+      Emergency:   ['ER Triage Assessment','Wound Suturing','IV Fluid Admin','Nebulization'],
+    };
+
+    let S = {
+      init: false, wallet: null,
+      records: [], log: [],
+      showNew: false,
+      totalBills: 0, totalPaid: 0,   // totalPaid in XLM float
+      loading: false,
+    };
+
+    // ── UTILS ─────────────────────────────────────────────────────────────────
+    const tr  = a => a ? a.slice(0,6)+'…'+a.slice(-4) : '—';
+    const ts  = () => new Date().toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const pick = arr => arr[~~(Math.random()*arr.length)];
+
+    function addLog(l,t,m){ S.log.unshift({l,t,m,ts:ts()}); if(S.log.length>80) S.log.pop(); }
+
+    function toast(m, err=false){
+      const el = document.createElement('div');
+      el.className = 'toast' + (err ? ' err' : '');
+      el.textContent = m;
+      document.getElementById('toasts').appendChild(el);
+      setTimeout(() => el.remove(), err ? 6000 : 3500);
+    }
+
+    function newRid(){ const b=new Uint8Array(32); crypto.getRandomValues(b); return b; }
+    function toHex(b){ return Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join(''); }
+
+    // Soroban #[contracttype] unit enum variant → ScVal::Vec([Symbol])
+    function enumScVal(variant){
+      return StellarSdk.xdr.ScVal.scvVec(
+        new StellarSdk.xdr.ScVec([StellarSdk.xdr.ScVal.scvSymbol(variant)])
+      );
+    }
+
+    // ── SOROBAN HELPERS ───────────────────────────────────────────────────────
+    async function buildTx(op, fee='100'){
+      const acct = await rpc.getAccount(S.wallet);
+      return new StellarSdk.TransactionBuilder(acct, { fee, networkPassphrase: NP })
+        .addOperation(op).setTimeout(30).build();
+    }
+
+    async function simulateOp(op){
+      const tx = await buildTx(op);
+      return rpc.simulateTransaction(tx);
+    }
+
+    async function invokeOp(op){
+      S.loading = true; render();
+      try {
+        const tx  = await buildTx(op, '1000000');
+        const sim = await rpc.simulateTransaction(tx);
+
+        if (sim.error) throw new Error(sim.error);
+
+        const prepared = assemble(tx, sim).build();
+
+        if (!window.freighter) throw new Error('Freighter extension not found. Please install it from freighter.app');
+
+        // Sign — handle both old API (returns string) and new API (returns {signedTxXdr})
+        const raw = await window.freighter.signTransaction(
+          prepared.toXDR('base64'),
+          { networkPassphrase: NP }
+        );
+        const signedXdr = typeof raw === 'string' ? raw : (raw.signedTxXdr ?? raw);
+
+        const signedTx = StellarSdk.TransactionBuilder.fromXDR(signedXdr, NP);
+        const sent     = await rpc.sendTransaction(signedTx);
+
+        if (sent.status === 'ERROR') throw new Error('Send failed: ' + JSON.stringify(sent.errorResult));
+
+        // Poll until confirmed
+        for (let i = 0; i < 30; i++) {
+          await new Promise(r => setTimeout(r, 2000));
+          const res = await rpc.getTransaction(sent.hash);
+          if (res.status === 'SUCCESS') return res;
+          if (res.status === 'FAILED')  throw new Error('Transaction failed on-chain');
+        }
+        throw new Error('Transaction timed out after 60s');
+      } finally {
+        S.loading = false;
+      }
+    }
+
+    // ── CONTRACT FUNCTIONS ────────────────────────────────────────────────────
+    async function loadStats(){
+      if (!S.wallet) return;
+      try {
+        const sim = await simulateOp(sorobanContract.call('get_stats'));
+        if (sim.result?.retval) {
+          const n      = StellarSdk.scValToNative(sim.result.retval);
+          S.totalBills = Number(n[0]);
+          S.totalPaid  = Number(BigInt(n[1])) / 10_000_000; // stroops → XLM
+        }
+      } catch(e) {
+        console.error('loadStats:', e);
+      }
+    }
+
+    async function connect(){
+      if (!window.freighter) {
+        toast('Install the Freighter browser extension first (freighter.app)', true);
+        return;
+      }
+      try {
+        // requestAccess returns public key in some versions, void in others
+        let pk;
+        try {
+          const res = await window.freighter.requestAccess();
+          pk = (typeof res === 'string' && res.length > 10) ? res : null;
+        } catch(_){}
+        if (!pk) pk = await window.freighter.getPublicKey();
+
+        S.wallet = pk;
+        S.init   = true;
+        addLog('LINK','sys','Wallet connected: '+tr(pk));
+        toast('Connected to Freighter');
+        await loadStats();
+        render();
+      } catch(e) {
+        toast('Connection failed: ' + e.message, true);
+      }
+    }
+
+    async function createBill(){
+      const svc = document.getElementById('f-svc').value;
+      const xlm = parseFloat(document.getElementById('f-amt').value) || 0;
+      if (xlm <= 0){ toast('Enter a valid amount', true); return; }
+
+      const amtStroops = BigInt(Math.round(xlm * 10_000_000));
+      const idBytes    = newRid();
+      const idHex      = toHex(idBytes);
+      const desc       = pick(DESCS[svc]);
+      const walletAddr = new StellarSdk.Address(S.wallet);
+
+      const op = sorobanContract.call('create_billing',
+        walletAddr.toScVal(),                                         // hospital = connected wallet
+        walletAddr.toScVal(),                                         // patient  = connected wallet (self-demo)
+        StellarSdk.xdr.ScVal.scvBytes(idBytes),                      // record_id BytesN<32>
+        enumScVal(svc),                                               // ServiceType enum
+        StellarSdk.nativeToScVal(amtStroops, { type: 'i128' }),      // amount in stroops
+        StellarSdk.nativeToScVal(desc,       { type: 'string' }),    // description
+      );
+
+      try {
+        await invokeOp(op);
+        S.records.unshift({
+          id: idHex, idBytes,
+          patient: S.wallet, pname: 'You ('+tr(S.wallet)+')',
+          hospital: S.wallet,
+          service: svc, amount: xlm, amtStroops,
+          desc, paid: false, time: ts(),
+        });
+        addLog('BILL','bill', svc+' — '+xlm.toLocaleString()+' XLM');
+        toast('Billing created on-chain ✓');
+        S.showNew = false;
+        await loadStats();
+        render();
+      } catch(e) {
+        toast(e.message, true);
+        render();
+      }
+    }
+
+    async function payBill(idx){
+      const r = S.records[idx];
+      if (r.paid || S.loading) return;
+
+      const op = sorobanContract.call('pay_bill',
+        new StellarSdk.Address(S.wallet).toScVal(),       // patient
+        StellarSdk.xdr.ScVal.scvBytes(r.idBytes),              // record_id
+      );
+
+      try {
+        await invokeOp(op);
+        r.paid = true;
+        addLog('PAY','pay', r.service+' — '+r.amount.toLocaleString()+' XLM paid');
+        toast('Payment confirmed on-chain ✓');
+        await loadStats();
+        render();
+      } catch(e) {
+        toast(e.message, true);
+        render();
+      }
+    }
+
+    function showNewBill(){ S.showNew = true;  render(); }
+    function closeModal() { S.showNew = false; render(); }
+    function clearView()  { S.records = []; S.log = []; toast('Local view cleared'); render(); }
+
+    // ── RENDER ────────────────────────────────────────────────────────────────
+    const HEART_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="#2dd4bf" stroke-width="2" stroke-linecap="round"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>`;
+
+    function render(){
+      const app = document.getElementById('app');
+      let html = renderNav();
+      if (!S.init)      html += renderLanding();
+      else              html += renderDash();
+      if (S.showNew)    html += renderNewModal();
+      if (S.loading)    html += `<div class="submitting-overlay"><div class="submitting-box"><div class="spin"></div>Submitting to Soroban…</div></div>`;
+      app.innerHTML = html;
+    }
+
+    function renderNav(){
+      return `<div class="nav">
+        <div class="nav-left">
+          <div class="nav-mark">${HEART_SVG}</div>
+          <span class="nav-brand">LusogChain</span>
+          <span class="nav-chip">Soroban · Testnet</span>
+        </div>
+        ${S.wallet ? `<div class="wallet-pill on">${tr(S.wallet)}</div>` : ''}
+      </div>`;
+    }
+
+    function renderLanding(){
+      return `<div class="landing">
+        <div class="l-copy">
+          <div class="l-eyebrow"><span class="l-eyebrow-bar"></span>Hospital Billing on Stellar</div>
+          <h1 class="l-h1">Every receipt,<br/><span class="em">permanently verified.</span></h1>
+          <p class="l-sub">No more lost receipts. No more PhilHealth disputes. Every hospital payment lives on-chain — auditable, permanent, tamper-proof.</p>
+          <button class="l-cta" onclick="connect()">Connect Wallet</button>
+          <div class="l-stats">
+            <div><div class="l-stat-v">&lt;1s</div><div class="l-stat-l">Finality</div></div>
+            <div><div class="l-stat-v">~0</div><div class="l-stat-l">Fees</div></div>
+            <div><div class="l-stat-v">100%</div><div class="l-stat-l">Auditable</div></div>
+          </div>
+        </div>
+        <div class="l-visual">
+          <div class="pulse-ring"></div>
+          <div class="pulse-ring"></div>
+          <div class="pulse-ring"></div>
+          <div class="pulse-core">${HEART_SVG}</div>
+          <div class="float-card fc-1"><strong>500 XLM</strong>OPD Consultation</div>
+          <div class="float-card fc-2"><strong>Verified</strong>Receipt #a3f8...</div>
+          <div class="float-card fc-3"><strong>Paid</strong>12:04:22 PM</div>
+        </div>
+      </div>`;
+    }
+
+    function renderDash(){
+      const unpaid    = S.records.filter(r => !r.paid);
+      const paidCount = S.records.filter(r =>  r.paid).length;
+      const unpaidAmt = unpaid.reduce((s,r) => s + r.amount, 0);
+      const dis       = S.loading ? 'disabled' : '';
+
+      return `
+        <div class="stat-row fu d1">
+          <div class="stat-card">
+            <div class="sc-label">Total Records</div>
+            <div class="sc-val">${S.totalBills}</div>
+          </div>
+          <div class="stat-card accent">
+            <div class="sc-label">Total Paid (Chain)</div>
+            <div class="sc-val">${S.totalPaid.toLocaleString()}<span class="sc-unit">XLM</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="sc-label">Paid / Unpaid</div>
+            <div class="sc-val">${paidCount} / ${unpaid.length}</div>
+          </div>
+          <div class="stat-card">
+            <div class="sc-label">Outstanding</div>
+            <div class="sc-val">${unpaidAmt.toLocaleString()}<span class="sc-unit">XLM</span></div>
+          </div>
+        </div>
+
+        <div class="actions fu d2">
+          <button class="btn btn-dark" onclick="showNewBill()" ${dis}>New Billing</button>
+          <button class="btn btn-out"  onclick="loadStats().then(render)" ${dis}>Refresh Stats</button>
+          <button class="btn btn-ghost" onclick="clearView()" ${dis}>Clear View</button>
+        </div>
+
+        <div class="sh fu d3">
+          <div class="sh-t">Billing Records</div>
+          <div class="sh-line"></div>
+          <div class="sh-meta">${S.records.length} local records</div>
+        </div>
+
+        ${S.records.length === 0
+          ? `<div style="background:var(--white);border:1.5px solid var(--line);border-radius:var(--r);padding:32px;text-align:center;color:var(--slate);font-style:italic;margin-bottom:32px" class="fu d4">
+              No billing records yet. Click <strong>New Billing</strong> to create one on-chain.
+             </div>`
+          : `<div style="overflow-x:auto" class="fu d4">
+              <table class="bill-table">
+                <thead><tr>
+                  <th>ID</th><th>Patient</th><th>Service</th><th>Description</th><th>Amount</th><th>Status</th><th></th>
+                </tr></thead>
+                <tbody>
+                ${S.records.map((r,i) => `<tr>
+                  <td class="id-cell">${r.id.slice(0,8)}</td>
+                  <td>
+                    <div style="font-weight:600;font-size:13px">${r.pname}</div>
+                    <div class="addr-cell">${tr(r.patient)}</div>
+                  </td>
+                  <td><span class="svc-tag ${SVC_CLS[r.service]||''}">${r.service}</span></td>
+                  <td class="desc-cell">${r.desc}</td>
+                  <td class="amt-cell">${r.amount.toLocaleString()} XLM</td>
+                  <td><span class="pay-badge ${r.paid?'pay-yes':'pay-no'}">${r.paid?'Paid':'Unpaid'}</span></td>
+                  <td>${r.paid
+                    ? ''
+                    : `<button class="pay-btn" onclick="payBill(${i})" ${dis}>Pay</button>`
+                  }</td>
+                </tr>`).join('')}
+                </tbody>
+              </table>
+             </div>`
+        }
+
+        <div class="sh fu d5" style="margin-top:8px">
+          <div class="sh-t">Transactions</div>
+          <div class="sh-line"></div>
+        </div>
+        <div class="log fu d6">
+          ${S.log.length === 0
+            ? '<div class="log-empty">No transactions yet.</div>'
+            : S.log.map(x => `<div class="log-r">
+                <span class="log-t lt-${x.t}">${x.l}</span>
+                <span class="log-m">${x.m}</span>
+                <span class="log-ts">${x.ts}</span>
+              </div>`).join('')
+          }
+        </div>`;
+    }
+
+    function renderNewModal(){
+      return `<div class="overlay" onclick="if(event.target===this)closeModal()">
+        <div class="modal">
+          <h2>New Billing Record</h2>
+          <p>Creates a real on-chain billing entry via Soroban. Your connected wallet acts as the registered hospital. Freighter will ask you to sign.</p>
+          <div class="fg">
+            <label>Service Type</label>
+            <select id="f-svc">
+              ${SERVICES.map(s=>`<option value="${s}">${s}</option>`).join('')}
+            </select>
+          </div>
+          <div class="fg">
+            <label>Amount (XLM)</label>
+            <input type="number" id="f-amt" value="500" min="1" />
+            <div class="hint">Consultation: 500 · Lab: 350 · Pharmacy: 180 · Imaging: 1200 · ER: 2500</div>
+          </div>
+          <div class="modal-btns">
+            <button class="btn btn-out"  onclick="closeModal()">Cancel</button>
+            <button class="btn btn-dark" onclick="createBill()">Create &amp; Sign</button>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    render();
+  </script>
+</body>
+</html>

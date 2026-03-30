@@ -1,0 +1,3 @@
+/contracts/**/target/
+**/*.log
+**/.DS_Store
