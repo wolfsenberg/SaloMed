@@ -461,7 +461,11 @@
 
         const fApi = getFreighter();
         if (!fApi) throw new Error('Freighter extension not found.');
-        if (fApi.isConnected && !(await fApi.isConnected())) throw new Error('Freighter not connected.');
+        if (fApi.isConnected) {
+            const connResult = await fApi.isConnected();
+            const connected = typeof connResult === 'object' ? connResult.isConnected : connResult;
+            if (!connected) throw new Error('Freighter not connected.');
+        }
 
         // Sign using the appropriate API
         const raw = await fApi.signTransaction(
@@ -510,22 +514,30 @@
         return;
       }
       try {
-        if (fApi.isConnected && !(await fApi.isConnected())) {
-            toast('Freighter extension is locked or not connected.', true);
-            return;
+        if (fApi.isConnected) {
+            const connResult = await fApi.isConnected();
+            const connected = typeof connResult === 'object' ? connResult.isConnected : connResult;
+            if (!connected) {
+                toast('Freighter extension is locked or not connected.', true);
+                return;
+            }
         }
 
-        let isAllowed = typeof fApi.isAllowed === 'function' ? await fApi.isAllowed() : true;
-        if (!isAllowed && typeof fApi.setAllowed === 'function') { await fApi.setAllowed(); }
-        
+        if (typeof fApi.isAllowed === 'function') {
+            const allowResult = await fApi.isAllowed();
+            const allowed = typeof allowResult === 'object' ? allowResult.isAllowed : allowResult;
+            if (!allowed && typeof fApi.setAllowed === 'function') { await fApi.setAllowed(); }
+        }
+
         let pk;
-        if (typeof fApi.getPublicKey === 'function') {
-            pk = await fApi.getPublicKey();
+        if (typeof fApi.getAddress === 'function') {
+            const res = await fApi.getAddress();
+            pk = typeof res === 'object' ? res.address : res;
         } else if (typeof fApi.requestAccess === 'function') {
             const res = await fApi.requestAccess();
-            pk = typeof res === 'string' ? res : await fApi.getPublicKey();
+            pk = typeof res === 'object' ? res.address || res.publicKey : res;
         }
-        
+
         if (!pk) throw new Error('Could not get public key. Please unlock your wallet.');
 
         S.wallet = pk;
