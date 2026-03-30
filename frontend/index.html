@@ -433,7 +433,7 @@
     // Soroban #[contracttype] unit enum variant → ScVal::Vec([Symbol])
     function enumScVal(variant){
       return StellarSdk.xdr.ScVal.scvVec(
-        new StellarSdk.xdr.ScVec([StellarSdk.xdr.ScVal.scvSymbol(variant)])
+        [StellarSdk.xdr.ScVal.scvSymbol(variant)]
       );
     }
 
@@ -567,7 +567,7 @@
       const op = sorobanContract.call('create_billing',
         walletAddr.toScVal(),                                         // hospital = connected wallet
         walletAddr.toScVal(),                                         // patient  = connected wallet (self-demo)
-        StellarSdk.xdr.ScVal.scvBytes(idBytes),                      // record_id BytesN<32>
+        StellarSdk.nativeToScVal(idBytes, { type: 'bytes' }),        // record_id BytesN<32>
         enumScVal(svc),                                               // ServiceType enum
         StellarSdk.nativeToScVal(amtStroops, { type: 'i128' }),      // amount in stroops
         StellarSdk.nativeToScVal(desc,       { type: 'string' }),    // description
