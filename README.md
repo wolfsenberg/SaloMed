@@ -10,6 +10,10 @@ LusogChain is a decentralized hospital billing system built on the **Stellar net
 
 No more lost receipts. No more PhilHealth disputes. Every payment lives on-chain.
 
+| Network | Contract ID | Explorer | Deploy Tx | Frontend |
+|:--|:--|:--|:--|:--|
+| Stellar Testnet | `CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS` | [Stellar Expert](https://stellar.expert/explorer/testnet/contract/CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS) | [327fe117...](https://stellar.expert/explorer/testnet/tx/327fe1176aebde07c0d3deca166832456c1836197df596807468eb09d9baad57) | [Live Demo](https://wolfsenberg.github.io/LUSOGCHAIN/frontend/) |
+
 ---
 
 ## Table of Contents
@@ -350,10 +354,6 @@ test result: ok. 3 passed; 0 failed
 ![Stellar Expert — Deploy Transaction](assets/deployment_1.png)
 *Verified on Stellar Expert — contract invocation confirmed on-chain.*
 
-| | |
-|---|---|
-| **Network** | Stellar Testnet |
-| **Contract ID** | `CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS` |
-| **Explorer** | [View on Stellar Expert](https://stellar.expert/explorer/testnet/contract/CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS) |
-| **Deploy Tx** | [327fe117...](https://stellar.expert/explorer/testnet/tx/327fe1176aebde07c0d3deca166832456c1836197df596807468eb09d9baad57) |
-| **Frontend** | [https://wolfsenberg.github.io/LUSOGCHAIN/frontend/](https://wolfsenberg.github.io/LUSOGCHAIN/frontend/) |
+| Network | Contract ID | Explorer | Deploy Tx | Frontend |
+|:--|:--|:--|:--|:--|
+| Stellar Testnet | `CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS` | [Stellar Expert](https://stellar.expert/explorer/testnet/contract/CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS) | [327fe117...](https://stellar.expert/explorer/testnet/tx/327fe1176aebde07c0d3deca166832456c1836197df596807468eb09d9baad57) | [Live Demo](https://wolfsenberg.github.io/LUSOGCHAIN/frontend/) |
