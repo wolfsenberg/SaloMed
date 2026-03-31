@@ -76,7 +76,8 @@
       padding: 18px 0; border-bottom: 1.5px solid var(--line); margin-bottom: 28px;
       gap: 10px;
     }
-    .nav-left { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .nav-left { display: flex; align-items: center; gap: 10px; flex-shrink: 0; transition: opacity 0.2s; }
+    .nav-left:hover { opacity: 0.75; }
     .nav-mark {
       width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
       background: var(--ink); display: flex; align-items: center; justify-content: center;
@@ -1040,7 +1041,7 @@
 
     function renderNav(){
       return `<div class="nav">
-        <div class="nav-left">
+        <div class="nav-left" onclick="disconnect()" style="cursor:pointer" title="Go to home">
           <div class="nav-mark">${HEART_SVG}</div>
           <span class="nav-brand">LusogChain</span>
           <span class="nav-chip">Soroban · Testnet</span>
