@@ -688,7 +688,7 @@
       showReceipt: null,
       totalBills: 0, totalPaid: 0,
       xlmBalance: null,
-      loading: false, recordsLoading: false,
+      loading: false, recordsLoading: false, refreshing: false,
       activeTab: 'unpaid',
       filterSvc: '',
     };
@@ -963,10 +963,13 @@
         await invokeOp(op);
         addLog('BILL','bill', svc+' — '+xlm.toLocaleString()+' XLM — '+desc);
         toast('Billing created on-chain ✓');
+        // Fade the modal out, then silently refresh in the background
+        await animateModalOut();
         S.showNew = false;
-        S.recordsLoading = true; render();
+        S.refreshing = true;
+        render();
         await Promise.all([loadStats(), loadXlmBalance(), loadRecords()]);
-        S.recordsLoading = false;
+        S.refreshing = false;
         render();
       } catch(e) {
         toast(e.message, true);
@@ -996,10 +999,11 @@
         S.totalPaid += r.amount;
         addLog('PAY','pay', r.service+' — '+r.amount.toLocaleString()+' XLM paid');
         toast('Payment confirmed on-chain ✓');
+        // Optimistic render first, then silently sync in background
+        S.refreshing = true;
         render();
-        S.recordsLoading = true; render();
         await Promise.all([loadStats(), loadXlmBalance(), loadRecords()]);
-        S.recordsLoading = false;
+        S.refreshing = false;
         render();
       } catch(e) {
         toast(e.message, true);
@@ -1009,6 +1013,24 @@
 
     function showNewBill(){ S.showNew = true;  render(); }
     function closeModal() { S.showNew = false; render(); }
+
+    // Fade the modal/overlay out before removing it from the DOM
+    function animateModalOut() {
+      return new Promise(resolve => {
+        const overlay = document.querySelector('.overlay');
+        if (!overlay) { resolve(); return; }
+        const modal   = overlay.querySelector('.modal, .receipt-modal');
+        const mobile  = window.innerWidth <= 767;
+        overlay.style.transition = 'opacity 0.3s ease';
+        overlay.style.opacity    = '0';
+        if (modal) {
+          modal.style.transition = 'transform 0.28s ease, opacity 0.28s ease';
+          modal.style.transform  = mobile ? 'translateY(100%)' : 'translateY(16px) scale(0.97)';
+          modal.style.opacity    = '0';
+        }
+        setTimeout(resolve, 300);
+      });
+    }
 
     function openReceipt(idx, e){
       if (e) e.stopPropagation();
@@ -1083,6 +1105,8 @@
       const dis       = (S.loading || S.recordsLoading) ? 'disabled' : '';
       const fmtXlm    = n => n.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:4});
       const loading   = S.recordsLoading;
+      // Only show the full loading skeleton on the very first fetch (empty state)
+      const showSkeleton = loading && S.records.length === 0;
 
       let viewRecords = S.records;
       if (S.activeTab === 'unpaid') viewRecords = unpaid;
@@ -1117,7 +1141,7 @@
         <div class="toolbar fu d2">
           <div class="toolbar-left">
             <button class="btn btn-dark" onclick="showNewBill()" ${dis}>+ New Billing</button>
-            <button class="btn btn-out"  onclick="refreshAll()"  ${dis}>${loading ? 'Loading…' : 'Refresh'}</button>
+            <button class="btn btn-out"  onclick="refreshAll()"  ${dis}>${loading ? 'Loading…' : S.refreshing ? 'Syncing…' : 'Refresh'}</button>
           </div>
           <div class="toolbar-right">
             <select class="filter-select" onchange="setFilter(event)" ${dis}>
@@ -1127,7 +1151,7 @@
           </div>
         </div>
 
-        ${loading
+        ${showSkeleton
           ? `<div style="background:var(--white);border:1.5px solid var(--line);border-radius:var(--r);padding:48px 20px;text-align:center;color:var(--slate);margin-bottom:28px" class="fu d3">
                <div class="spin" style="margin:0 auto 14px;width:22px;height:22px"></div>
                Loading records from blockchain…
@@ -1143,6 +1167,7 @@
                  <button class="tab-btn ${S.activeTab==='all'?'active':''}" onclick="setTab('all')">
                    All <span class="tab-count">${S.records.length}</span>
                  </button>
+                 ${S.refreshing ? `<span style="margin-left:auto;display:flex;align-items:center;gap:6px;padding:0 16px;font-family:var(--mono);font-size:10px;color:var(--teal)"><span class="spin" style="width:11px;height:11px;border-width:1.5px"></span>Syncing…</span>` : ''}
                </div>
                ${viewRecords.length === 0
                  ? `<div class="table-empty-state">
