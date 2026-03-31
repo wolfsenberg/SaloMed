@@ -2,8 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0c1a24" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>LusogChain</title>
+  <!-- Favicon: ECG heartbeat on dark background -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c1a24'/%3E%3Cpath d='M2 16h6l3-9 5 18 3-9h11' stroke='%232dd4bf' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c1a24'/%3E%3Cpath d='M2 16h6l3-9 5 18 3-9h11' stroke='%232dd4bf' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@stellar/stellar-sdk@12/dist/stellar-sdk.min.js"></script>
@@ -39,56 +45,71 @@
       --display: 'Syne', sans-serif;
       --body: 'Source Serif 4', Georgia, serif;
       --mono: 'IBM Plex Mono', monospace;
+      /* safe areas for notched phones */
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
     }
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html { scroll-behavior: smooth; }
     body {
       font-family: var(--body);
       background: var(--cloud);
       color: var(--text);
       min-height: 100vh;
+      overflow-x: hidden;
     }
 
     .ecg-bg {
       position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.02;
     }
 
-    .app { position: relative; z-index: 1; max-width: 1140px; margin: 0 auto; padding: 0 28px 100px; }
+    .app {
+      position: relative; z-index: 1; max-width: 1140px; margin: 0 auto;
+      padding: 0 28px calc(80px + var(--safe-bottom));
+    }
 
     /* ── NAV ── */
     .nav {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 20px 0; border-bottom: 1.5px solid var(--line); margin-bottom: 32px;
+      padding: 18px 0; border-bottom: 1.5px solid var(--line); margin-bottom: 28px;
+      gap: 10px;
     }
-    .nav-left { display: flex; align-items: center; gap: 12px; }
+    .nav-left { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
     .nav-mark {
-      width: 34px; height: 34px; border-radius: 50%;
+      width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
       background: var(--ink); display: flex; align-items: center; justify-content: center;
     }
-    .nav-mark svg { width: 16px; height: 16px; }
+    .nav-mark svg { width: 15px; height: 15px; }
     .nav-brand {
-      font-family: var(--display); font-size: 16px; font-weight: 800;
-      color: var(--ink); letter-spacing: -0.3px;
+      font-family: var(--display); font-size: 15px; font-weight: 800;
+      color: var(--ink); letter-spacing: -0.3px; white-space: nowrap;
     }
     .nav-chip {
       font-family: var(--mono); font-size: 9px; font-weight: 600;
       color: var(--teal); background: var(--teal-dim);
-      padding: 3px 9px; border-radius: 100px; letter-spacing: 0.8px;
-      text-transform: uppercase; margin-left: 6px;
+      padding: 3px 8px; border-radius: 100px; letter-spacing: 0.8px;
+      text-transform: uppercase; white-space: nowrap;
+    }
+    .nav-right { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; min-width: 0; }
+    .nav-balance {
+      font-family: var(--mono); font-size: 11px; color: var(--teal); font-weight: 600;
+      white-space: nowrap; flex-shrink: 0;
     }
     .wallet-pill {
       font-family: var(--mono); font-size: 11px; color: var(--dim);
       background: var(--white); border: 1.5px solid var(--line);
-      padding: 7px 16px; border-radius: 100px; cursor: pointer;
-      transition: all 0.2s;
+      padding: 7px 14px; border-radius: 100px; cursor: pointer;
+      transition: all 0.2s; white-space: nowrap; flex-shrink: 0;
     }
     .wallet-pill:hover { border-color: var(--teal); color: var(--teal); }
     .wallet-pill.on { border-color: var(--teal); color: var(--teal); }
     .disconnect-btn {
       font-family: var(--mono); font-size: 10px; color: var(--slate);
       background: transparent; border: 1.5px solid var(--line);
-      padding: 6px 12px; border-radius: 100px; cursor: pointer;
-      transition: all 0.2s; letter-spacing: 0.3px;
+      padding: 6px 10px; border-radius: 100px; cursor: pointer;
+      transition: all 0.2s; letter-spacing: 0.3px; white-space: nowrap; flex-shrink: 0;
     }
     .disconnect-btn:hover { border-color: var(--red); color: var(--red); }
 
@@ -103,9 +124,9 @@
       color: var(--teal); letter-spacing: 2px; text-transform: uppercase;
       margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
     }
-    .l-eyebrow-bar { width: 28px; height: 2px; background: var(--teal); }
+    .l-eyebrow-bar { width: 28px; height: 2px; background: var(--teal); flex-shrink: 0; }
     .l-h1 {
-      font-family: var(--display); font-size: clamp(36px,5vw,52px);
+      font-family: var(--display); font-size: clamp(32px,5vw,52px);
       font-weight: 800; line-height: 1.08; letter-spacing: -2px;
       color: var(--ink); margin-bottom: 22px;
     }
@@ -114,8 +135,8 @@
       font-family: var(--body); font-weight: 300; font-style: italic; letter-spacing: -1px;
     }
     .l-sub {
-      font-size: 17px; line-height: 1.65; color: var(--text-mid);
-      margin-bottom: 36px; max-width: 400px;
+      font-size: 16px; line-height: 1.65; color: var(--text-mid);
+      margin-bottom: 32px; max-width: 400px;
     }
     .l-cta {
       font-family: var(--display); font-size: 13px; font-weight: 700;
@@ -123,6 +144,7 @@
       padding: 15px 36px; background: var(--ink); color: var(--mint);
       border: none; border-radius: var(--r); cursor: pointer;
       transition: all 0.25s; position: relative; overflow: hidden;
+      min-height: 48px; touch-action: manipulation;
     }
     .l-cta::before {
       content: ''; position: absolute; inset: 0;
@@ -131,8 +153,10 @@
     }
     .l-cta:hover::before { transform: translateX(100%); }
     .l-cta:hover { background: var(--deep); transform: translateY(-2px); box-shadow: 0 8px 28px rgba(12,26,36,0.15); }
+    .l-cta:active { transform: scale(0.98); }
     .l-stats {
-      display: flex; gap: 36px; margin-top: 44px; padding-top: 24px; border-top: 1.5px solid var(--line);
+      display: flex; gap: 28px; margin-top: 36px; padding-top: 20px; border-top: 1.5px solid var(--line);
+      flex-wrap: wrap;
     }
     .l-stat-v { font-family: var(--display); font-size: 22px; font-weight: 800; color: var(--ink); letter-spacing: -1px; }
     .l-stat-l { font-family: var(--mono); font-size: 10px; color: var(--slate); letter-spacing: 0.8px; text-transform: uppercase; margin-top: 2px; }
@@ -180,11 +204,11 @@
     /* ── STATS ── */
     .stat-row {
       display: grid; grid-template-columns: repeat(4, 1fr);
-      gap: 12px; margin-bottom: 24px;
+      gap: 12px; margin-bottom: 20px;
     }
     .stat-card {
       background: var(--white); border: 1.5px solid var(--line);
-      border-radius: var(--r); padding: 22px 24px;
+      border-radius: var(--r); padding: 20px 20px;
       transition: border-color 0.2s;
     }
     .stat-card:hover { border-color: var(--mist); }
@@ -193,11 +217,11 @@
       color: var(--slate); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px;
     }
     .stat-card .sc-val {
-      font-family: var(--display); font-size: 28px; font-weight: 800;
+      font-family: var(--display); font-size: 26px; font-weight: 800;
       color: var(--ink); letter-spacing: -1.5px;
     }
     .stat-card .sc-val .sc-unit {
-      font-size: 13px; font-weight: 500; color: var(--slate); margin-left: 3px;
+      font-size: 12px; font-weight: 500; color: var(--slate); margin-left: 3px;
     }
     .stat-card.accent-teal { border-left: 3px solid var(--teal); }
     .stat-card.accent-teal .sc-val { color: var(--teal); }
@@ -205,151 +229,170 @@
     .stat-card.accent-red .sc-val { color: var(--red); }
     .stat-card.accent-amber { border-left: 3px solid var(--amber); }
     .stat-card.accent-amber .sc-val { color: var(--amber); }
-    /* keep old .accent for compat */
     .stat-card.accent { border-left: 3px solid var(--teal); }
     .stat-card.accent .sc-val { color: var(--teal); }
 
     /* ── SECTION HEADER ── */
-    .sh { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
-    .sh-t { font-family: var(--display); font-size: 18px; font-weight: 800; color: var(--ink); letter-spacing: -0.5px; }
+    .sh { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+    .sh-t { font-family: var(--display); font-size: 17px; font-weight: 800; color: var(--ink); letter-spacing: -0.5px; white-space: nowrap; }
     .sh-line { flex: 1; height: 1.5px; background: var(--line); }
-    .sh-meta { font-family: var(--mono); font-size: 10px; color: var(--slate); letter-spacing: 0.5px; }
+    .sh-meta { font-family: var(--mono); font-size: 10px; color: var(--slate); letter-spacing: 0.5px; white-space: nowrap; }
 
-    /* ── ACTIONS / TOOLBAR ── */
+    /* ── TOOLBAR ── */
     .toolbar {
       display: flex; align-items: center; gap: 10px;
-      margin-bottom: 28px; flex-wrap: wrap;
+      margin-bottom: 24px; flex-wrap: wrap;
     }
     .toolbar-left { display: flex; gap: 10px; flex-wrap: wrap; flex: 1; }
     .toolbar-right { display: flex; gap: 10px; align-items: center; }
     .btn {
       font-family: var(--display); font-size: 11px; font-weight: 700;
       letter-spacing: 0.8px; text-transform: uppercase;
-      padding: 12px 24px; border-radius: var(--r); border: none; cursor: pointer; transition: all 0.2s;
+      padding: 12px 22px; border-radius: var(--r); border: none; cursor: pointer;
+      transition: all 0.2s; min-height: 44px; touch-action: manipulation;
+      display: inline-flex; align-items: center; justify-content: center;
     }
     .btn:disabled { opacity: 0.25; cursor: not-allowed; }
     .btn-dark { background: var(--ink); color: var(--mint); }
     .btn-dark:hover:not(:disabled) { background: var(--deep); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(12,26,36,0.1); }
+    .btn-dark:active:not(:disabled) { transform: scale(0.97); }
     .btn-out { background: transparent; border: 1.5px solid var(--line); color: var(--text-mid); }
     .btn-out:hover:not(:disabled) { border-color: var(--teal); color: var(--teal); }
     .btn-ghost { background: transparent; border: 1.5px solid var(--line-soft); color: var(--slate); }
     .btn-ghost:hover:not(:disabled) { border-color: var(--red); color: var(--red); }
 
-    /* filter select */
     .filter-select {
       font-family: var(--mono); font-size: 11px; color: var(--dim);
       background: var(--white); border: 1.5px solid var(--line);
       padding: 9px 14px; border-radius: var(--r); cursor: pointer;
       outline: none; transition: border-color 0.2s; -webkit-appearance: none; appearance: none;
+      min-height: 44px;
     }
     .filter-select:focus { border-color: var(--teal); }
 
     /* ── TABS ── */
-    .tabs-wrap { margin-bottom: 0; }
     .tabs {
       display: flex; gap: 0; border-bottom: 1.5px solid var(--line);
-      margin-bottom: 0;
+      background: var(--cloud); overflow-x: auto; -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
     }
+    .tabs::-webkit-scrollbar { display: none; }
     .tab-btn {
       font-family: var(--display); font-size: 12px; font-weight: 700;
       letter-spacing: 0.5px; text-transform: uppercase;
-      padding: 11px 24px; background: transparent; border: none;
+      padding: 12px 20px; background: transparent; border: none;
       border-bottom: 2.5px solid transparent; margin-bottom: -1.5px;
       cursor: pointer; color: var(--slate); transition: all 0.2s;
-      display: flex; align-items: center; gap: 8px;
+      display: flex; align-items: center; gap: 7px;
+      white-space: nowrap; min-height: 44px; touch-action: manipulation;
     }
     .tab-btn:hover { color: var(--text); }
     .tab-btn.active { color: var(--ink); border-bottom-color: var(--teal); }
     .tab-count {
       font-family: var(--mono); font-size: 10px; font-weight: 600;
-      padding: 2px 7px; border-radius: 100px; background: var(--cloud);
+      padding: 2px 7px; border-radius: 100px; background: var(--line);
     }
     .tab-btn.active .tab-count { background: var(--teal-dim); color: var(--teal); }
     .tab-count.has-items { background: var(--red-dim); color: var(--red); }
     .tab-btn.active .tab-count.has-items { background: var(--red-dim); color: var(--red); }
 
-    /* ── BILL TABLE ── */
+    /* ── BILL TABLE (desktop) ── */
+    .table-section {
+      background: var(--white); border: 1.5px solid var(--line);
+      border-radius: var(--r); overflow: hidden; margin-bottom: 28px;
+    }
     .bill-table {
-      width: 100%; background: var(--white); border: 1.5px solid var(--line);
-      border-top: none; border-radius: 0 0 var(--r) var(--r); overflow: hidden; margin-bottom: 32px;
+      width: 100%; background: var(--white);
       border-collapse: separate; border-spacing: 0;
     }
     .bill-table th {
       font-family: var(--mono); font-size: 10px; font-weight: 600;
       color: var(--slate); text-transform: uppercase; letter-spacing: 1px;
-      text-align: left; padding: 14px 18px; background: var(--cloud);
+      text-align: left; padding: 13px 16px; background: var(--white);
       border-bottom: 1.5px solid var(--line);
     }
     .bill-table td {
-      padding: 14px 18px; border-bottom: 1px solid var(--line-soft);
+      padding: 13px 16px; border-bottom: 1px solid var(--line-soft);
       font-size: 13px; vertical-align: middle;
     }
     .bill-table tr:last-child td { border-bottom: none; }
-    .bill-table tr:hover td { background: rgba(241,245,249,0.5); }
+    .bill-table tr:hover td { background: rgba(241,245,249,0.6); }
     .bill-table tr { cursor: pointer; }
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    /* ── BILL CARDS (mobile) ── */
+    .bill-cards { display: none; }
+    .bill-card {
+      padding: 16px; border-bottom: 1px solid var(--line-soft);
+      cursor: pointer; transition: background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .bill-card:last-child { border-bottom: none; }
+    .bill-card:active { background: var(--cloud); }
+    .bill-card-r1 { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .bill-card-r2 { font-size: 14px; color: var(--text); margin-bottom: 10px; line-height: 1.4; }
+    .bill-card-r3 { display: flex; align-items: center; justify-content: space-between; }
+    .bill-card-amt { font-family: var(--display); font-size: 18px; font-weight: 800; color: var(--ink); letter-spacing: -0.5px; }
+    .bill-card-date { font-family: var(--mono); font-size: 10px; color: var(--mist); }
+    .bill-card-actions { display: flex; gap: 8px; align-items: center; }
+    .bill-card-r4 { margin-top: 10px; display: flex; gap: 8px; }
+
+    /* ── SHARED TAGS ── */
     .svc-tag {
       font-family: var(--mono); font-size: 10px; font-weight: 600;
       padding: 3px 10px; border-radius: 100px; letter-spacing: 0.5px;
       display: inline-block;
     }
-    .svc-consult { background: rgba(99,102,241,0.08); color: #6366f1; }
-    .svc-lab { background: rgba(245,158,11,0.08); color: #d97706; }
-    .svc-pharmacy { background: rgba(16,185,129,0.08); color: #059669; }
-    .svc-imaging { background: rgba(236,72,153,0.08); color: #db2777; }
-    .svc-emergency { background: rgba(239,68,68,0.08); color: #dc2626; }
+    .svc-consult  { background: rgba(99,102,241,0.08); color: #6366f1; }
+    .svc-lab      { background: rgba(245,158,11,0.08);  color: #d97706; }
+    .svc-pharmacy { background: rgba(16,185,129,0.08);  color: #059669; }
+    .svc-imaging  { background: rgba(236,72,153,0.08);  color: #db2777; }
+    .svc-emergency{ background: rgba(239,68,68,0.08);   color: #dc2626; }
     .pay-badge {
       font-family: var(--mono); font-size: 10px; font-weight: 600;
       padding: 3px 10px; border-radius: 100px;
     }
     .pay-yes { background: var(--teal-dim); color: var(--teal); }
-    .pay-no { background: var(--red-dim); color: var(--red); }
+    .pay-no  { background: var(--red-dim);  color: var(--red); }
     .pay-btn {
       font-family: var(--display); font-size: 10px; font-weight: 700;
       text-transform: uppercase; letter-spacing: 0.5px;
-      padding: 6px 14px; border-radius: var(--rs);
+      padding: 8px 16px; border-radius: var(--rs);
       background: var(--ink); color: var(--mint); border: none;
-      cursor: pointer; transition: all 0.2s;
+      cursor: pointer; transition: all 0.2s; min-height: 36px;
+      touch-action: manipulation;
     }
     .pay-btn:hover:not(:disabled) { background: var(--deep); }
+    .pay-btn:active:not(:disabled) { transform: scale(0.96); }
     .pay-btn:disabled { opacity: 0.3; cursor: not-allowed; }
     .copy-btn {
       font-family: var(--mono); font-size: 10px; color: var(--mist);
       background: transparent; border: 1px solid var(--line);
-      padding: 5px 10px; border-radius: var(--rs); cursor: pointer;
-      transition: all 0.2s; letter-spacing: 0.3px;
+      padding: 7px 12px; border-radius: var(--rs); cursor: pointer;
+      transition: all 0.2s; letter-spacing: 0.3px; min-height: 36px;
     }
     .copy-btn:hover { border-color: var(--teal); color: var(--teal); }
-    .amt-cell { font-family: var(--mono); font-weight: 600; color: var(--ink); }
-    .addr-cell { font-family: var(--mono); font-size: 11px; color: var(--slate); }
-    .desc-cell { color: var(--text-mid); max-width: 200px; }
-    .id-cell { font-family: var(--mono); font-size: 10px; color: var(--mist); }
-    .action-cell { display: flex; align-items: center; gap: 8px; }
-
-    /* table section wrap (tabs + table together) */
-    .table-section {
-      background: var(--white); border: 1.5px solid var(--line);
-      border-radius: var(--r); overflow: hidden; margin-bottom: 32px;
-    }
-    .table-section .tabs { background: var(--cloud); }
-    .table-section .bill-table {
-      border: none; border-radius: 0; margin-bottom: 0;
-    }
-    .table-section .bill-table th { background: var(--white); }
+    .amt-cell   { font-family: var(--mono); font-weight: 600; color: var(--ink); }
+    .addr-cell  { font-family: var(--mono); font-size: 11px; color: var(--slate); }
+    .desc-cell  { color: var(--text-mid); }
+    .id-cell    { font-family: var(--mono); font-size: 10px; color: var(--mist); }
+    .action-cell{ display: flex; align-items: center; gap: 7px; }
     .table-empty-state {
-      padding: 40px; text-align: center; color: var(--slate);
+      padding: 40px 20px; text-align: center; color: var(--slate);
       font-style: italic; font-size: 14px;
     }
 
     /* ── ACTIVITY LOG ── */
     .log {
       background: var(--white); border: 1.5px solid var(--line);
-      border-radius: var(--r); max-height: 220px; overflow-y: auto;
+      border-radius: var(--r); max-height: 200px; overflow-y: auto;
+      margin-bottom: 12px;
     }
     .log::-webkit-scrollbar { width: 3px; }
     .log::-webkit-scrollbar-thumb { background: var(--mist); border-radius: 3px; }
     .log-r {
-      display: flex; align-items: flex-start; gap: 10px;
-      padding: 10px 18px; border-bottom: 1px solid var(--line-soft); font-size: 13px;
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 10px 16px; border-bottom: 1px solid var(--line-soft); font-size: 13px;
     }
     .log-r:last-child { border-bottom: none; }
     .log-t {
@@ -358,22 +401,23 @@
       padding: 2px 7px; border-radius: 3px; flex-shrink: 0; margin-top: 2px;
     }
     .lt-bill { background: rgba(99,102,241,0.06); color: #6366f1; }
-    .lt-pay { background: var(--teal-dim); color: var(--teal); }
-    .lt-sys { background: rgba(0,0,0,0.03); color: var(--slate); }
-    .log-m { color: var(--text); flex: 1; line-height: 1.4; }
-    .log-ts { font-family: var(--mono); font-size: 10px; color: var(--mist); flex-shrink: 0; }
-    .log-empty { padding: 16px 18px; color: var(--slate); font-size: 13px; font-style: italic; }
+    .lt-pay  { background: var(--teal-dim); color: var(--teal); }
+    .lt-sys  { background: rgba(0,0,0,0.03); color: var(--slate); }
+    .log-m   { color: var(--text); flex: 1; line-height: 1.4; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .log-ts  { font-family: var(--mono); font-size: 10px; color: var(--mist); flex-shrink: 0; }
+    .log-empty { padding: 16px; color: var(--slate); font-size: 13px; font-style: italic; }
 
     /* ── MODALS ── */
     .overlay {
-      position: fixed; inset: 0; background: rgba(12,26,36,0.5);
+      position: fixed; inset: 0; background: rgba(12,26,36,0.55);
       backdrop-filter: blur(6px); display: flex; align-items: center;
       justify-content: center; z-index: 100;
+      padding: 16px;
     }
     .modal {
       background: var(--white); border: 1.5px solid var(--line);
-      border-radius: 14px; padding: 40px; max-width: 480px; width: 92%;
-      position: relative;
+      border-radius: 14px; padding: 36px 32px; max-width: 480px; width: 100%;
+      position: relative; max-height: calc(100vh - 32px); overflow-y: auto;
     }
     .modal::before {
       content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
@@ -384,34 +428,36 @@
       font-family: var(--display); font-size: 20px; font-weight: 800;
       color: var(--ink); margin-bottom: 4px;
     }
-    .modal p { font-size: 14px; color: var(--text-mid); margin-bottom: 24px; line-height: 1.6; }
+    .modal p { font-size: 14px; color: var(--text-mid); margin-bottom: 20px; line-height: 1.6; }
     .fg { margin-bottom: 16px; }
     .fg label {
       display: block; font-family: var(--mono); font-size: 10px; font-weight: 600;
       color: var(--slate); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 6px;
     }
     .fg input, .fg select, .fg textarea {
-      width: 100%; padding: 11px 14px; background: var(--cloud);
+      width: 100%; padding: 12px 14px; background: var(--cloud);
       border: 1.5px solid var(--line); border-radius: var(--rs);
-      color: var(--ink); font-family: var(--mono); font-size: 13px;
+      color: var(--ink); font-family: var(--mono); font-size: 14px;
       outline: none; transition: border-color 0.2s; -webkit-appearance: none; appearance: none;
+      min-height: 48px;
     }
-    .fg textarea { resize: vertical; min-height: 72px; font-family: var(--body); font-size: 13px; }
+    .fg textarea { resize: vertical; min-height: 72px; font-family: var(--body); font-size: 14px; }
     .fg input:focus, .fg select:focus, .fg textarea:focus { border-color: var(--teal); }
-    .fg .hint { font-size: 10px; color: var(--mist); margin-top: 4px; }
+    .fg .hint { font-size: 10px; color: var(--mist); margin-top: 5px; }
     .modal-btns { display: flex; gap: 10px; margin-top: 24px; }
-    .modal-btns .btn { flex: 1; text-align: center; }
+    .modal-btns .btn { flex: 1; }
 
-    /* receipt detail modal */
+    /* receipt modal */
     .receipt-modal {
       background: var(--white); border: 1.5px solid var(--line);
-      border-radius: 14px; padding: 0; max-width: 520px; width: 92%;
+      border-radius: 14px; padding: 0; max-width: 520px; width: 100%;
       position: relative; overflow: hidden;
+      max-height: calc(100vh - 32px); display: flex; flex-direction: column;
     }
     .receipt-header {
-      padding: 28px 32px 20px;
+      padding: 24px 28px 18px;
       background: var(--ink); color: var(--white);
-      position: relative;
+      position: relative; flex-shrink: 0;
     }
     .receipt-header::after {
       content: ''; position: absolute; bottom: 0; left: 0; right: 0;
@@ -422,17 +468,19 @@
       letter-spacing: -0.5px; color: var(--white); margin-bottom: 4px;
     }
     .receipt-subtitle {
-      font-family: var(--mono); font-size: 10px; color: var(--slate); letter-spacing: 0.8px; text-transform: uppercase;
+      font-family: var(--mono); font-size: 10px; color: var(--slate);
+      letter-spacing: 0.8px; text-transform: uppercase;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .receipt-body { padding: 28px 32px; }
+    .receipt-body { padding: 20px 28px; overflow-y: auto; flex: 1; }
     .receipt-row {
       display: flex; justify-content: space-between; align-items: flex-start;
-      padding: 10px 0; border-bottom: 1px solid var(--line-soft);
+      padding: 10px 0; border-bottom: 1px solid var(--line-soft); gap: 12px;
     }
     .receipt-row:last-child { border-bottom: none; }
     .receipt-key {
       font-family: var(--mono); font-size: 10px; color: var(--slate);
-      text-transform: uppercase; letter-spacing: 1px; flex-shrink: 0; margin-right: 16px; margin-top: 2px;
+      text-transform: uppercase; letter-spacing: 1px; flex-shrink: 0; margin-top: 2px;
     }
     .receipt-val {
       font-family: var(--mono); font-size: 12px; color: var(--ink);
@@ -444,34 +492,37 @@
     }
     .receipt-val.desc-v { font-family: var(--body); font-size: 13px; }
     .receipt-footer {
-      padding: 16px 32px 24px; display: flex; gap: 10px;
+      padding: 14px 28px calc(14px + var(--safe-bottom));
+      display: flex; gap: 10px; flex-shrink: 0;
+      border-top: 1.5px solid var(--line-soft);
     }
     .receipt-footer .btn { flex: 1; }
     .close-x {
-      position: absolute; top: 16px; right: 16px;
+      position: absolute; top: 14px; right: 14px;
       background: rgba(255,255,255,0.1); border: none; color: var(--slate);
-      width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+      width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
       font-size: 14px; display: flex; align-items: center; justify-content: center;
-      transition: all 0.2s;
+      transition: all 0.2s; touch-action: manipulation;
     }
     .close-x:hover { background: rgba(255,255,255,0.2); color: var(--white); }
 
     /* ── TOAST ── */
-    .toasts { position: fixed; bottom: 24px; right: 24px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
+    .toasts { position: fixed; bottom: 24px; right: 24px; z-index: 200; display: flex; flex-direction: column; gap: 8px; max-width: calc(100vw - 48px); }
     .toast {
       background: var(--ink); border-radius: var(--rs);
-      padding: 12px 22px; font-family: var(--display); font-size: 12px;
+      padding: 12px 20px; font-family: var(--display); font-size: 12px;
       font-weight: 600; color: var(--teal-bright); letter-spacing: 0.3px;
       animation: tIn 0.3s ease; box-shadow: 0 10px 36px rgba(12,26,36,0.2);
+      word-break: break-word;
     }
     .toast.err { color: var(--red); }
     @keyframes tIn { from{transform:translateY(14px);opacity:0} to{transform:translateY(0);opacity:1} }
 
     /* ── ANIMATIONS ── */
-    .fu { opacity:0; transform:translateY(14px); animation:fadeU 0.45s ease forwards; }
+    .fu { opacity:0; transform:translateY(10px); animation:fadeU 0.4s ease forwards; }
     @keyframes fadeU { to{opacity:1;transform:translateY(0)} }
-    .d1{animation-delay:.05s}.d2{animation-delay:.1s}.d3{animation-delay:.15s}
-    .d4{animation-delay:.2s}.d5{animation-delay:.25s}.d6{animation-delay:.3s}.d7{animation-delay:.35s}
+    .d1{animation-delay:.04s}.d2{animation-delay:.08s}.d3{animation-delay:.12s}
+    .d4{animation-delay:.16s}.d5{animation-delay:.20s}.d6{animation-delay:.24s}
 
     .submitting-overlay {
       position: fixed; inset: 0; background: rgba(12,26,36,0.4);
@@ -479,9 +530,10 @@
     }
     .submitting-box {
       background: var(--white); border: 1.5px solid var(--line);
-      border-radius: var(--r); padding: 28px 48px;
+      border-radius: var(--r); padding: 24px 40px;
       font-family: var(--mono); font-size: 13px; color: var(--ink);
       display: flex; align-items: center; gap: 14px;
+      max-width: calc(100vw - 32px);
     }
     .spin {
       width: 18px; height: 18px; border: 2px solid var(--line);
@@ -490,19 +542,97 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── RESPONSIVE ── */
-    @media (max-width: 768px) {
-      .landing { grid-template-columns: 1fr; text-align: center; gap: 20px; }
+    /* ════════════════════════════════════════════
+       TABLET  640px – 1023px
+    ════════════════════════════════════════════ */
+    @media (max-width: 1023px) {
+      .stat-row { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* ════════════════════════════════════════════
+       MOBILE + TABLET shared  ≤ 767px
+    ════════════════════════════════════════════ */
+    @media (max-width: 767px) {
+      .app { padding: 0 16px calc(72px + var(--safe-bottom)); }
+
+      /* Nav */
+      .nav { padding: 14px 0; margin-bottom: 20px; }
+      .nav-chip { display: none; }
+
+      /* Landing */
+      .landing {
+        grid-template-columns: 1fr; min-height: auto;
+        text-align: center; gap: 32px; padding: 28px 0 20px;
+      }
       .l-copy { max-width: 100%; margin: 0 auto; }
-      .l-sub { margin: 0 auto 36px; }
-      .l-stats { justify-content: center; }
-      .l-visual { height: 240px; }
-      .stat-row { grid-template-columns: 1fr 1fr; }
-      .toolbar { flex-direction: column; align-items: stretch; }
-      .toolbar-right { justify-content: flex-end; }
-      .bill-table { font-size: 12px; }
-      .bill-table th, .bill-table td { padding: 10px 12px; }
-      .receipt-modal { max-width: 100%; }
+      .l-sub  { margin: 0 auto 28px; }
+      .l-stats { justify-content: center; gap: 20px; }
+      .l-visual { height: 220px; }
+      .l-eyebrow { justify-content: center; }
+      .pulse-ring:nth-child(1) { width: 200px; height: 200px; }
+      .pulse-ring:nth-child(2) { width: 140px; height: 140px; }
+      .pulse-ring:nth-child(3) { width: 86px;  height: 86px; }
+      .fc-3 { display: none; }
+
+      /* Stats */
+      .stat-row { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+      .stat-card { padding: 16px; }
+      .stat-card .sc-val { font-size: 22px; }
+
+      /* Toolbar */
+      .toolbar { flex-direction: column; gap: 8px; margin-bottom: 16px; }
+      .toolbar-left  { width: 100%; }
+      .toolbar-left .btn { flex: 1; }
+      .toolbar-right { width: 100%; }
+      .filter-select { width: 100%; }
+
+      /* Tabs — scrollable, no wrap */
+      .tab-btn { padding: 11px 16px; font-size: 11px; }
+
+      /* Show cards, hide table */
+      .bill-cards   { display: block; }
+      .table-wrap   { display: none; }
+
+      /* Modals → bottom sheet */
+      .overlay {
+        align-items: flex-end;
+        padding: 0;
+      }
+      .modal {
+        border-radius: 20px 20px 0 0;
+        padding: 28px 20px calc(28px + var(--safe-bottom));
+        max-width: 100%; width: 100%;
+        max-height: 92vh;
+      }
+      .modal::before { border-radius: 20px 20px 0 0; }
+      .modal-btns { flex-direction: column; }
+
+      .receipt-modal {
+        border-radius: 20px 20px 0 0;
+        max-width: 100%; width: 100%;
+        max-height: 92vh;
+      }
+      .receipt-footer { flex-direction: column; }
+      .receipt-footer .btn { width: 100%; }
+      .receipt-body { padding: 16px 20px; }
+      .receipt-header { padding: 20px 20px 16px; }
+
+      /* Log rows */
+      .log-m { white-space: nowrap; }
+
+      /* Toasts */
+      .toasts { left: 16px; right: 16px; bottom: calc(16px + var(--safe-bottom)); max-width: 100%; }
+    }
+
+    /* ════════════════════════════════════════════
+       SMALL MOBILE  ≤ 400px
+    ════════════════════════════════════════════ */
+    @media (max-width: 400px) {
+      .nav-brand { font-size: 14px; }
+      .nav-balance { display: none; }
+      .wallet-pill { font-size: 10px; padding: 6px 10px; }
+      .disconnect-btn { font-size: 9px; padding: 5px 8px; }
+      .stat-card .sc-val { font-size: 20px; }
     }
   </style>
 </head>
@@ -531,9 +661,9 @@
     const NP          = StellarSdk.Networks.TESTNET;
 
     // ── SOROBAN SETUP ─────────────────────────────────────────────────────────
-    const RpcNS        = StellarSdk.SorobanRpc ?? StellarSdk.rpc;
-    const rpc          = new RpcNS.Server(RPC_URL);
-    const assemble     = RpcNS.assembleTransaction;
+    const RpcNS           = StellarSdk.SorobanRpc ?? StellarSdk.rpc;
+    const rpc             = new RpcNS.Server(RPC_URL);
+    const assemble        = RpcNS.assembleTransaction;
     const sorobanContract = new StellarSdk.Contract(CONTRACT_ID);
 
     // ── CONSTANTS ─────────────────────────────────────────────────────────────
@@ -555,12 +685,12 @@
       init: false, wallet: null,
       records: [], log: [],
       showNew: false,
-      showReceipt: null,   // record object to show in receipt modal
+      showReceipt: null,
       totalBills: 0, totalPaid: 0,
       xlmBalance: null,
       loading: false, recordsLoading: false,
-      activeTab: 'unpaid',  // 'unpaid' | 'paid' | 'all'
-      filterSvc: '',        // '' = all services
+      activeTab: 'unpaid',
+      filterSvc: '',
     };
 
     // ── UTILS ─────────────────────────────────────────────────────────────────
@@ -610,7 +740,9 @@
     }
 
     function copyText(text) {
-      navigator.clipboard.writeText(text).then(() => toast('Copied to clipboard')).catch(() => toast('Copy failed', true));
+      navigator.clipboard.writeText(text)
+        .then(() => toast('Copied to clipboard'))
+        .catch(() => toast('Copy failed', true));
     }
 
     // ── SOROBAN HELPERS ───────────────────────────────────────────────────────
@@ -642,7 +774,8 @@
         if (!fApi) throw new Error('Freighter extension not found. Install it from freighter.app');
         if (fApi.isConnected) {
           const c = await fApi.isConnected();
-          if (!(typeof c === 'object' ? c.isConnected : c)) throw new Error('Freighter is locked. Please unlock it and try again.');
+          if (!(typeof c === 'object' ? c.isConnected : c))
+            throw new Error('Freighter is locked. Please unlock it and try again.');
         }
 
         const raw = await fApi.signTransaction(prepared.toXDR('base64'), { networkPassphrase: NP });
@@ -664,7 +797,7 @@
             await new Promise(r => setTimeout(r, 2000));
             return res;
           }
-          if (res.status === 'FAILED') throw new Error('Transaction was rejected on-chain. Check your XLM balance.');
+          if (res.status === 'FAILED') throw new Error('Transaction rejected on-chain. Check your XLM balance.');
         }
         throw new Error('Transaction timed out after 60s. Check Stellar Explorer for status.');
       } finally {
@@ -715,7 +848,7 @@
             );
             if (!sim2.result?.retval) return null;
 
-            const rec     = StellarSdk.scValToNative(sim2.result.retval);
+            const rec    = StellarSdk.scValToNative(sim2.result.retval);
             const patient = addrStr(rec.patient);
             const svc     = String(rec.service || '');
             const amtXlm  = Number(rec.amount  || 0) / 10_000_000;
@@ -808,15 +941,14 @@
     async function createBill(){
       const svc = document.getElementById('f-svc').value;
       const xlm = parseFloat(document.getElementById('f-amt').value) || 0;
-      if (xlm <= 0){ toast('Enter a valid amount.', true); return; }
-      if (xlm > 100000){ toast('Amount too large (max 100,000 XLM).', true); return; }
+      if (xlm <= 0)     { toast('Enter a valid amount.', true); return; }
+      if (xlm > 100000) { toast('Amount too large (max 100,000 XLM).', true); return; }
 
-      const customDesc = (document.getElementById('f-desc').value || '').trim();
-      const desc = customDesc || pick(DESCS[svc]);
-
-      const amtStroops = BigInt(Math.round(xlm * 10_000_000));
-      const idBytes    = newRid();
-      const walletAddr = new StellarSdk.Address(S.wallet);
+      const customDesc  = (document.getElementById('f-desc').value || '').trim();
+      const desc        = customDesc || pick(DESCS[svc]);
+      const amtStroops  = BigInt(Math.round(xlm * 10_000_000));
+      const idBytes     = newRid();
+      const walletAddr  = new StellarSdk.Address(S.wallet);
 
       const op = sorobanContract.call('create_billing',
         walletAddr.toScVal(),
@@ -909,8 +1041,10 @@
           <span class="nav-brand">LusogChain</span>
           <span class="nav-chip">Soroban · Testnet</span>
         </div>
-        ${S.wallet ? `<div style="display:flex;align-items:center;gap:10px">
-          ${S.xlmBalance !== null ? `<span style="font-family:var(--mono);font-size:11px;color:var(--teal);font-weight:600">${S.xlmBalance.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} XLM</span>` : ''}
+        ${S.wallet ? `<div class="nav-right">
+          ${S.xlmBalance !== null
+            ? `<span class="nav-balance">${S.xlmBalance.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} XLM</span>`
+            : ''}
           <div class="wallet-pill on">${tr(S.wallet)}</div>
           <button class="disconnect-btn" onclick="disconnect()">Disconnect</button>
         </div>` : ''}
@@ -943,14 +1077,13 @@
     }
 
     function renderDash(){
-      const unpaid     = S.records.filter(r => !r.paid);
-      const paidRecs   = S.records.filter(r =>  r.paid);
-      const unpaidAmt  = unpaid.reduce((s,r) => s + r.amount, 0);
-      const dis        = (S.loading || S.recordsLoading) ? 'disabled' : '';
-      const fmtXlm     = n => n.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:4});
-      const loading    = S.recordsLoading;
+      const unpaid    = S.records.filter(r => !r.paid);
+      const paidRecs  = S.records.filter(r =>  r.paid);
+      const unpaidAmt = unpaid.reduce((s,r) => s + r.amount, 0);
+      const dis       = (S.loading || S.recordsLoading) ? 'disabled' : '';
+      const fmtXlm    = n => n.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:4});
+      const loading   = S.recordsLoading;
 
-      // Filtered view for the active tab
       let viewRecords = S.records;
       if (S.activeTab === 'unpaid') viewRecords = unpaid;
       if (S.activeTab === 'paid')   viewRecords = paidRecs;
@@ -959,32 +1092,32 @@
       const outstandingClass = unpaidAmt > 0 ? 'accent-red' : 'accent-teal';
 
       return `
-        <!-- STAT CARDS -->
         <div class="stat-row fu d1">
           <div class="stat-card">
             <div class="sc-label">Total Records</div>
-            <div class="sc-val">${loading ? '<span class="spin" style="width:16px;height:16px;display:inline-block;vertical-align:middle"></span>' : S.totalBills}</div>
+            <div class="sc-val">${loading ? spin16() : S.totalBills}</div>
           </div>
           <div class="stat-card accent-teal">
             <div class="sc-label">Total Paid (Chain)</div>
-            <div class="sc-val">${loading ? '<span class="spin" style="width:16px;height:16px;display:inline-block;vertical-align:middle"></span>' : fmtXlm(S.totalPaid)+'<span class="sc-unit">XLM</span>'}</div>
+            <div class="sc-val">${loading ? spin16() : fmtXlm(S.totalPaid)+'<span class="sc-unit">XLM</span>'}</div>
           </div>
           <div class="stat-card accent-amber">
             <div class="sc-label">Paid / Unpaid</div>
-            <div class="sc-val">${loading ? '<span class="spin" style="width:16px;height:16px;display:inline-block;vertical-align:middle"></span>' : paidRecs.length+' / '+unpaid.length}</div>
+            <div class="sc-val">${loading ? spin16() : paidRecs.length+' / '+unpaid.length}</div>
           </div>
           <div class="stat-card ${outstandingClass}">
             <div class="sc-label">Outstanding</div>
-            <div class="sc-val">${loading ? '<span class="spin" style="width:16px;height:16px;display:inline-block;vertical-align:middle"></span>' : fmtXlm(unpaidAmt)+'<span class="sc-unit">XLM</span>'}</div>
-            ${!loading && unpaidAmt > 0 ? `<div style="font-family:var(--mono);font-size:10px;color:var(--red);margin-top:4px;letter-spacing:0.5px">${unpaid.length} unpaid bill${unpaid.length!==1?'s':''}</div>` : ''}
+            <div class="sc-val">${loading ? spin16() : fmtXlm(unpaidAmt)+'<span class="sc-unit">XLM</span>'}</div>
+            ${!loading && unpaidAmt > 0
+              ? `<div style="font-family:var(--mono);font-size:10px;color:var(--red);margin-top:4px">${unpaid.length} unpaid bill${unpaid.length!==1?'s':''}</div>`
+              : ''}
           </div>
         </div>
 
-        <!-- TOOLBAR -->
         <div class="toolbar fu d2">
           <div class="toolbar-left">
             <button class="btn btn-dark" onclick="showNewBill()" ${dis}>+ New Billing</button>
-            <button class="btn btn-out"  onclick="refreshAll()"  ${dis}>${S.recordsLoading ? 'Loading…' : 'Refresh'}</button>
+            <button class="btn btn-out"  onclick="refreshAll()"  ${dis}>${loading ? 'Loading…' : 'Refresh'}</button>
           </div>
           <div class="toolbar-right">
             <select class="filter-select" onchange="setFilter(event)" ${dis}>
@@ -994,42 +1127,40 @@
           </div>
         </div>
 
-        <!-- BILLING TABLE WITH TABS -->
-        ${S.recordsLoading
-          ? `<div style="background:var(--white);border:1.5px solid var(--line);border-radius:var(--r);padding:48px;text-align:center;color:var(--slate);margin-bottom:32px" class="fu d3">
+        ${loading
+          ? `<div style="background:var(--white);border:1.5px solid var(--line);border-radius:var(--r);padding:48px 20px;text-align:center;color:var(--slate);margin-bottom:28px" class="fu d3">
                <div class="spin" style="margin:0 auto 14px;width:22px;height:22px"></div>
                Loading records from blockchain…
              </div>`
           : `<div class="table-section fu d3">
                <div class="tabs">
                  <button class="tab-btn ${S.activeTab==='unpaid'?'active':''}" onclick="setTab('unpaid')">
-                   Unpaid
-                   <span class="tab-count ${unpaid.length>0?'has-items':''}">${unpaid.length}</span>
+                   Unpaid <span class="tab-count ${unpaid.length>0?'has-items':''}">${unpaid.length}</span>
                  </button>
                  <button class="tab-btn ${S.activeTab==='paid'?'active':''}" onclick="setTab('paid')">
-                   Paid
-                   <span class="tab-count">${paidRecs.length}</span>
+                   Paid <span class="tab-count">${paidRecs.length}</span>
                  </button>
                  <button class="tab-btn ${S.activeTab==='all'?'active':''}" onclick="setTab('all')">
-                   All
-                   <span class="tab-count">${S.records.length}</span>
+                   All <span class="tab-count">${S.records.length}</span>
                  </button>
                </div>
                ${viewRecords.length === 0
                  ? `<div class="table-empty-state">
-                      ${S.activeTab==='unpaid' ? 'No unpaid bills. You\'re all clear!' :
+                      ${S.activeTab==='unpaid' ? 'No unpaid bills — you\'re all clear!' :
                         S.activeTab==='paid'   ? 'No paid records yet.' :
-                                                 'No billing records. Click <strong>+ New Billing</strong> to create one on-chain.'}
+                                                 'No records yet. Click <strong>+ New Billing</strong> to add one.'}
                     </div>`
-                 : `<div style="overflow-x:auto">
+                 : `<!-- DESKTOP TABLE -->
+                    <div class="table-wrap">
                       <table class="bill-table">
                         <thead><tr>
-                          <th>ID</th><th>Service</th><th>Description</th><th>Amount</th><th>Date</th><th>Status</th><th>Actions</th>
+                          <th>ID</th><th>Service</th><th>Description</th>
+                          <th>Amount</th><th>Date</th><th>Status</th><th>Actions</th>
                         </tr></thead>
                         <tbody>
-                        ${viewRecords.map((r,i) => {
-                          const globalIdx = S.records.indexOf(r);
-                          return `<tr onclick="openReceipt(${globalIdx}, event)">
+                        ${viewRecords.map(r => {
+                          const idx = S.records.indexOf(r);
+                          return `<tr onclick="openReceipt(${idx}, event)">
                             <td class="id-cell">${r.id.slice(0,8)}…</td>
                             <td><span class="svc-tag ${SVC_CLS[r.service]||''}">${r.service}</span></td>
                             <td class="desc-cell" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.desc}</td>
@@ -1040,21 +1171,42 @@
                               <div class="action-cell">
                                 ${r.paid
                                   ? `<button class="copy-btn" onclick="copyText('${r.id}')">Copy ID</button>`
-                                  : `<button class="pay-btn" onclick="payBill(${globalIdx}, event)" ${dis}>Pay</button>
-                                     <button class="copy-btn" onclick="copyText('${r.id}')">Copy</button>`
-                                }
+                                  : `<button class="pay-btn" onclick="payBill(${idx},event)" ${dis}>Pay</button>
+                                     <button class="copy-btn" onclick="copyText('${r.id}')">Copy</button>`}
                               </div>
                             </td>
                           </tr>`;
                         }).join('')}
                         </tbody>
                       </table>
+                    </div>
+                    <!-- MOBILE CARDS -->
+                    <div class="bill-cards">
+                      ${viewRecords.map(r => {
+                        const idx = S.records.indexOf(r);
+                        return `<div class="bill-card" onclick="openReceipt(${idx}, event)">
+                          <div class="bill-card-r1">
+                            <span class="svc-tag ${SVC_CLS[r.service]||''}">${r.service}</span>
+                            <span class="pay-badge ${r.paid?'pay-yes':'pay-no'}">${r.paid?'Paid':'Unpaid'}</span>
+                          </div>
+                          <div class="bill-card-r2">${r.desc}</div>
+                          <div class="bill-card-r3">
+                            <span class="bill-card-amt">${r.amount.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:4})} <span style="font-size:12px;font-family:var(--mono);font-weight:400;color:var(--slate)">XLM</span></span>
+                            <span class="bill-card-date">${r.time}</span>
+                          </div>
+                          ${!r.paid ? `<div class="bill-card-r4" onclick="event.stopPropagation()">
+                            <button class="pay-btn" style="flex:1" onclick="payBill(${idx},event)" ${dis}>Pay Now</button>
+                            <button class="copy-btn" onclick="copyText('${r.id}')">Copy ID</button>
+                          </div>` : `<div class="bill-card-r4" onclick="event.stopPropagation()">
+                            <button class="copy-btn" onclick="copyText('${r.id}')">Copy ID</button>
+                          </div>`}
+                        </div>`;
+                      }).join('')}
                     </div>`
                }
              </div>`
         }
 
-        <!-- ACTIVITY LOG -->
         <div class="sh fu d5">
           <div class="sh-t">Activity Log</div>
           <div class="sh-line"></div>
@@ -1067,30 +1219,31 @@
                 <span class="log-t lt-${e.t}">${e.l}</span>
                 <span class="log-m">${e.m}</span>
                 <span class="log-ts">${e.ts}</span>
-              </div>`).join('')
-          }
+              </div>`).join('')}
         </div>
       `;
     }
+
+    function spin16(){ return '<span class="spin" style="width:16px;height:16px;display:inline-block;vertical-align:middle"></span>'; }
 
     function renderNewModal(){
       return `<div class="overlay" onclick="if(event.target===this)closeModal()">
         <div class="modal">
           <h2>New Billing Record</h2>
-          <p>Creates a real on-chain billing entry via Soroban. Freighter will ask you to sign the transaction.</p>
+          <p>Creates a real on-chain billing entry via Soroban. Freighter will ask you to sign.</p>
           <div class="fg">
             <label>Service Type</label>
-            <select id="f-svc" onchange="document.getElementById('f-hint').textContent=({Consultation:'500',Laboratory:'350',Pharmacy:'180',Imaging:'1200',Emergency:'2500'}[this.value]||'')+ ' XLM suggested'">
+            <select id="f-svc" onchange="document.getElementById('f-hint').textContent=({Consultation:'500',Laboratory:'350',Pharmacy:'180',Imaging:'1200',Emergency:'2500'}[this.value]||'')+' XLM suggested'">
               ${SERVICES.map(s=>`<option value="${s}">${s}</option>`).join('')}
             </select>
           </div>
           <div class="fg">
             <label>Amount (XLM)</label>
-            <input type="number" id="f-amt" value="500" min="1" max="100000" step="0.01" />
+            <input type="number" id="f-amt" value="500" min="1" max="100000" step="0.01" inputmode="decimal" />
             <div class="hint" id="f-hint">500 XLM suggested</div>
           </div>
           <div class="fg">
-            <label>Description <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:9px;color:var(--mist)">(optional — auto-filled if blank)</span></label>
+            <label>Description <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:9px;color:var(--mist)">(optional)</span></label>
             <textarea id="f-desc" placeholder="e.g. OPD General Checkup, CBC w/ Differential…" style="height:60px"></textarea>
           </div>
           <div class="modal-btns">
@@ -1109,30 +1262,30 @@
       const receiptText = [
         'LusogChain — On-Chain Hospital Receipt',
         '─'.repeat(40),
-        'Record ID : ' + r.id,
-        'Service   : ' + r.service,
-        'Description: ' + r.desc,
-        'Amount    : ' + r.amount.toLocaleString(undefined,{minimumFractionDigits:4}) + ' XLM',
-        'Date/Time : ' + r.time,
-        'Status    : ' + statusLabel,
-        'Patient   : ' + r.patient,
-        'Hospital  : ' + r.hospital,
+        'Record ID   : ' + r.id,
+        'Service     : ' + r.service,
+        'Description : ' + r.desc,
+        'Amount      : ' + r.amount.toLocaleString(undefined,{minimumFractionDigits:4}) + ' XLM',
+        'Date / Time : ' + r.time,
+        'Status      : ' + statusLabel,
+        'Patient     : ' + r.patient,
+        'Hospital    : ' + r.hospital,
         '─'.repeat(40),
         'Verified on Stellar Testnet',
-        'Contract  : ' + CONTRACT_ID,
+        'Contract    : ' + CONTRACT_ID,
       ].join('\n');
 
       return `<div class="overlay" onclick="if(event.target===this)closeReceipt()">
         <div class="receipt-modal">
           <div class="receipt-header">
             <button class="close-x" onclick="closeReceipt()">✕</button>
-            <div style="display:flex;align-items:center;justify-content:space-between">
-              <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div style="min-width:0">
                 <div class="receipt-title">On-Chain Receipt</div>
-                <div class="receipt-subtitle">#${r.id.slice(0,16)}…</div>
+                <div class="receipt-subtitle">#${r.id.slice(0,20)}…</div>
               </div>
               <span style="font-family:var(--mono);font-size:11px;font-weight:700;
-                padding:5px 14px;border-radius:100px;
+                padding:5px 12px;border-radius:100px;flex-shrink:0;
                 background:${r.paid?'rgba(45,212,191,0.15)':'rgba(239,68,68,0.15)'};
                 color:${statusColor};letter-spacing:1px">
                 ${statusLabel}
@@ -1158,7 +1311,7 @@
             </div>
             <div class="receipt-row">
               <span class="receipt-key">Patient</span>
-              <span class="receipt-val">${r.patient}</span>
+              <span class="receipt-val" style="font-size:11px">${r.patient}</span>
             </div>
             <div class="receipt-row">
               <span class="receipt-key">Record ID</span>
@@ -1168,8 +1321,7 @@
           <div class="receipt-footer">
             ${!r.paid
               ? `<button class="btn btn-dark" onclick="closeReceipt();payBill(${globalIdx},null)" ${S.loading?'disabled':''}>Pay Now</button>`
-              : ''
-            }
+              : ''}
             <button class="btn btn-out" onclick="copyText(${JSON.stringify(receiptText)})">Copy Receipt</button>
             <button class="btn btn-ghost" onclick="closeReceipt()">Close</button>
           </div>
