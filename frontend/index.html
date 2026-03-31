@@ -20,8 +20,10 @@
       --mint: #a7f3d0;
       --red: #ef4444;
       --red-dim: rgba(239,68,68,0.08);
+      --red-soft: rgba(239,68,68,0.12);
       --amber: #f59e0b;
       --amber-dim: rgba(245,158,11,0.08);
+      --amber-soft: rgba(245,158,11,0.12);
       --white: #f8fafc;
       --cloud: #f1f5f9;
       --silver: #e2e8f0;
@@ -53,6 +55,7 @@
 
     .app { position: relative; z-index: 1; max-width: 1140px; margin: 0 auto; padding: 0 28px 100px; }
 
+    /* ── NAV ── */
     .nav {
       display: flex; align-items: center; justify-content: space-between;
       padding: 20px 0; border-bottom: 1.5px solid var(--line); margin-bottom: 32px;
@@ -81,7 +84,15 @@
     }
     .wallet-pill:hover { border-color: var(--teal); color: var(--teal); }
     .wallet-pill.on { border-color: var(--teal); color: var(--teal); }
+    .disconnect-btn {
+      font-family: var(--mono); font-size: 10px; color: var(--slate);
+      background: transparent; border: 1.5px solid var(--line);
+      padding: 6px 12px; border-radius: 100px; cursor: pointer;
+      transition: all 0.2s; letter-spacing: 0.3px;
+    }
+    .disconnect-btn:hover { border-color: var(--red); color: var(--red); }
 
+    /* ── LANDING ── */
     .landing {
       min-height: 88vh; display: grid; grid-template-columns: 1fr 1fr;
       gap: 60px; align-items: center; padding: 40px 0;
@@ -166,6 +177,7 @@
       50% { transform: translateY(-8px); }
     }
 
+    /* ── STATS ── */
     .stat-row {
       display: grid; grid-template-columns: repeat(4, 1fr);
       gap: 12px; margin-bottom: 24px;
@@ -187,15 +199,29 @@
     .stat-card .sc-val .sc-unit {
       font-size: 13px; font-weight: 500; color: var(--slate); margin-left: 3px;
     }
+    .stat-card.accent-teal { border-left: 3px solid var(--teal); }
+    .stat-card.accent-teal .sc-val { color: var(--teal); }
+    .stat-card.accent-red { border-left: 3px solid var(--red); }
+    .stat-card.accent-red .sc-val { color: var(--red); }
+    .stat-card.accent-amber { border-left: 3px solid var(--amber); }
+    .stat-card.accent-amber .sc-val { color: var(--amber); }
+    /* keep old .accent for compat */
     .stat-card.accent { border-left: 3px solid var(--teal); }
     .stat-card.accent .sc-val { color: var(--teal); }
 
+    /* ── SECTION HEADER ── */
     .sh { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
     .sh-t { font-family: var(--display); font-size: 18px; font-weight: 800; color: var(--ink); letter-spacing: -0.5px; }
     .sh-line { flex: 1; height: 1.5px; background: var(--line); }
     .sh-meta { font-family: var(--mono); font-size: 10px; color: var(--slate); letter-spacing: 0.5px; }
 
-    .actions { display: flex; gap: 10px; margin-bottom: 28px; flex-wrap: wrap; }
+    /* ── ACTIONS / TOOLBAR ── */
+    .toolbar {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .toolbar-left { display: flex; gap: 10px; flex-wrap: wrap; flex: 1; }
+    .toolbar-right { display: flex; gap: 10px; align-items: center; }
     .btn {
       font-family: var(--display); font-size: 11px; font-weight: 700;
       letter-spacing: 0.8px; text-transform: uppercase;
@@ -209,9 +235,43 @@
     .btn-ghost { background: transparent; border: 1.5px solid var(--line-soft); color: var(--slate); }
     .btn-ghost:hover:not(:disabled) { border-color: var(--red); color: var(--red); }
 
+    /* filter select */
+    .filter-select {
+      font-family: var(--mono); font-size: 11px; color: var(--dim);
+      background: var(--white); border: 1.5px solid var(--line);
+      padding: 9px 14px; border-radius: var(--r); cursor: pointer;
+      outline: none; transition: border-color 0.2s; -webkit-appearance: none; appearance: none;
+    }
+    .filter-select:focus { border-color: var(--teal); }
+
+    /* ── TABS ── */
+    .tabs-wrap { margin-bottom: 0; }
+    .tabs {
+      display: flex; gap: 0; border-bottom: 1.5px solid var(--line);
+      margin-bottom: 0;
+    }
+    .tab-btn {
+      font-family: var(--display); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.5px; text-transform: uppercase;
+      padding: 11px 24px; background: transparent; border: none;
+      border-bottom: 2.5px solid transparent; margin-bottom: -1.5px;
+      cursor: pointer; color: var(--slate); transition: all 0.2s;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--ink); border-bottom-color: var(--teal); }
+    .tab-count {
+      font-family: var(--mono); font-size: 10px; font-weight: 600;
+      padding: 2px 7px; border-radius: 100px; background: var(--cloud);
+    }
+    .tab-btn.active .tab-count { background: var(--teal-dim); color: var(--teal); }
+    .tab-count.has-items { background: var(--red-dim); color: var(--red); }
+    .tab-btn.active .tab-count.has-items { background: var(--red-dim); color: var(--red); }
+
+    /* ── BILL TABLE ── */
     .bill-table {
       width: 100%; background: var(--white); border: 1.5px solid var(--line);
-      border-radius: var(--r); overflow: hidden; margin-bottom: 32px;
+      border-top: none; border-radius: 0 0 var(--r) var(--r); overflow: hidden; margin-bottom: 32px;
       border-collapse: separate; border-spacing: 0;
     }
     .bill-table th {
@@ -226,6 +286,7 @@
     }
     .bill-table tr:last-child td { border-bottom: none; }
     .bill-table tr:hover td { background: rgba(241,245,249,0.5); }
+    .bill-table tr { cursor: pointer; }
     .svc-tag {
       font-family: var(--mono); font-size: 10px; font-weight: 600;
       padding: 3px 10px; border-radius: 100px; letter-spacing: 0.5px;
@@ -251,11 +312,35 @@
     }
     .pay-btn:hover:not(:disabled) { background: var(--deep); }
     .pay-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .copy-btn {
+      font-family: var(--mono); font-size: 10px; color: var(--mist);
+      background: transparent; border: 1px solid var(--line);
+      padding: 5px 10px; border-radius: var(--rs); cursor: pointer;
+      transition: all 0.2s; letter-spacing: 0.3px;
+    }
+    .copy-btn:hover { border-color: var(--teal); color: var(--teal); }
     .amt-cell { font-family: var(--mono); font-weight: 600; color: var(--ink); }
     .addr-cell { font-family: var(--mono); font-size: 11px; color: var(--slate); }
-    .desc-cell { color: var(--text-mid); }
+    .desc-cell { color: var(--text-mid); max-width: 200px; }
     .id-cell { font-family: var(--mono); font-size: 10px; color: var(--mist); }
+    .action-cell { display: flex; align-items: center; gap: 8px; }
 
+    /* table section wrap (tabs + table together) */
+    .table-section {
+      background: var(--white); border: 1.5px solid var(--line);
+      border-radius: var(--r); overflow: hidden; margin-bottom: 32px;
+    }
+    .table-section .tabs { background: var(--cloud); }
+    .table-section .bill-table {
+      border: none; border-radius: 0; margin-bottom: 0;
+    }
+    .table-section .bill-table th { background: var(--white); }
+    .table-empty-state {
+      padding: 40px; text-align: center; color: var(--slate);
+      font-style: italic; font-size: 14px;
+    }
+
+    /* ── ACTIVITY LOG ── */
     .log {
       background: var(--white); border: 1.5px solid var(--line);
       border-radius: var(--r); max-height: 220px; overflow-y: auto;
@@ -279,6 +364,7 @@
     .log-ts { font-family: var(--mono); font-size: 10px; color: var(--mist); flex-shrink: 0; }
     .log-empty { padding: 16px 18px; color: var(--slate); font-size: 13px; font-style: italic; }
 
+    /* ── MODALS ── */
     .overlay {
       position: fixed; inset: 0; background: rgba(12,26,36,0.5);
       backdrop-filter: blur(6px); display: flex; align-items: center;
@@ -304,17 +390,73 @@
       display: block; font-family: var(--mono); font-size: 10px; font-weight: 600;
       color: var(--slate); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 6px;
     }
-    .fg input, .fg select {
+    .fg input, .fg select, .fg textarea {
       width: 100%; padding: 11px 14px; background: var(--cloud);
       border: 1.5px solid var(--line); border-radius: var(--rs);
       color: var(--ink); font-family: var(--mono); font-size: 13px;
       outline: none; transition: border-color 0.2s; -webkit-appearance: none; appearance: none;
     }
-    .fg input:focus, .fg select:focus { border-color: var(--teal); }
+    .fg textarea { resize: vertical; min-height: 72px; font-family: var(--body); font-size: 13px; }
+    .fg input:focus, .fg select:focus, .fg textarea:focus { border-color: var(--teal); }
     .fg .hint { font-size: 10px; color: var(--mist); margin-top: 4px; }
     .modal-btns { display: flex; gap: 10px; margin-top: 24px; }
     .modal-btns .btn { flex: 1; text-align: center; }
 
+    /* receipt detail modal */
+    .receipt-modal {
+      background: var(--white); border: 1.5px solid var(--line);
+      border-radius: 14px; padding: 0; max-width: 520px; width: 92%;
+      position: relative; overflow: hidden;
+    }
+    .receipt-header {
+      padding: 28px 32px 20px;
+      background: var(--ink); color: var(--white);
+      position: relative;
+    }
+    .receipt-header::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+      height: 2px; background: linear-gradient(90deg, var(--teal), var(--teal-bright));
+    }
+    .receipt-title {
+      font-family: var(--display); font-size: 18px; font-weight: 800;
+      letter-spacing: -0.5px; color: var(--white); margin-bottom: 4px;
+    }
+    .receipt-subtitle {
+      font-family: var(--mono); font-size: 10px; color: var(--slate); letter-spacing: 0.8px; text-transform: uppercase;
+    }
+    .receipt-body { padding: 28px 32px; }
+    .receipt-row {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      padding: 10px 0; border-bottom: 1px solid var(--line-soft);
+    }
+    .receipt-row:last-child { border-bottom: none; }
+    .receipt-key {
+      font-family: var(--mono); font-size: 10px; color: var(--slate);
+      text-transform: uppercase; letter-spacing: 1px; flex-shrink: 0; margin-right: 16px; margin-top: 2px;
+    }
+    .receipt-val {
+      font-family: var(--mono); font-size: 12px; color: var(--ink);
+      text-align: right; word-break: break-all;
+    }
+    .receipt-val.big {
+      font-family: var(--display); font-size: 20px; font-weight: 800;
+      color: var(--teal); letter-spacing: -0.5px;
+    }
+    .receipt-val.desc-v { font-family: var(--body); font-size: 13px; }
+    .receipt-footer {
+      padding: 16px 32px 24px; display: flex; gap: 10px;
+    }
+    .receipt-footer .btn { flex: 1; }
+    .close-x {
+      position: absolute; top: 16px; right: 16px;
+      background: rgba(255,255,255,0.1); border: none; color: var(--slate);
+      width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+      font-size: 14px; display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+    }
+    .close-x:hover { background: rgba(255,255,255,0.2); color: var(--white); }
+
+    /* ── TOAST ── */
     .toasts { position: fixed; bottom: 24px; right: 24px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
     .toast {
       background: var(--ink); border-radius: var(--rs);
@@ -325,10 +467,11 @@
     .toast.err { color: var(--red); }
     @keyframes tIn { from{transform:translateY(14px);opacity:0} to{transform:translateY(0);opacity:1} }
 
+    /* ── ANIMATIONS ── */
     .fu { opacity:0; transform:translateY(14px); animation:fadeU 0.45s ease forwards; }
     @keyframes fadeU { to{opacity:1;transform:translateY(0)} }
     .d1{animation-delay:.05s}.d2{animation-delay:.1s}.d3{animation-delay:.15s}
-    .d4{animation-delay:.2s}.d5{animation-delay:.25s}.d6{animation-delay:.3s}
+    .d4{animation-delay:.2s}.d5{animation-delay:.25s}.d6{animation-delay:.3s}.d7{animation-delay:.35s}
 
     .submitting-overlay {
       position: fixed; inset: 0; background: rgba(12,26,36,0.4);
@@ -347,6 +490,7 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* ── RESPONSIVE ── */
     @media (max-width: 768px) {
       .landing { grid-template-columns: 1fr; text-align: center; gap: 20px; }
       .l-copy { max-width: 100%; margin: 0 auto; }
@@ -354,9 +498,11 @@
       .l-stats { justify-content: center; }
       .l-visual { height: 240px; }
       .stat-row { grid-template-columns: 1fr 1fr; }
-      .actions { flex-direction: column; }
+      .toolbar { flex-direction: column; align-items: stretch; }
+      .toolbar-right { justify-content: flex-end; }
       .bill-table { font-size: 12px; }
       .bill-table th, .bill-table td { padding: 10px 12px; }
+      .receipt-modal { max-width: 100%; }
     }
   </style>
 </head>
@@ -409,9 +555,12 @@
       init: false, wallet: null,
       records: [], log: [],
       showNew: false,
+      showReceipt: null,   // record object to show in receipt modal
       totalBills: 0, totalPaid: 0,
       xlmBalance: null,
       loading: false, recordsLoading: false,
+      activeTab: 'unpaid',  // 'unpaid' | 'paid' | 'all'
+      filterSvc: '',        // '' = all services
     };
 
     // ── UTILS ─────────────────────────────────────────────────────────────────
@@ -449,9 +598,19 @@
 
     function newRid(){ const b=new Uint8Array(32); crypto.getRandomValues(b); return b; }
 
-    // soroban-sdk v21: #[contracttype] unit enum → Vec([Symbol(variant)])
     function enumScVal(variant){
       return StellarSdk.xdr.ScVal.scvVec([StellarSdk.xdr.ScVal.scvSymbol(variant)]);
+    }
+
+    function fmtDate(tsNum) {
+      if (!tsNum) return ts();
+      const d = new Date(tsNum * 1000);
+      return d.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'})
+        + ' ' + d.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'});
+    }
+
+    function copyText(text) {
+      navigator.clipboard.writeText(text).then(() => toast('Copied to clipboard')).catch(() => toast('Copy failed', true));
     }
 
     // ── SOROBAN HELPERS ───────────────────────────────────────────────────────
@@ -472,37 +631,42 @@
         const tx  = await buildTx(op, '1000000');
         const sim = await rpc.simulateTransaction(tx);
 
-        if (sim.error) throw new Error(typeof sim.error === 'string' ? sim.error : JSON.stringify(sim.error));
+        if (sim.error) {
+          const errMsg = typeof sim.error === 'string' ? sim.error : JSON.stringify(sim.error);
+          throw new Error('Simulation failed: ' + errMsg);
+        }
 
         const prepared = assemble(tx, sim).build();
 
         const fApi = getFreighter();
-        if (!fApi) throw new Error('Freighter extension not found.');
+        if (!fApi) throw new Error('Freighter extension not found. Install it from freighter.app');
         if (fApi.isConnected) {
           const c = await fApi.isConnected();
-          if (!(typeof c === 'object' ? c.isConnected : c)) throw new Error('Freighter not connected.');
+          if (!(typeof c === 'object' ? c.isConnected : c)) throw new Error('Freighter is locked. Please unlock it and try again.');
         }
 
         const raw = await fApi.signTransaction(prepared.toXDR('base64'), { networkPassphrase: NP });
         if (raw && raw.error) throw new Error('Signing failed: ' + (raw.error.message || JSON.stringify(raw.error)));
         const signedXdr = typeof raw === 'string' ? raw : raw.signedTxXdr;
-        if (!signedXdr) throw new Error('No signed XDR — did you reject in Freighter?');
+        if (!signedXdr) throw new Error('Transaction was rejected in Freighter.');
 
         const signedTx = StellarSdk.TransactionBuilder.fromXDR(signedXdr, NP);
         const sent     = await rpc.sendTransaction(signedTx);
-        if (sent.status === 'ERROR') throw new Error('Send failed: ' + JSON.stringify(sent.errorResult));
+        if (sent.status === 'ERROR') {
+          const detail = sent.errorResult ? JSON.stringify(sent.errorResult) : 'unknown error';
+          throw new Error('Send failed: ' + detail);
+        }
 
         for (let i = 0; i < 30; i++) {
           await new Promise(r => setTimeout(r, 2000));
           const res = await rpc.getTransaction(sent.hash);
           if (res.status === 'SUCCESS') {
-            // Wait for RPC state to propagate before callers reload
             await new Promise(r => setTimeout(r, 2000));
             return res;
           }
-          if (res.status === 'FAILED') throw new Error('Transaction failed on-chain');
+          if (res.status === 'FAILED') throw new Error('Transaction was rejected on-chain. Check your XLM balance.');
         }
-        throw new Error('Transaction timed out after 60s');
+        throw new Error('Transaction timed out after 60s. Check Stellar Explorer for status.');
       } finally {
         S.loading = false;
       }
@@ -535,7 +699,6 @@
     async function loadRecords(){
       if (!S.wallet) return;
       try {
-        // Get all record IDs where connected wallet is the patient
         const sim1 = await simulateOp(
           sorobanContract.call('get_patient_records', new StellarSdk.Address(S.wallet).toScVal())
         );
@@ -544,7 +707,6 @@
         const ids = StellarSdk.scValToNative(sim1.result.retval);
         if (!Array.isArray(ids) || !ids.length) { S.records = []; return; }
 
-        // Fetch each record in parallel
         const results = await Promise.all(ids.map(async idRaw => {
           try {
             const idBytes = toUint8(idRaw);
@@ -570,9 +732,7 @@
               amtStroops: rec.amount,
               desc:     String(rec.description || ''),
               paid:     !!rec.paid,
-              time:     tsNum
-                ? new Date(tsNum * 1000).toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit'})
-                : ts(),
+              time:     fmtDate(tsNum),
               tsNum,
             };
           } catch(e) {
@@ -581,7 +741,6 @@
           }
         }));
 
-        // Sort newest first by on-chain timestamp
         S.records = results.filter(Boolean).sort((a,b) => b.tsNum - a.tsNum);
       } catch(e) {
         console.error('loadRecords:', e);
@@ -621,7 +780,7 @@
           const r = await fApi.requestAccess();
           pk = typeof r === 'object' ? (r.address || r.publicKey) : r;
         }
-        if (!pk) throw new Error('Could not get wallet address.');
+        if (!pk) throw new Error('Could not get wallet address from Freighter.');
 
         S.wallet = pk;
         S.init   = true;
@@ -634,18 +793,29 @@
         S.recordsLoading = false;
         render();
       } catch(e) {
-        toast('Connection failed: '+e.message, true);
+        toast('Connection failed: ' + e.message, true);
       }
+    }
+
+    function disconnect(){
+      S.wallet = null; S.init = false; S.records = []; S.log = [];
+      S.totalBills = 0; S.totalPaid = 0; S.xlmBalance = null;
+      S.showNew = false; S.showReceipt = null;
+      toast('Wallet disconnected');
+      render();
     }
 
     async function createBill(){
       const svc = document.getElementById('f-svc').value;
       const xlm = parseFloat(document.getElementById('f-amt').value) || 0;
       if (xlm <= 0){ toast('Enter a valid amount.', true); return; }
+      if (xlm > 100000){ toast('Amount too large (max 100,000 XLM).', true); return; }
+
+      const customDesc = (document.getElementById('f-desc').value || '').trim();
+      const desc = customDesc || pick(DESCS[svc]);
 
       const amtStroops = BigInt(Math.round(xlm * 10_000_000));
       const idBytes    = newRid();
-      const desc       = pick(DESCS[svc]);
       const walletAddr = new StellarSdk.Address(S.wallet);
 
       const op = sorobanContract.call('create_billing',
@@ -659,7 +829,7 @@
 
       try {
         await invokeOp(op);
-        addLog('BILL','bill', svc+' — '+xlm.toLocaleString()+' XLM');
+        addLog('BILL','bill', svc+' — '+xlm.toLocaleString()+' XLM — '+desc);
         toast('Billing created on-chain ✓');
         S.showNew = false;
         S.recordsLoading = true; render();
@@ -672,11 +842,11 @@
       }
     }
 
-    async function payBill(idx){
+    async function payBill(idx, e){
+      if (e) e.stopPropagation();
       const r = S.records[idx];
       if (!r || r.paid || S.loading) return;
 
-      // Ensure idBytes is a proper Uint8Array for scvBytes
       const idBytes = r.idBytes instanceof Uint8Array
         ? r.idBytes
         : (r.idBytes && r.idBytes.buffer
@@ -690,13 +860,11 @@
 
       try {
         await invokeOp(op);
-        // Optimistic update immediately so UI feels instant
         r.paid = true;
         S.totalPaid += r.amount;
-        render();
         addLog('PAY','pay', r.service+' — '+r.amount.toLocaleString()+' XLM paid');
         toast('Payment confirmed on-chain ✓');
-        // Then sync fresh state from chain
+        render();
         S.recordsLoading = true; render();
         await Promise.all([loadStats(), loadXlmBalance(), loadRecords()]);
         S.recordsLoading = false;
@@ -710,6 +878,16 @@
     function showNewBill(){ S.showNew = true;  render(); }
     function closeModal() { S.showNew = false; render(); }
 
+    function openReceipt(idx, e){
+      if (e) e.stopPropagation();
+      S.showReceipt = S.records[idx];
+      render();
+    }
+    function closeReceipt(){ S.showReceipt = null; render(); }
+
+    function setTab(t){ S.activeTab = t; render(); }
+    function setFilter(e){ S.filterSvc = e.target.value; render(); }
+
     // ── RENDER ────────────────────────────────────────────────────────────────
     const HEART_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="#2dd4bf" stroke-width="2" stroke-linecap="round"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>`;
 
@@ -718,8 +896,9 @@
       let html = renderNav();
       if (!S.init) html += renderLanding();
       else         html += renderDash();
-      if (S.showNew)  html += renderNewModal();
-      if (S.loading)  html += `<div class="submitting-overlay"><div class="submitting-box"><div class="spin"></div>Submitting to Soroban…</div></div>`;
+      if (S.showNew)     html += renderNewModal();
+      if (S.showReceipt) html += renderReceiptModal(S.showReceipt);
+      if (S.loading)     html += `<div class="submitting-overlay"><div class="submitting-box"><div class="spin"></div>Submitting to Soroban…</div></div>`;
       app.innerHTML = html;
     }
 
@@ -730,9 +909,10 @@
           <span class="nav-brand">LusogChain</span>
           <span class="nav-chip">Soroban · Testnet</span>
         </div>
-        ${S.wallet ? `<div style="display:flex;align-items:center;gap:12px">
+        ${S.wallet ? `<div style="display:flex;align-items:center;gap:10px">
           ${S.xlmBalance !== null ? `<span style="font-family:var(--mono);font-size:11px;color:var(--teal);font-weight:600">${S.xlmBalance.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} XLM</span>` : ''}
           <div class="wallet-pill on">${tr(S.wallet)}</div>
+          <button class="disconnect-btn" onclick="disconnect()">Disconnect</button>
         </div>` : ''}
       </div>`;
     }
@@ -770,95 +950,228 @@
       const fmtXlm     = n => n.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:4});
       const loading    = S.recordsLoading;
 
+      // Filtered view for the active tab
+      let viewRecords = S.records;
+      if (S.activeTab === 'unpaid') viewRecords = unpaid;
+      if (S.activeTab === 'paid')   viewRecords = paidRecs;
+      if (S.filterSvc) viewRecords = viewRecords.filter(r => r.service === S.filterSvc);
+
+      const outstandingClass = unpaidAmt > 0 ? 'accent-red' : 'accent-teal';
+
       return `
+        <!-- STAT CARDS -->
         <div class="stat-row fu d1">
           <div class="stat-card">
             <div class="sc-label">Total Records</div>
             <div class="sc-val">${loading ? '<span class="spin" style="width:16px;height:16px;display:inline-block;vertical-align:middle"></span>' : S.totalBills}</div>
           </div>
-          <div class="stat-card accent">
+          <div class="stat-card accent-teal">
             <div class="sc-label">Total Paid (Chain)</div>
             <div class="sc-val">${loading ? '<span class="spin" style="width:16px;height:16px;display:inline-block;vertical-align:middle"></span>' : fmtXlm(S.totalPaid)+'<span class="sc-unit">XLM</span>'}</div>
           </div>
-          <div class="stat-card">
+          <div class="stat-card accent-amber">
             <div class="sc-label">Paid / Unpaid</div>
             <div class="sc-val">${loading ? '<span class="spin" style="width:16px;height:16px;display:inline-block;vertical-align:middle"></span>' : paidRecs.length+' / '+unpaid.length}</div>
           </div>
-          <div class="stat-card">
+          <div class="stat-card ${outstandingClass}">
             <div class="sc-label">Outstanding</div>
             <div class="sc-val">${loading ? '<span class="spin" style="width:16px;height:16px;display:inline-block;vertical-align:middle"></span>' : fmtXlm(unpaidAmt)+'<span class="sc-unit">XLM</span>'}</div>
+            ${!loading && unpaidAmt > 0 ? `<div style="font-family:var(--mono);font-size:10px;color:var(--red);margin-top:4px;letter-spacing:0.5px">${unpaid.length} unpaid bill${unpaid.length!==1?'s':''}</div>` : ''}
           </div>
         </div>
 
-        <div class="actions fu d2">
-          <button class="btn btn-dark" onclick="showNewBill()" ${dis}>New Billing</button>
-          <button class="btn btn-out"  onclick="refreshAll()"  ${dis}>${S.recordsLoading ? 'Loading…' : 'Refresh'}</button>
+        <!-- TOOLBAR -->
+        <div class="toolbar fu d2">
+          <div class="toolbar-left">
+            <button class="btn btn-dark" onclick="showNewBill()" ${dis}>+ New Billing</button>
+            <button class="btn btn-out"  onclick="refreshAll()"  ${dis}>${S.recordsLoading ? 'Loading…' : 'Refresh'}</button>
+          </div>
+          <div class="toolbar-right">
+            <select class="filter-select" onchange="setFilter(event)" ${dis}>
+              <option value="">All Services</option>
+              ${SERVICES.map(s=>`<option value="${s}" ${S.filterSvc===s?'selected':''}>${s}</option>`).join('')}
+            </select>
+          </div>
         </div>
 
-        <div class="sh fu d3">
-          <div class="sh-t">Billing Records</div>
-          <div class="sh-line"></div>
-          <div class="sh-meta">${S.recordsLoading ? 'Loading from chain…' : S.records.length+' on-chain records'}</div>
-        </div>
-
+        <!-- BILLING TABLE WITH TABS -->
         ${S.recordsLoading
-          ? `<div style="background:var(--white);border:1.5px solid var(--line);border-radius:var(--r);padding:40px;text-align:center;color:var(--slate);margin-bottom:32px" class="fu d4">
-               <div class="spin" style="margin:0 auto 12px;width:20px;height:20px"></div>
+          ? `<div style="background:var(--white);border:1.5px solid var(--line);border-radius:var(--r);padding:48px;text-align:center;color:var(--slate);margin-bottom:32px" class="fu d3">
+               <div class="spin" style="margin:0 auto 14px;width:22px;height:22px"></div>
                Loading records from blockchain…
              </div>`
-          : S.records.length === 0
-          ? `<div style="background:var(--white);border:1.5px solid var(--line);border-radius:var(--r);padding:32px;text-align:center;color:var(--slate);font-style:italic;margin-bottom:32px" class="fu d4">
-               No billing records yet. Click <strong>New Billing</strong> to create one on-chain.
-             </div>`
-          : `<div style="overflow-x:auto" class="fu d4">
-               <table class="bill-table">
-                 <thead><tr>
-                   <th>ID</th><th>Patient</th><th>Service</th><th>Description</th><th>Amount</th><th>Time</th><th>Status</th><th></th>
-                 </tr></thead>
-                 <tbody>
-                 ${S.records.map((r,i) => `<tr>
-                   <td class="id-cell">${r.id.slice(0,8)}</td>
-                   <td>
-                     <div style="font-weight:600;font-size:13px">${r.pname}</div>
-                     <div class="addr-cell">${tr(r.patient)}</div>
-                   </td>
-                   <td><span class="svc-tag ${SVC_CLS[r.service]||''}">${r.service}</span></td>
-                   <td class="desc-cell">${r.desc}</td>
-                   <td class="amt-cell">${r.amount.toLocaleString()} XLM</td>
-                   <td class="addr-cell">${r.time}</td>
-                   <td><span class="pay-badge ${r.paid?'pay-yes':'pay-no'}">${r.paid?'Paid':'Unpaid'}</span></td>
-                   <td>${r.paid
-                     ? ''
-                     : `<button class="pay-btn" onclick="payBill(${i})" ${dis}>Pay</button>`
-                   }</td>
-                 </tr>`).join('')}
-                 </tbody>
-               </table>
+          : `<div class="table-section fu d3">
+               <div class="tabs">
+                 <button class="tab-btn ${S.activeTab==='unpaid'?'active':''}" onclick="setTab('unpaid')">
+                   Unpaid
+                   <span class="tab-count ${unpaid.length>0?'has-items':''}">${unpaid.length}</span>
+                 </button>
+                 <button class="tab-btn ${S.activeTab==='paid'?'active':''}" onclick="setTab('paid')">
+                   Paid
+                   <span class="tab-count">${paidRecs.length}</span>
+                 </button>
+                 <button class="tab-btn ${S.activeTab==='all'?'active':''}" onclick="setTab('all')">
+                   All
+                   <span class="tab-count">${S.records.length}</span>
+                 </button>
+               </div>
+               ${viewRecords.length === 0
+                 ? `<div class="table-empty-state">
+                      ${S.activeTab==='unpaid' ? 'No unpaid bills. You\'re all clear!' :
+                        S.activeTab==='paid'   ? 'No paid records yet.' :
+                                                 'No billing records. Click <strong>+ New Billing</strong> to create one on-chain.'}
+                    </div>`
+                 : `<div style="overflow-x:auto">
+                      <table class="bill-table">
+                        <thead><tr>
+                          <th>ID</th><th>Service</th><th>Description</th><th>Amount</th><th>Date</th><th>Status</th><th>Actions</th>
+                        </tr></thead>
+                        <tbody>
+                        ${viewRecords.map((r,i) => {
+                          const globalIdx = S.records.indexOf(r);
+                          return `<tr onclick="openReceipt(${globalIdx}, event)">
+                            <td class="id-cell">${r.id.slice(0,8)}…</td>
+                            <td><span class="svc-tag ${SVC_CLS[r.service]||''}">${r.service}</span></td>
+                            <td class="desc-cell" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.desc}</td>
+                            <td class="amt-cell">${r.amount.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:4})} XLM</td>
+                            <td class="addr-cell" style="white-space:nowrap">${r.time}</td>
+                            <td><span class="pay-badge ${r.paid?'pay-yes':'pay-no'}">${r.paid?'Paid':'Unpaid'}</span></td>
+                            <td onclick="event.stopPropagation()">
+                              <div class="action-cell">
+                                ${r.paid
+                                  ? `<button class="copy-btn" onclick="copyText('${r.id}')">Copy ID</button>`
+                                  : `<button class="pay-btn" onclick="payBill(${globalIdx}, event)" ${dis}>Pay</button>
+                                     <button class="copy-btn" onclick="copyText('${r.id}')">Copy</button>`
+                                }
+                              </div>
+                            </td>
+                          </tr>`;
+                        }).join('')}
+                        </tbody>
+                      </table>
+                    </div>`
+               }
              </div>`
         }
 
-        `;
+        <!-- ACTIVITY LOG -->
+        <div class="sh fu d5">
+          <div class="sh-t">Activity Log</div>
+          <div class="sh-line"></div>
+          <div class="sh-meta">${S.log.length} events</div>
+        </div>
+        <div class="log fu d6">
+          ${S.log.length === 0
+            ? `<div class="log-empty">No activity yet.</div>`
+            : S.log.map(e => `<div class="log-r">
+                <span class="log-t lt-${e.t}">${e.l}</span>
+                <span class="log-m">${e.m}</span>
+                <span class="log-ts">${e.ts}</span>
+              </div>`).join('')
+          }
+        </div>
+      `;
     }
 
     function renderNewModal(){
       return `<div class="overlay" onclick="if(event.target===this)closeModal()">
         <div class="modal">
           <h2>New Billing Record</h2>
-          <p>Creates a real on-chain billing entry via Soroban. Your connected wallet acts as the registered hospital. Freighter will ask you to sign.</p>
+          <p>Creates a real on-chain billing entry via Soroban. Freighter will ask you to sign the transaction.</p>
           <div class="fg">
             <label>Service Type</label>
-            <select id="f-svc">
+            <select id="f-svc" onchange="document.getElementById('f-hint').textContent=({Consultation:'500',Laboratory:'350',Pharmacy:'180',Imaging:'1200',Emergency:'2500'}[this.value]||'')+ ' XLM suggested'">
               ${SERVICES.map(s=>`<option value="${s}">${s}</option>`).join('')}
             </select>
           </div>
           <div class="fg">
             <label>Amount (XLM)</label>
-            <input type="number" id="f-amt" value="500" min="1" />
-            <div class="hint">Consultation: 500 · Lab: 350 · Pharmacy: 180 · Imaging: 1200 · ER: 2500</div>
+            <input type="number" id="f-amt" value="500" min="1" max="100000" step="0.01" />
+            <div class="hint" id="f-hint">500 XLM suggested</div>
+          </div>
+          <div class="fg">
+            <label>Description <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:9px;color:var(--mist)">(optional — auto-filled if blank)</span></label>
+            <textarea id="f-desc" placeholder="e.g. OPD General Checkup, CBC w/ Differential…" style="height:60px"></textarea>
           </div>
           <div class="modal-btns">
             <button class="btn btn-out"  onclick="closeModal()">Cancel</button>
             <button class="btn btn-dark" onclick="createBill()">Create &amp; Sign</button>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    function renderReceiptModal(r){
+      const statusColor = r.paid ? 'var(--teal)' : 'var(--red)';
+      const statusLabel = r.paid ? 'PAID' : 'UNPAID';
+      const globalIdx   = S.records.indexOf(r);
+
+      const receiptText = [
+        'LusogChain — On-Chain Hospital Receipt',
+        '─'.repeat(40),
+        'Record ID : ' + r.id,
+        'Service   : ' + r.service,
+        'Description: ' + r.desc,
+        'Amount    : ' + r.amount.toLocaleString(undefined,{minimumFractionDigits:4}) + ' XLM',
+        'Date/Time : ' + r.time,
+        'Status    : ' + statusLabel,
+        'Patient   : ' + r.patient,
+        'Hospital  : ' + r.hospital,
+        '─'.repeat(40),
+        'Verified on Stellar Testnet',
+        'Contract  : ' + CONTRACT_ID,
+      ].join('\n');
+
+      return `<div class="overlay" onclick="if(event.target===this)closeReceipt()">
+        <div class="receipt-modal">
+          <div class="receipt-header">
+            <button class="close-x" onclick="closeReceipt()">✕</button>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div>
+                <div class="receipt-title">On-Chain Receipt</div>
+                <div class="receipt-subtitle">#${r.id.slice(0,16)}…</div>
+              </div>
+              <span style="font-family:var(--mono);font-size:11px;font-weight:700;
+                padding:5px 14px;border-radius:100px;
+                background:${r.paid?'rgba(45,212,191,0.15)':'rgba(239,68,68,0.15)'};
+                color:${statusColor};letter-spacing:1px">
+                ${statusLabel}
+              </span>
+            </div>
+          </div>
+          <div class="receipt-body">
+            <div class="receipt-row">
+              <span class="receipt-key">Service</span>
+              <span class="receipt-val"><span class="svc-tag ${SVC_CLS[r.service]||''}">${r.service}</span></span>
+            </div>
+            <div class="receipt-row">
+              <span class="receipt-key">Description</span>
+              <span class="receipt-val desc-v">${r.desc}</span>
+            </div>
+            <div class="receipt-row">
+              <span class="receipt-key">Amount</span>
+              <span class="receipt-val big">${r.amount.toLocaleString(undefined,{minimumFractionDigits:4})} <span style="font-size:13px;color:var(--slate)">XLM</span></span>
+            </div>
+            <div class="receipt-row">
+              <span class="receipt-key">Date</span>
+              <span class="receipt-val">${r.time}</span>
+            </div>
+            <div class="receipt-row">
+              <span class="receipt-key">Patient</span>
+              <span class="receipt-val">${r.patient}</span>
+            </div>
+            <div class="receipt-row">
+              <span class="receipt-key">Record ID</span>
+              <span class="receipt-val" style="font-size:10px">${r.id}</span>
+            </div>
+          </div>
+          <div class="receipt-footer">
+            ${!r.paid
+              ? `<button class="btn btn-dark" onclick="closeReceipt();payBill(${globalIdx},null)" ${S.loading?'disabled':''}>Pay Now</button>`
+              : ''
+            }
+            <button class="btn btn-out" onclick="copyText(${JSON.stringify(receiptText)})">Copy Receipt</button>
+            <button class="btn btn-ghost" onclick="closeReceipt()">Close</button>
           </div>
         </div>
       </div>`;
