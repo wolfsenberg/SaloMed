@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
   // stellar-sdk ships ESM and uses Node built-ins; polyfill them for the browser bundle
   webpack: (config, { isServer }) => {
     if (!isServer) {
