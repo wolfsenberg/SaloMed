@@ -121,6 +121,10 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
 
   return (
     <html lang="en">
+      <head>
+        <title>SaloMed: Your Health Alkansya</title>
+        <link rel="icon" href="/SaloMed_logo.png" />
+      </head>
       <body className={`${inter.className} antialiased font-sans`}>
         {!ready && <SplashScreen onDone={() => setReady(true)} />}
 
