@@ -185,7 +185,7 @@ export default function BillScanner({ address, vault, onPaySuccess }: Props) {
         {modal === 'pay' && result && address && (
           <PayModal
             patientAddress={address}
-            amountUsdc={result.out_of_pocket_balance}
+            amountXlm={result.out_of_pocket_balance}
             onClose={() => setModal(null)}
             onSuccess={() => { setModal(null); setResult(null); onPaySuccess(); }}
           />
