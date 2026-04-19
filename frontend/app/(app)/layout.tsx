@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wallet, QrCode, Globe, HandCoins, Receipt, LogOut, Smartphone, Monitor, Info } from 'lucide-react';
+import { Inter } from 'next/font/google';
 import Image from 'next/image';
 import SplashScreen from '@/components/SplashScreen';
 import VaultCard from '@/components/VaultCard';
@@ -14,6 +15,8 @@ import OnboardingSlides from '@/components/OnboardingSlides';
 import { connectWallet } from '@/lib/freighter';
 import { getVault, HealthVault, EMPTY_VAULT } from '@/lib/contract';
 import '@/app/globals.css';
+
+const inter = Inter({ subsets: ['latin'] });
 
 type Tab = 'vault' | 'payment' | 'loan' | 'remittance' | 'history';
 
@@ -118,7 +121,7 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
 
   return (
     <html lang="en">
-      <body className="antialiased font-sans">
+      <body className={`${inter.className} antialiased font-sans`}>
         {!ready && <SplashScreen onDone={() => setReady(true)} />}
 
         <AnimatePresence>
