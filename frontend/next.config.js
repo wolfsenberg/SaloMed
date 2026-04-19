@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
   swcMinify: true,
   eslint: {
     // Warning: This allows production builds to successfully complete even if
