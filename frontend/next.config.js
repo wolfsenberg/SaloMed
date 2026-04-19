@@ -14,6 +14,12 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   productionBrowserSourceMaps: false,
+  experimental: {
+    webpackBuildWorker: true,
+    optimizePackageImports: ['framer-motion', 'lucide-react'],
+    cpus: 1, 
+    workerThreads: false,
+  },
   // stellar-sdk ships ESM and uses Node built-ins; polyfill them for the browser bundle
   webpack: (config, { isServer }) => {
     if (!isServer) {
