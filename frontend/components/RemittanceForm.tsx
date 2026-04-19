@@ -9,7 +9,9 @@ import {
 
 interface Props {
   ofwAddress: string | null;
+  vault: any; // HealthVault
   onSuccess: () => void;
+  onSwitchTab: (tab: any) => void;
 }
 
 import { calcPadala } from '@/lib/contract';
@@ -18,12 +20,14 @@ import { saveTx } from '@/lib/transactions';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 type RecipientMethod = 'gcash' | 'stellar';
+type PayFrom = 'vault' | 'savings';
 
 function isValidStellarAddress(addr: string) {
   return addr.startsWith('G') && addr.length === 56;
 }
 
-export default function RemittanceForm({ ofwAddress, onSuccess }: Props) {
+export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchTab }: Props) {
+  const [payFrom, setPayFrom] = useState<PayFrom>('vault');
   const [recipientMethod, setRecipientMethod] = useState<RecipientMethod>('gcash');
   const [beneficiary, setBeneficiary] = useState('');
   const [gcashNumber, setGcashNumber] = useState('');
@@ -51,6 +55,11 @@ export default function RemittanceForm({ ofwAddress, onSuccess }: Props) {
     setError(null);
   }
 
+  // Balance calculation
+  const vaultXlm = ofwAddress && vault ? Number(vault.balance) / 10_000_000 : 0;
+  const savingsBalance = ofwAddress && vault ? Number(vault.salo_points) / 50 : 0;
+  const activeBalance = payFrom === 'vault' ? vaultXlm : savingsBalance;
+  
   // GCash recipient → input is PHP; Stellar → XLM or PHP toggle
   const isPhpMode = recipientMethod === 'gcash' || showPhp;
 
@@ -60,6 +69,7 @@ export default function RemittanceForm({ ofwAddress, onSuccess }: Props) {
   const parsedPhp = parsedXlm * phpRate;
   const breakdown = calcPadala(parsedXlm);
   const pointsEarned = breakdown.ptsEarned;
+  const isInsufficient = parsedXlm > activeBalance;
 
   async function handleSend() {
     if (recipientMethod === 'stellar' && !ofwAddress) {
@@ -111,6 +121,7 @@ export default function RemittanceForm({ ofwAddress, onSuccess }: Props) {
           recipientLabel: recipientMethod === 'gcash'
             ? gcashNumber
             : beneficiary.slice(0, 6) + '…' + beneficiary.slice(-4),
+          payFrom,
           ptsEarned: pointsEarned,
           txHash: data.tx_result ?? undefined,
           status: 'success',
@@ -267,8 +278,13 @@ export default function RemittanceForm({ ofwAddress, onSuccess }: Props) {
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">+63</span>
                   <input
                     value={gcashNumber}
-                    onChange={e => { setGcashNumber(e.target.value); setError(null); }}
+                    onChange={e => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setGcashNumber(val);
+                      setError(null);
+                    }}
                     type="tel"
+                    maxLength={10}
                     placeholder="9XX XXX XXXX"
                     className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl pl-12 pr-4 py-3 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all"
                   />
@@ -291,6 +307,31 @@ export default function RemittanceForm({ ofwAddress, onSuccess }: Props) {
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
+        
+        {/* Pay from selection */}
+        <div className="space-y-2">
+          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block">
+            Pay From
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              { f: 'vault' as PayFrom,   Icon: Lock,  label: 'Vault Balance', bal: `${vaultXlm.toFixed(2)} XLM` },
+              { f: 'savings' as PayFrom, Icon: Star,  label: 'Vault Savings', bal: `${savingsBalance.toFixed(2)} XLM` },
+            ] as const).map(({ f, Icon, label, bal }) => (
+              <button key={f} type="button" onClick={() => { setPayFrom(f); setError(null); }}
+                className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all ${
+                  payFrom === f ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300'
+                }`}
+              >
+                <Icon size={15} />
+                <div className="text-left">
+                  <p className="text-[10px] text-slate-400 leading-none">{label}</p>
+                  <p className="text-xs font-bold mt-0.5">{bal}</p>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Amount */}
@@ -369,6 +410,27 @@ export default function RemittanceForm({ ofwAddress, onSuccess }: Props) {
           </p>
         </div>
 
+        {/* Balance check */}
+        {isInsufficient && parsedXlm > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-amber-900">Not enough balance</p>
+                <p className="text-xs text-amber-700 leading-relaxed">
+                  Your {payFrom === 'vault' ? 'vault' : 'savings'} balance ({activeBalance.toFixed(4)} XLM) is not enough to cover this padala.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => onSwitchTab('vault')}
+              className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+            >
+              <Lock size={13} /> Top Up in Vault
+            </button>
+          </div>
+        )}
+
         {/* Error */}
         <AnimatePresence>
           {error && (
@@ -385,19 +447,21 @@ export default function RemittanceForm({ ofwAddress, onSuccess }: Props) {
         </AnimatePresence>
 
         {/* CTA */}
-        <button
-          onClick={handleSend}
-          disabled={submitting || (recipientMethod === 'stellar' && !ofwAddress)}
-          className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:opacity-60 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
-        >
-          {submitting ? (
-            <><Loader2 size={16} className="animate-spin" /> Sending on-chain…</>
-          ) : recipientMethod === 'gcash' ? (
-            <><span className="w-4 h-4 bg-white rounded flex items-center justify-center text-[#007DFF] text-[10px] font-black leading-none">G</span> Send via GCash</>
-          ) : (
-            <><Send size={15} /> Send via Stellar</>
-          )}
-        </button>
+        {!isInsufficient && (
+          <button
+            onClick={handleSend}
+            disabled={submitting || (recipientMethod === 'stellar' && !ofwAddress)}
+            className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:opacity-60 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
+          >
+            {submitting ? (
+              <><Loader2 size={16} className="animate-spin" /> Sending on-chain…</>
+            ) : recipientMethod === 'gcash' ? (
+              <><span className="w-4 h-4 bg-white rounded flex items-center justify-center text-[#007DFF] text-[10px] font-black leading-none">G</span> Send via GCash</>
+            ) : (
+              <><Send size={15} /> Send via Stellar</>
+            )}
+          </button>
+        )}
       </motion.div>
 
       {/* How it works */}

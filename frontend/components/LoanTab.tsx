@@ -4,10 +4,10 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Award, Percent, Star, CheckCircle, Loader2, Info,
-  ArrowLeftRight, ChevronRight, ChevronLeft, Coins, Lock,
+  ArrowLeftRight, ChevronRight, ChevronLeft, Coins, Lock, Clock,
 } from 'lucide-react';
 import type { HealthVault } from '@/lib/contract';
-import { saveTx } from '@/lib/transactions';
+import { loadTxs, Transaction, saveTx } from '@/lib/transactions';
 
 interface Props {
   address: string | null;
@@ -50,6 +50,10 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
   const totalInt   = totalPay - parsedPhp;
 
   const vaultXlm   = Number(vault.balance) / 10_000_000;
+  
+  const allTxs      = address ? loadTxs(address) : [];
+  const pendingLoans = allTxs.filter(t => t.type === 'loan' && t.status === 'pending');
+  const loanLimitReached = pendingLoans.length >= 2;
 
   async function handleApply() {
     setSubmitting(true);
@@ -105,6 +109,42 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
                 Rates are based on your SaloPoints tier.
               </p>
             </div>
+
+            {/* Pending loan notification */}
+            {pendingLoans.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                    <Clock size={20} className="text-amber-500" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-bold text-amber-900">
+                      {pendingLoans.length === 1 ? 'Loan Pending Review' : 'Multiple Loans Pending Review'}
+                    </p>
+                    <p className="text-xs text-amber-700 leading-relaxed">
+                      {pendingLoans.length === 1 
+                        ? `Your ${php(pendingLoans[0].amountPhp)} loan application is being verified by our team.`
+                        : `You have ${pendingLoans.length} applications (Total: ${php(pendingLoans.reduce((sum, l) => sum + l.amountPhp, 0))}) being verified.`}
+                    </p>
+                  </div>
+                </div>
+                
+                {pendingLoans.length > 1 && (
+                  <div className="space-y-2 pt-2 border-t border-amber-200">
+                    {pendingLoans.map((loan, i) => (
+                      <div key={loan.id} className="flex justify-between items-center text-[10px] font-bold text-amber-800">
+                        <span>Application #{i + 1}</span>
+                        <span>{php(loan.amountPhp)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            )}
 
             {/* Credit tier card */}
             <div className="bg-white rounded-2xl shadow-card border border-slate-100 p-5">
@@ -183,12 +223,25 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
               ))}
             </div>
 
-            <button
-              onClick={() => setStep('apply')}
-              className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
-            >
-              Apply for a Loan <ChevronRight size={16} />
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={() => setStep('apply')}
+                disabled={loanLimitReached}
+                className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:bg-slate-100 disabled:text-slate-400 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
+              >
+                {loanLimitReached ? 'Loan Limit Reached' : 'Apply for a Loan'} <ChevronRight size={16} />
+              </button>
+              
+              {loanLimitReached && (
+                <div className="flex gap-2 bg-slate-50 border border-slate-200 rounded-xl p-3">
+                  <Info size={14} className="text-slate-400 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Maximum of 2 loans are allowed at the same time to ensure financial safety. 
+                    Please wait for your current applications to be processed or settled.
+                  </p>
+                </div>
+              )}
+            </div>
           </motion.div>
         )}
 
@@ -331,28 +384,28 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
           </motion.div>
         )}
 
-        {/* ── DONE ─────────────────────────────────────────────────────────── */}
+        {/* ── DONE (PENDING APPROVAL) ────────────────────────────────────── */}
         {step === 'done' && (
           <motion.div key="done"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="flex flex-col items-center justify-center min-h-[60vh] gap-5 text-center px-6"
           >
-            <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center">
-              <CheckCircle size={36} className="text-emerald-500" />
+            <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center">
+              <Clock size={36} className="text-amber-500" />
             </div>
             <div className="space-y-1">
-              <h3 className="text-xl font-bold text-slate-900">Application Submitted!</h3>
+              <h3 className="text-xl font-bold text-slate-900">Application For Approval</h3>
               <p className="text-sm text-slate-500">
-                Loan of <span className="font-semibold text-slate-700">{php(parsedPhp)}</span> applied
-                at <span className="font-semibold text-slate-700">{rate}% p.a.</span>
+                Your loan request for <span className="font-bold text-slate-900">{php(parsedPhp)}</span> (≈ {parsedXlm.toFixed(4)} XLM) is now being reviewed.
               </p>
               <p className="text-xs text-slate-400 mt-2">
-                {php(monthly)}/month for {selectedTerm} months
+                Term: {selectedTerm} months · Rate: {rate}% p.a.
               </p>
             </div>
-            <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-700 max-w-xs">
-              A SaloMed representative will contact you to complete verification.
+            <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-xs text-amber-700 max-w-xs leading-relaxed">
+              <p className="font-bold mb-1">Status: Pending Verification</p>
+              A SaloMed representative will contact you shortly to complete the verification process.
             </div>
             <button
               onClick={() => { setStep('overview'); setAmountPhp(''); }}

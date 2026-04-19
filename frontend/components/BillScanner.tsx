@@ -11,6 +11,7 @@ interface Props {
   address: string | null;
   vault: HealthVault;
   onPaySuccess: () => void;
+  onSwitchTab: (tab: any) => void;
 }
 
 const php = (n: number) =>
@@ -185,9 +186,11 @@ export default function BillScanner({ address, vault, onPaySuccess }: Props) {
         {modal === 'pay' && result && address && (
           <PayModal
             patientAddress={address}
+            vault={vault}
             amountXlm={result.out_of_pocket_balance}
             onClose={() => setModal(null)}
             onSuccess={() => { setModal(null); setResult(null); onPaySuccess(); }}
+            onSwitchTab={onSwitchTab}
           />
         )}
         {modal === 'loan' && result && address && (

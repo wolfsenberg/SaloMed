@@ -7,8 +7,10 @@ import { Building2, Coins, X, CheckCircle, Loader2, AlertCircle } from 'lucide-r
 interface Props {
   patientAddress: string;
   amountXlm: number;
+  vault?: any; // HealthVault structure
   onClose: () => void;
   onSuccess: () => void;
+  onSwitchTab?: (tab: string) => void;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
@@ -23,6 +25,9 @@ export default function PayModal({ patientAddress, amountXlm, onClose, onSuccess
   const [error, setError]                     = useState<string | null>(null);
   const [txHash, setTxHash]                   = useState<string | null>(null);
   const [done, setDone]                       = useState(false);
+
+  const vaultBalance = vault ? Number(vault.balance) / 10_000_000 : Infinity;
+  const isInsufficient = amountXlm > vaultBalance;
 
   async function handlePay() {
     if (!isValidStellarAddress(hospitalAddress.trim())) {
@@ -118,31 +123,60 @@ export default function PayModal({ patientAddress, amountXlm, onClose, onSuccess
           )}
         </AnimatePresence>
 
+        {/* Balance check */}
+        {isInsufficient && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle size={16} className="text-amber-500 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <p className="text-sm font-bold text-amber-900">Not enough balance</p>
+                <p className="text-xs text-amber-700">
+                  Your vault has {vaultBalance.toFixed(4)} XLM, which is not enough for this payment.
+                </p>
+              </div>
+            </div>
+            {onSwitchTab && (
+              <button
+                onClick={() => { onClose(); onSwitchTab('vault'); }}
+                className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition-colors"
+              >
+                Top Up in Vault
+              </button>
+            )}
+          </div>
+        )}
+
         {/* CTA */}
         <AnimatePresence mode="wait">
           {done ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center space-y-1"
+              className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 text-center space-y-2"
             >
-              <div className="flex items-center justify-center gap-2 text-emerald-700 font-semibold text-sm">
-                <CheckCircle size={16} /> Payment submitted on-chain
+              <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-1">
+                <CheckCircle size={24} className="text-emerald-600" />
               </div>
-              {txHash && (
-                <p className="text-xs font-mono text-slate-400 break-all">{txHash.slice(0, 40)}…</p>
-              )}
-              <p className="text-slate-400 text-xs">Returning to dashboard…</p>
+              <div className="space-y-1">
+                <p className="text-emerald-900 font-bold text-base">Payment Sent!</p>
+                <p className="text-emerald-700 text-sm font-semibold">
+                  {amountXlm.toFixed(4)} XLM
+                </p>
+                <p className="text-emerald-600/70 text-[10px] tabular-nums break-all">
+                  TX: {txHash?.slice(0, 32)}...
+                </p>
+              </div>
+              <p className="text-slate-400 text-xs pt-2">Returning to dashboard…</p>
             </motion.div>
           ) : (
             <button
               onClick={handlePay}
-              disabled={submitting}
-              className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:opacity-60 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
+              disabled={submitting || isInsufficient}
+              className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50 disabled:grayscale text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
             >
               {submitting
                 ? <><Loader2 size={16} className="animate-spin" /> Submitting…</>
-                : 'Confirm Payment'}
+                : isInsufficient ? 'Insufficient Balance' : 'Confirm Payment'}
             </button>
           )}
         </AnimatePresence>

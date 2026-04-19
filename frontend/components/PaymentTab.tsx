@@ -18,6 +18,7 @@ interface Props {
   address: string | null;
   vault: HealthVault;
   onSuccess: () => void;
+  onSwitchTab: (tab: any) => void;
 }
 
 type View         = 'home' | 'generate' | 'manual';
@@ -27,7 +28,7 @@ type PayFrom      = 'vault' | 'savings';
 const API_URL   = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 const QUICK_AMT = [1, 5, 10, 25, 50];
 
-export default function PaymentTab({ address, vault, onSuccess }: Props) {
+export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: Props) {
   const [view, setView]                   = useState<View>('home');
   const [providerType, setProviderType]   = useState<ProviderType>('hospital');
   const [providerName, setProviderName]   = useState('');
@@ -47,6 +48,8 @@ export default function PaymentTab({ address, vault, onSuccess }: Props) {
   const [error, setError]                 = useState<string | null>(null);
   const [txHash, setTxHash]               = useState<string | null>(null);
   const [done, setDone]                   = useState(false);
+  const [lastPaidAmount, setLastPaidAmount] = useState(0);
+  const [lastPaidPhp, setLastPaidPhp]       = useState(0);
 
   useEffect(() => {
     fetch(`${API_URL}/api/gcash-rate`)
@@ -104,6 +107,8 @@ export default function PaymentTab({ address, vault, onSuccess }: Props) {
         throw new Error(msg);
       }
       setTxHash(data.stellar_tx_hash ?? null);
+      setLastPaidAmount(parsedXlm);
+      setLastPaidPhp(parsedPhp);
       saveTx(address, {
         type: 'payment', amountXlm: parsedXlm, amountPhp: parsedPhp,
         providerName: providerName || undefined, providerType, payFrom,
@@ -151,6 +156,8 @@ export default function PaymentTab({ address, vault, onSuccess }: Props) {
         throw new Error(msg);
       }
       setTxHash(data.stellar_tx_hash ?? null);
+      setLastPaidAmount(manualParsed);
+      setLastPaidPhp(manualParsedPhp);
       saveTx(address, {
         type:         'payment',
         amountXlm:    manualParsed,
@@ -210,8 +217,8 @@ export default function PaymentTab({ address, vault, onSuccess }: Props) {
         <div className="space-y-1">
           <h3 className="text-xl font-bold text-slate-900">Payment Sent!</h3>
           <p className="text-sm text-slate-500">
-            <span className="font-semibold text-slate-700">{manualParsed.toFixed(4)} XLM</span>
-            {' '}(≈ ₱{manualParsedPhp.toFixed(2)}) sent successfully.
+            <span className="font-semibold text-slate-700">{lastPaidAmount.toFixed(4)} XLM</span>
+            {' '}(≈ ₱{lastPaidPhp.toFixed(2)}) sent successfully.
           </p>
         </div>
         {txHash && (
@@ -525,19 +532,30 @@ export default function PaymentTab({ address, vault, onSuccess }: Props) {
                 </div>
               )}
 
-              {parsedXlm > activeBalance && activeBalance > 0 && (
-                <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
-                  <AlertCircle size={14} className="text-amber-500 shrink-0 mt-0.5" />
-                  <p className="text-xs text-amber-700">
-                    Amount exceeds {payFrom === 'vault' ? 'vault' : 'savings'} balance ({activeBalance.toFixed(4)} XLM).
-                  </p>
+              {parsedXlm > activeBalance && (
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-start gap-2.5">
+                    <AlertCircle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-bold text-amber-900">Not enough balance</p>
+                      <p className="text-xs text-amber-700 leading-relaxed">
+                        Your {payFrom === 'vault' ? 'vault' : 'savings'} balance ({activeBalance.toFixed(4)} XLM) is not enough to cover this payment.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => onSwitchTab('vault')}
+                    className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <Wallet size={13} /> Top Up in Vault
+                  </button>
                 </div>
               )}
             </div>
 
-            {/* Generated QR Code — requires provider + amount */}
+            {/* Generated QR Code — requires provider + amount + sufficient balance */}
             <AnimatePresence mode="wait">
-              {parsedXlm > 0 && manualAddress.trim() ? (
+              {parsedXlm > 0 && manualAddress.trim() && parsedXlm <= activeBalance ? (
                 <motion.div
                   key="qr-ready"
                   initial={{ opacity: 0, y: 16, height: 0 }}
@@ -781,6 +799,27 @@ export default function PaymentTab({ address, vault, onSuccess }: Props) {
                 </div>
               )}
 
+              {/* Balance check */}
+              {manualParsed > activeBalance && (
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-start gap-2.5">
+                    <AlertCircle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-bold text-amber-900">Not enough balance</p>
+                      <p className="text-xs text-amber-700 leading-relaxed">
+                        Your {payFrom === 'vault' ? 'vault' : 'savings'} balance ({activeBalance.toFixed(4)} XLM) is not enough for this transaction.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => onSwitchTab('vault')}
+                    className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <Wallet size={13} /> Top Up in Vault
+                  </button>
+                </div>
+              )}
+
               {/* Error */}
               <AnimatePresence>
                 {error && (
@@ -799,7 +838,7 @@ export default function PaymentTab({ address, vault, onSuccess }: Props) {
               {/* Pay button */}
               <button
                 onClick={handleManualPay}
-                disabled={submitting || !address || manualParsed <= 0}
+                disabled={submitting || !address || manualParsed <= 0 || manualParsed > activeBalance}
                 className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
               >
                 {submitting
