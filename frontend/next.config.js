@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone",
+  swcMinify: true,
   eslint: {
     // Warning: This allows production builds to successfully complete even if
     // your project has ESLint errors.
@@ -16,7 +16,9 @@ const nextConfig = {
   productionBrowserSourceMaps: false,
   experimental: {
     webpackBuildWorker: true,
+    webpackMemoryOptimizations: true,
     optimizePackageImports: ['framer-motion', 'lucide-react'],
+    serverSourceMaps: false,
     cpus: 1, 
     workerThreads: false,
   },
