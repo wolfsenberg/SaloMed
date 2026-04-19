@@ -1,3 +1,43 @@
-/contracts/**/target/
+# General
+**/.DS_Store
 **/*.log
 **/.DS_Store
+
+# Environment Variables
+.env
+.env.*
+!.env.example
+
+# Frontend (Node / Next.js)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# Backend (Python / FastAPI)
+backend/__pycache__/
+backend/*.py[cod]
+backend/*$py.class
+backend/.pytest_cache/
+backend/venv/
+backend/env/
+backend/.venv/
+
+# Smart Contracts (Rust / Soroban)
+contracts/**/target/
+**/*.rs.bk
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp

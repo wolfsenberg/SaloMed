@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+    overscroll-behavior: none;
+  }
+}
+
+@layer utilities {
+  .gradient-brand {
+    @apply bg-gradient-to-br from-blue-600 to-blue-700;
+  }
+  .gradient-bronze {
+    background: linear-gradient(to right, #c87941, #a0522d);
+  }
+  .gradient-silver {
+    background: linear-gradient(to right, #cbd5e1, #94a3b8);
+  }
+  .gradient-gold {
+    background: linear-gradient(to right, #f5c842, #d97706);
+  }
+}

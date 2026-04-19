@@ -1,18 +1,18 @@
-# LusogChain
+# SaloMed
 
 > **Every receipt, permanently verified.**
 >
-> **Live Demo:** [https://wolfsenberg.github.io/LUSOGCHAIN/frontend/](https://wolfsenberg.github.io/LUSOGCHAIN/frontend/)
+> **Live Demo:** [https://wolfsenberg.github.io/SaloMed/frontend/](https://wolfsenberg.github.io/SaloMed/frontend/)
 
 ---
 
-LusogChain is a decentralized hospital billing system built on the **Stellar network** using **Soroban smart contracts**. It transforms traditional hospital bills into immutable on-chain records — giving patients permanent, tamper-proof proof of payment and helping healthcare providers maintain a fully transparent billing history.
+SaloMed is a decentralized hospital billing system built on the **Stellar network** using **Soroban smart contracts**. It transforms traditional hospital bills into immutable on-chain records — giving patients permanent, tamper-proof proof of payment and helping healthcare providers maintain a fully transparent billing history.
 
 No more lost receipts. No more PhilHealth disputes. Every payment lives on-chain.
 
 | Network | Contract ID | Explorer | Deploy Tx | Frontend |
 |:--|:--|:--|:--|:--|
-| Stellar Testnet | `CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS` | [Stellar Expert](https://stellar.expert/explorer/testnet/contract/CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS) | [327fe117...](https://stellar.expert/explorer/testnet/tx/327fe1176aebde07c0d3deca166832456c1836197df596807468eb09d9baad57) | [Live Demo](https://wolfsenberg.github.io/LUSOGCHAIN/frontend/) |
+| Stellar Testnet | `CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS` | [Stellar Expert](https://stellar.expert/explorer/testnet/contract/CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS) | [327fe117...](https://stellar.expert/explorer/testnet/tx/327fe1176aebde07c0d3deca166832456c1836197df596807468eb09d9baad57) | [Live Demo](https://wolfsenberg.github.io/SaloMed/frontend/) |
 
 ---
 
@@ -26,7 +26,7 @@ No more lost receipts. No more PhilHealth disputes. Every payment lives on-chain
 - [Usage Guide](#usage-guide)
 - [App Flow](#app-flow)
 - [Smart Contract Reference](#smart-contract-reference)
-- [How Stellar Powers LusogChain](#how-stellar-powers-lusogchain)
+- [How Stellar Powers SaloMed](#how-stellar-powers-lusogchain)
 - [Proof of Work](#proof-of-work)
 
 ---
@@ -35,7 +35,7 @@ No more lost receipts. No more PhilHealth disputes. Every payment lives on-chain
 
 In traditional healthcare settings — especially locally with PhilHealth or HMOs — misplaced physical receipts, reconciliation errors, and billing disputes are a constant friction point.
 
-LusogChain aims to eliminate these problems by:
+SaloMed aims to eliminate these problems by:
 
 - Providing a **transparent on-chain ledger** for hospital billings
 - Giving patients **instant, verifiable proof of payment**
@@ -73,10 +73,10 @@ LusogChain aims to eliminate these problems by:
 ## Project Structure
 
 ```
-LUSOGCHAIN/
+SaloMed/
 ├── assets/                   # Screenshots and proof of work
 ├── contracts/
-│   └── lusog_chain/
+│   └── salomed/
 │       ├── src/
 │       │   ├── lib.rs        # Core Soroban smart contract logic
 │       │   └── tests.rs      # Contract unit tests (3 test cases)
@@ -102,8 +102,8 @@ LUSOGCHAIN/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/wolfsenberg/LUSOGCHAIN.git
-cd LUSOGCHAIN
+git clone https://github.com/wolfsenberg/SaloMed.git
+cd SaloMed
 ```
 
 ### 2. Install the WASM build target
@@ -115,7 +115,7 @@ rustup target add wasm32-unknown-unknown
 ### 3. Run contract unit tests
 
 ```bash
-cd contracts/lusog_chain
+cd contracts/salomed
 cargo test
 ```
 
@@ -142,7 +142,7 @@ stellar keys generate test-user --network testnet
 stellar keys fund test-user --network testnet
 
 stellar contract deploy \
-  --wasm contracts/lusog_chain/target/wasm32-unknown-unknown/release/lusog_chain.wasm \
+  --wasm contracts/salomed/target/wasm32-unknown-unknown/release/salomed.wasm \
   --source test-user \
   --network testnet
 ```
@@ -262,7 +262,7 @@ No build step required — the frontend is a single self-contained HTML file.
 
 ### 12. Disconnect — Back to Landing
 ![Disconnect](assets/11.png)
-*Clicking the LusogChain logo disconnects the wallet and returns to the landing page. A "Wallet disconnected" toast confirms the action.*
+*Clicking the SaloMed logo disconnects the wallet and returns to the landing page. A "Wallet disconnected" toast confirms the action.*
 
 ---
 
@@ -320,7 +320,7 @@ stellar contract invoke \
 
 ---
 
-## How Stellar Powers LusogChain
+## How Stellar Powers SaloMed
 
 1. **Soroban Smart Contracts** — The core billing logic runs entirely on-chain. Records are immutable once written; payment transfers are atomic and trustless.
 2. **Freighter Wallet** — All transaction signing happens inside the user's browser extension. Private keys are never exposed to the application.

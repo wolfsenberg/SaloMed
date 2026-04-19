@@ -1,5 +1,0 @@
-D:\LUSOGCHAIN\LUSOGCHAIN\contracts\lusog_chain\target\debug\build\soroban-env-common-029747b624598098\build_script_build-029747b624598098.d: C:\Users\geinel\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\soroban-env-common-21.2.1\build.rs
-
-D:\LUSOGCHAIN\LUSOGCHAIN\contracts\lusog_chain\target\debug\build\soroban-env-common-029747b624598098\build_script_build-029747b624598098.exe: C:\Users\geinel\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\soroban-env-common-21.2.1\build.rs
-
-C:\Users\geinel\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\soroban-env-common-21.2.1\build.rs:

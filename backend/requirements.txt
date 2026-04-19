@@ -1,0 +1,9 @@
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+Pillow>=10.3.0
+pytesseract>=0.3.10   # optional — API works without it (mock mode)
+pydantic>=2.7.0
+python-dotenv>=1.0.1
+
+# backend.py (subprocess bridge) — no extra deps needed beyond the above

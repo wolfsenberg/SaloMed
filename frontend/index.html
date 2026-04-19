@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0c1a24" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>LusogChain</title>
+  <title>SaloMed</title>
   <!-- Favicon: ECG heartbeat on dark background -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c1a24'/%3E%3Cpath d='M2 16h6l3-9 5 18 3-9h11' stroke='%232dd4bf' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
   <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c1a24'/%3E%3Cpath d='M2 16h6l3-9 5 18 3-9h11' stroke='%232dd4bf' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
@@ -1043,7 +1043,7 @@
       return `<div class="nav">
         <div class="nav-left" onclick="disconnect()" style="cursor:pointer" title="Go to home">
           <div class="nav-mark">${HEART_SVG}</div>
-          <span class="nav-brand">LusogChain</span>
+          <span class="nav-brand">SaloMed</span>
           <span class="nav-chip">Soroban · Testnet</span>
         </div>
         ${S.wallet ? `<div class="nav-right">
@@ -1276,7 +1276,7 @@
       const globalIdx   = S.records.indexOf(r);
 
       const receiptText = [
-        'LusogChain — On-Chain Hospital Receipt',
+        'SaloMed — On-Chain Hospital Receipt',
         '─'.repeat(40),
         'Record ID   : ' + r.id,
         'Service     : ' + r.service,
