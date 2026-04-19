@@ -1,4 +1,4 @@
-# SaloMed
+# SaloMed: Your Health Alkansya
 
 > **The Problem: Ang sakit na nga, mas masakit pa sa bulsa.**
 >
@@ -8,13 +8,14 @@
 >
 > This issue extends to remittances as well. When a family member sends money specifically for healthcare—whether it's an OFW abroad or an older sibling working in Manila—there is always the lingering fear of funds being misspent. **Pampa-checkup sana, pero nabili ng luho.** The sender has no guarantee that the money was actually used for medicine.
 
-💡 **The Solution: Enter SaloMed (Your Digital Health Alkansya)**
+💡 **The Solution: Enter SaloMed: Your Health Alkansya**
 
 SaloMed is a purpose-built digital health alkansya (piggy bank). It functions just like the e-wallets we use every single day, but with one massive difference: the money you put in here is strictly locked and can only be spent on healthcare.
 
 Think of it as the ultimate discipline tool for your health savings. We give you a super familiar, frictionless e-wallet experience, but quietly empower it with an unbreakable layer of smart contracts running on the Stellar Network.
 
 **Live App:** [https://salomedhealthalkansya.vercel.app/](https://salomedhealthalkansya.vercel.app/)
+**Pitch Document:** [Google Docs](https://docs.google.com/document/d/134i9LdSE-X0jaV2Nr0X9SSptM7tY4yRtdCkYO2t2260/edit?usp=sharing)
 
 ---
 
