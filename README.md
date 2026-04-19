@@ -160,14 +160,17 @@ SaloMed is more than an e-wallet; it's a **strictly-locked health escrow**.
 
 ### Smart Contract
 ```bash
-# Build
+# Build the contract
 soroban contract build
 
-# Test
+# Execute unit and integration tests
 cargo test
 
-# Deploy to testnet
-soroban contract deploy --wasm target/wasm32-unknown-unknown/release/salomed.wasm --source <your-identity> --network testnet
+# Deploy to Stellar Testnet
+soroban contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/salomed.wasm \
+  --source <your-identity> \
+  --network testnet
 ```
 
 ### Backend Setup
@@ -185,15 +188,48 @@ cd frontend
 npm install
 npm run dev
 ```
-Update your `.env.local` with `NEXT_PUBLIC_API_URL` pointing to the FastAPI server.
+Update `.env.local` to point `NEXT_PUBLIC_API_URL` to the FastAPI instance.
 
 ### Sample CLI Invocations
-```bash
-# Fetch vault data for an address
-soroban contract invoke --id CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS --source <identity> --network testnet -- get_vault --patient <G_ADDRESS>
 
-# Deposit remittance (mock)
-soroban contract invoke --id CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS --source <identity> --network testnet -- deposit_remittance --from <S_ADDRESS> --beneficiary <G_ADDRESS> --amount 100000000
+Transactions on SaloMed require interaction with the smart contract via the Stellar CLI. The contract ID for the current Testnet deployment is `CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS`.
+
+```bash
+# Fetch vault data: balance, SaloPoints, and credit tier
+soroban contract invoke \
+  --id CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS \
+  --network testnet \
+  -- get_vault \
+  --patient <PATIENT_ADDRESS>
+
+# Deposit health remittance: OFW locks USDC (in stroops) into a loved one's vault
+soroban contract invoke \
+  --id CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS \
+  --source ofw_identity \
+  --network testnet \
+  -- deposit_remittance \
+  --ofw <OFW_ADDRESS> \
+  --beneficiary <PATIENT_ADDRESS> \
+  --amount 1000000000
+
+# Pay medical bill: Atomic settlement from vault to a whitelisted hospital
+soroban contract invoke \
+  --id CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS \
+  --source patient_identity \
+  --network testnet \
+  -- pay_hospital \
+  --patient <PATIENT_ADDRESS> \
+  --hospital <HOSPITAL_ADDRESS> \
+  --amount 500000000
+
+# Whitelist hospital (Admin only)
+soroban contract invoke \
+  --id CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS \
+  --source admin_identity \
+  --network testnet \
+  -- whitelist_hospital \
+  --admin <ADMIN_ADDRESS> \
+  --hospital <HOSPITAL_ADDRESS>
 ```
 
 ---
