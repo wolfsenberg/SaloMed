@@ -194,8 +194,11 @@ def invoke_contract(*fn_and_args: str, read_only: bool = False) -> Any:
     "u32:<n>" for u32 fields. Omitting the type causes silent simulation failures
     where the CLI returns exit 0 but no state is written on-chain.
     """
+    import shutil
+    stellar_bin = shutil.which("stellar") or "./stellar"
+    
     cmd = [
-        "stellar", "contract", "invoke",
+        stellar_bin, "contract", "invoke",
         "--id",      CONTRACT_ID,
         "--source",  SOURCE,
         "--network", NETWORK,
