@@ -16,6 +16,8 @@ Think of it as the ultimate discipline tool for your health savings. We give you
 
 **Live App:** [https://salomedhealthalkansya.vercel.app/](https://salomedhealthalkansya.vercel.app/)
 
+**Video Demo:** [Google Drive](https://drive.google.com/file/d/1FdqfCqWRw6hjVrcqbt7UpLAgSdgnlXAR/view?usp=sharing)
+
 **Pitch Document:** [Google Docs](https://docs.google.com/document/d/134i9LdSE-X0jaV2Nr0X9SSptM7tY4yRtdCkYO2t2260/edit?usp=sharing)
 
 ---
@@ -130,6 +132,7 @@ SaloMed/
 ---
 
 ## Demo Flow
+> 📺 **Watch the Demo:** [Video Link](https://drive.google.com/file/d/1FdqfCqWRw6hjVrcqbt7UpLAgSdgnlXAR/view?usp=sharing)
 
 Experience the SaloMed lifecycle in 5 easy steps:
 
@@ -137,7 +140,7 @@ Experience the SaloMed lifecycle in 5 easy steps:
 2.  **The Top-Up**: Funding your vault is seamless. You can send XLM/USDC directly, or use our **GCash Bridge** simulation to "top up" your health savings.
 3.  **Provider Verification**: Select a whitelisted hospital or pharmacy. SaloMed verifies the provider's Stellar address before allowing any transaction.
 4.  **Atomic Payment**: Confirm the payment. The smart contract ensures funds are only released to whitelisted healthcare providers. If your balance is low, the UI will suggest a **Micro-Loan** or a **Top-Up**. 
-5.  **Growth & History**: Every payment earns you **SaloPoints**, moving you from Bronze to Gold tiers, unlocking lower interest rates for future loans.
+5.  **Growth & History**: Every payment earns you **SaloPoints**, moving you from Bronze to Gold tiers. All transactions are synced between **LocalStorage** (for instant UI feedback) and **Stellar Horizon** (for permanent persistence).
 
 ---
 
@@ -192,6 +195,18 @@ npm install
 npm run dev
 ```
 Update `.env.local` to point `NEXT_PUBLIC_API_URL` to the FastAPI instance.
+
+### Mandatory Environment Variables
+
+For a successful production deployment (Render/Vercel), ensure the following are set:
+
+| Variable | Scope | Description |
+|---|---|---|
+| `SALOMED_SIGNER_SECRET` | Backend | **Critical**: The Stellar Secret Key (S...) used to sign top-up transactions. |
+| `FRONTEND_ORIGIN` | Backend | Allowed CORS origins (e.g., `https://your-app.vercel.app`). |
+| `ADMIN_ADDRESS` | Backend | The public key (G...) matching the signer secret. |
+| `NEXT_PUBLIC_API_URL` | Frontend | Your deployed FastAPI URL (ensure it starts with `https://`). |
+| `DEMO_FALLBACK` | Backend | Set to `true` to enable mock responses if Stellar CLI is unavailable. |
 
 ### Sample CLI Invocations
 
