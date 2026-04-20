@@ -72,6 +72,9 @@ export async function gcashTopUp(
       gcash_reference: `GC-${Date.now()}` // Mock reference
     }),
   });
+  if (res.status === 404) {
+    throw new Error(`GCash endpoint not found (404). URL: ${API_URL}/api/gcash/cash-in`);
+  }
   return handleResponse<GCashTopUpResult>(res);
 }
 
