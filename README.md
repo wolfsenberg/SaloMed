@@ -101,20 +101,21 @@ SaloMed creates a win-win-win ecosystem for the Filipino healthcare landscape.
 ---
 
 ## Architecture & Structure
-
-SaloMed follows a hybrid architecture for a frictionless and secure experience:
+SaloMed follows a high-resiliency **Hybrid Sync Architecture** to ensure the app remains functional even during backend processing delays:
 
 ```text
        [ User / Wallet ]
                ↓
-    [ Next.js Web Frontend ] <————> [ Soroban Smart Contract ]
+    [ Next.js Web Frontend ] <————> [ Stellar Horizon / RPC ]
                ↓                            ↑
-     [ FastAPI Backend ] ———————————————————/
+      [ FastAPI Backend ] ———————————————————/
 ```
 
-- **Frontend**: The primary UI built with Next.js 14, handling user interaction and wallet signing.
-- **Backend**: A middleware bridge using FastAPI for off-chain tasks and GCash simulations.
-- **On-Chain**: The source of truth for funds and escrow logic via Soroban Smart Contracts.
+*   **Frontend**: Built with Next.js 14. Directly queries **Stellar Horizon** for real-time balance and transaction history to ensure 100% data accuracy.
+*   **Backend**: Acts as a bridge for "Mock Fiat" operations. Uses a **Direct Signer Logic** (`topup-legacy`) to fund wallets instantly without relying on heavy server-side CLI dependencies.
+*   **Auto-Sync Engine**: The UI implements a dual-layer sync:
+    *   **Event-Driven**: Instantly refreshes balance after any successful payment or padala.
+    *   **Polling**: Directly queries the blockchain every 20 seconds to catch inbound deposits or external transfers.
 
 ### Directory Structure
 ```
@@ -132,7 +133,7 @@ SaloMed/
 ---
 
 ## Demo Flow
-> 📺 **Watch the Demo:** [Video Link](https://drive.google.com/file/d/1FdqfCqWRw6hjVrcqbt7UpLAgSdgnlXAR/view?usp=sharing)
+> 📺 **Watch the Demo:** [Google Drive](https://drive.google.com/file/d/1FdqfCqWRw6hjVrcqbt7UpLAgSdgnlXAR/view?usp=sharing)
 
 Experience the SaloMed lifecycle in 5 easy steps:
 
@@ -207,6 +208,8 @@ For a successful production deployment (Render/Vercel), ensure the following are
 | `ADMIN_ADDRESS` | Backend | The public key (G...) matching the signer secret. |
 | `NEXT_PUBLIC_API_URL` | Frontend | Your deployed FastAPI URL (ensure it starts with `https://`). |
 | `DEMO_FALLBACK` | Backend | Set to `true` to enable mock responses if Stellar CLI is unavailable. |
+
+---
 
 ### Sample CLI Invocations
 
