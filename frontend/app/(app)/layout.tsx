@@ -79,6 +79,39 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
     finally { setLoadingVault(false); }
   }, [address]);
 
+  // ── Auto-sync vault balance ───────────────────────────────────────────────
+  // 1. Poll Horizon directly every 20 seconds so the balance stays fresh
+  //    even if onSuccess doesn't fire (e.g. backend takes too long).
+  // 2. Also listen for the salomed_tx_update custom event dispatched by
+  //    GCashModal/other transaction components for an instant refresh.
+  useEffect(() => {
+    if (!address) return;
+
+    // Immediate refresh whenever a transaction is recorded
+    const onTxUpdate = (e: Event) => {
+      const addr = (e as CustomEvent).detail?.address;
+      // Refresh if the event is for our address or address is unspecified
+      if (!addr || addr === address.toUpperCase()) {
+        refreshVault(address);
+      }
+    };
+    window.addEventListener('salomed_tx_update', onTxUpdate);
+
+    // Also refresh on storage events (cross-tab)
+    const onStorage = () => refreshVault(address);
+    window.addEventListener('storage', onStorage);
+
+    // Poll every 20 seconds — directly queries Horizon so no backend needed
+    const POLL_INTERVAL_MS = 20_000;
+    const pollId = setInterval(() => refreshVault(address), POLL_INTERVAL_MS);
+
+    return () => {
+      window.removeEventListener('salomed_tx_update', onTxUpdate);
+      window.removeEventListener('storage', onStorage);
+      clearInterval(pollId);
+    };
+  }, [address, refreshVault]);
+
   useEffect(() => {
     fetch(`${API_URL}/api/gcash-rate`)
       .then(r => r.json())
