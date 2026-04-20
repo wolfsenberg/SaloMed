@@ -112,26 +112,54 @@ export async function getVault(patientAddress: string): Promise<HealthVault> {
     // fall through to Soroban fallback
   }
 
-  // Fallback: try the old Soroban get_vault endpoint
+  // Fallback 2: try the old Soroban get_vault endpoint
   try {
     const res = await fetch(
       `${API_URL}/api/vault/balance?patient_address=${encodeURIComponent(patientAddress)}`,
     );
-    if (!res.ok) return EMPTY_VAULT;
-    const data: BackendVaultResponse = await res.json();
-    const tierRaw = data.credit_tier ?? 'Bronze';
-    const credit_tier = (['Bronze', 'Silver', 'Gold'].includes(tierRaw)
-      ? tierRaw
-      : 'Bronze') as HealthVault['credit_tier'];
-    return {
-      balance:     BigInt(data.balance_stroops ?? 0),
-      salo_points: Number(data.salo_points ?? 0),
-      credit_tier,
-    };
+    if (res.ok) {
+      const data: BackendVaultResponse = await res.json();
+      const tierRaw = data.credit_tier ?? 'Bronze';
+      const credit_tier = (['Bronze', 'Silver', 'Gold'].includes(tierRaw)
+        ? tierRaw
+        : 'Bronze') as HealthVault['credit_tier'];
+      return {
+        balance:     BigInt(data.balance_stroops ?? 0),
+        salo_points: Number(data.salo_points ?? 0),
+        credit_tier,
+      };
+    }
   } catch {
-    return EMPTY_VAULT;
+    // fall through to direct Horizon fallback
   }
+
+  // Fallback 3: Query Stellar Horizon directly (bypasses backend entirely)
+  // This ensures the wallet balance is always visible even if the backend
+  // is running an older version without /api/balance or /api/vault/balance.
+  try {
+    const horizonRes = await fetch(
+      `https://horizon-testnet.stellar.org/accounts/${encodeURIComponent(patientAddress)}`,
+    );
+    if (horizonRes.ok) {
+      const data = await horizonRes.json();
+      const balances: Array<{ asset_type: string; balance: string }> = data.balances ?? [];
+      const nativeBal = balances.find(b => b.asset_type === 'native');
+      const xlm = parseFloat(nativeBal?.balance ?? '0');
+      const stroops = BigInt(Math.floor(xlm * 10_000_000));
+      console.info('[getVault] Backend unavailable — loaded balance directly from Horizon.');
+      return {
+        balance:     stroops,
+        salo_points: 0,
+        credit_tier: 'Bronze',
+      };
+    }
+  } catch {
+    // Account not funded or Horizon unreachable
+  }
+
+  return EMPTY_VAULT;
 }
+
 
 /**
  * Submit a signed XDR to Horizon (native XLM payments, NOT Soroban txs).
