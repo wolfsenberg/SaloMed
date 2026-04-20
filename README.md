@@ -10,7 +10,8 @@
 
 ## **The Solution: Enter SaloMed: Your Health Alkansya**
 
-<img width="6400" height="2400" alt="salomed_banner" src="https://github.com/user-attachments/assets/5fa5d166-b776-4d9a-9cab-8996c965bd1b" />
+<img width="6400" height="2400" alt="salomed_banner" src="https://github.com/user-attachments/assets/aef0d074-76c7-4bd5-82eb-9bedeb4f9ac4" />
+
 
 
 SaloMed is a purpose-built digital health alkansya (piggy bank). It functions just like the e-wallets we use every single day, but with one massive difference: the money you put in here is strictly locked and can only be spent on healthcare.
