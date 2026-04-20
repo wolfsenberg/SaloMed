@@ -26,7 +26,7 @@ Think of it as the ultimate discipline tool for your health savings. We give you
 
 ### Table of Contents
 *   [Key Features](#key-features)
-*   [Target Market & Benefits](#target-market--benefits)
+*   [The Vision: Why Philippines? Why Now?](#the-vision-why-philippines-why-now)
 *   [Tech Stack](#tech-stack)
 *   [Smart Contract](#smart-contract)
 *   [Architecture & Structure](#architecture--structure)
@@ -39,35 +39,43 @@ Think of it as the ultimate discipline tool for your health savings. We give you
 
 ## Key Features
 
-### 1. Health Vault (The Alkansya)
-The core of SaloMed is an escrow vault for a single user. Users save funds in a decentralized vault protected by a smart contract. These funds are reserved for health emergencies, ensuring financial readiness when medical needs arise.
+### 1. Purpose-Bound Savings (The "Lock" Feature)
+When you fund your SaloMed Vault, that money is secured and untouchable for casual spending. You cannot withdraw it to buy concert tickets or go shopping. It can exclusively be transacted at whitelisted partner hospitals, clinics, and pharmacies. When an emergency actually happens, you have absolute peace of mind knowing the budget is 100% intact and ready to use.
 
-### 2. Direct-to-Hospital Payments
-Pay the clinical gap directly to whitelisted hospitals and pharmacies using Stellar. Payments are atomic and near-instant, generating permanent on-chain receipts for every transaction.
+### 2. Familiarity & "Zero-Crypto Anxiety"
+We intentionally designed SaloMed to avoid alienating Filipinos with complicated tech workflows. It feels exactly like the daily finance apps they are already accustomed to.
 
-### 3. SaloPoints and Micro-Loans
-Every successful saving or payment transaction earns the user SaloPoints.
-*   **Credit Tiers**: Accumulating points moves users through Bronze, Silver, and Gold tiers.
-*   **Emergency Loans**: Users can apply for micro-loans based on their current credit tier if their vault balance is insufficient to cover a medical bill.
+*   **Recognizable Funding**: We leverage the familiarity of leading local e-wallets, allowing users to effortlessly top up their vault or send funds in just a few taps.
+*   **Scan-to-Pay**: At the hospital checkout counter? Just open the SaloMed app, select "Scan QR," and pay the exact amount point-blank. Kung kaya mong mag-scan sa sari-sari store, kayang-kaya mong gamitin ang SaloMed.
+*   **Local Currency Display**: While powered by the Stellar network, the platform maintains a highly accessible interface. Users can dynamically toggle their balance between Philippine Pesos (PHP) and XLM, with all complex blockchain operations abstracted seamlessly in the background.
 
-### 4. Health Padala (Remittance)
-Designed for OFWs and family members abroad. Send health-specific remittances directly into a loved one's SaloMed Vault. This ensures that the remittance is securely locked and reserved strictly for medical expenses.
+### 3. The Ultimate "Health Pasaload" (Local & Global Padala)
+SaloMed completely redesigns how we support our families. While it is highly effective for OFWs wanting to ensure their remittances are spent properly, its utility is not limited to them. It works just like the uniquely Filipino concept of Pasaload.
+
+Need to instantly send medicine money to your sibling in the province? Just padala directly to their SaloMed Vault! Because the remittance is Purpose-Bound, you are 100% certain it will only be spent at a hospital or pharmacy. You get guaranteed transparency, whether you're sending from Dubai, Makati, or the next town over.
+
+### 4. Powered by Stellar: Fast, Cheap, and Ultra-Safe
+Because we built SaloMed on the Stellar blockchain, we get to leverage its absolute best features. Transactions settle in just seconds, and the network fees are practically non-existent. Most importantly, every single transaction is permanently intact and safe. Because it exists on a blockchain, every padala and every hospital payment is permanently and transparently recorded on an immutable ledger. No missing funds, no accounting blind spots—just unbreakable, uncompromisable security protecting your hard-earned health savings.
+
+### 5. SaloPoints & Micro-Loans (Gap Funding)
+To reward financial discipline, every time a user pays a healthcare provider using SaloMed, they earn SaloPoints as cashback. But what if the hospital bill exceeds the savings inside the vault? SaloMed features a highly accessible Micro-Loan system. Because your entire healthcare payment history is reliably recorded on-chain, you can instantly apply for short-term Gap Funding to quickly clear the remaining hospital balance. Over time, maintaining a healthy stash of SaloPoints unlocks significantly cheaper interest rates!
 
 ---
 
-## Target Market & Benefits
+## The Vision: Why Philippines? Why Now?
 
-SaloMed creates a win-win-win ecosystem for the Filipino healthcare landscape.
+SaloMed is born out of a critical need to bridge the gap between digital financial convenience and long-term medical security in the Philippines.
 
-### Target Market
-*   **OFW Families**: Ensuring remittances are spent exactly where they are needed.
-*   **Unbanked Filipinos**: Providing a simple, mobile-first entry into formal health savings.
-*   **Healthcare Providers**: Hospitals and pharmacies looking for faster, atomic settlement.
+### The Problem of "Out-of-Pocket" Healthcare
+In the Philippines, nearly half of healthcare spending is paid "out-of-pocket." Most families are one major illness away from falling back into poverty. SaloMed provides a safety net that traditional banking and e-wallets cannot: **Condition-based Saving.**
 
-### Key Benefits
-*   **For Users**: Forced discipline through "locked" savings, instant credit building (SaloPoints), and a safety net via micro-loans.
-*   **For Providers**: Zero risk of "check-bounce" or failed payments; funds are already escrowed. Reduced administrative time for billing and collections.
-*   **For the Economy**: Improved health outcomes by promoting proactive saving, and increased financial inclusion through the Stellar blockchain.
+### Target Market & Strategic Impact
+*   **The Transnational Filipino Family**: Designed for families separated by geography (OFWs, domestic migrants). It solves the "trust gap" in remittances, ensuring that medical funds stay in the vault until needed by a healthcare provider.
+*   **The Unbanked and Under-HMO**: For millions who do not have access to private health insurance (HMOs), SaloMed acts as a self-funded, community-backed insurance layer.
+*   **Healthcare Providers**: Hospitals and pharmacies benefit from instant, atomic settlement with zero credit risk.
+
+### Why it Matters Today
+As the Philippines undergoes a digital payment revolution, the ease of spending has increased, but the discipline to save has not. SaloMed uses the Stellar blockchain to turn digital currency into **purposeful capital**. By preventing medical debt, we help Filipino families build generational wealth rather than generational debt.
 
 ---
 
