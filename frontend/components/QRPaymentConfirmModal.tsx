@@ -7,6 +7,9 @@ import {
   Loader2, AlertCircle, ShieldCheck, QrCode,
 } from 'lucide-react';
 
+import { payHospital, calcPayment } from '@/lib/contract';
+import { saveTx } from '@/lib/transactions';
+
 /** Shape encoded inside a SALOMED: QR code. */
 export interface SaloMedQRPayload {
   patient: string;
@@ -64,18 +67,22 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
     setError(null);
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_URL}/api/qrph/pay`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          patient_address: payload.patient,
-          hospital_id:     payload.hospital,
-          amount_usdc:     payload.amount_usdc,
-        }),
+      const hash = await payHospital(payload.patient, payload.hospital, payload.amount_usdc);
+      setTxHash(hash);
+      
+      const breakdown = calcPayment(payload.amount_usdc, payload.provider_type);
+      saveTx(payload.patient, {
+        type: 'payment',
+        amountXlm: payload.amount_usdc,
+        amountPhp: payload.amount_usdc * phpRate,
+        providerName: payload.provider_name || undefined,
+        providerType: payload.provider_type,
+        payFrom: 'vault',
+        ptsEarned: breakdown.ptsEarned,
+        txHash: hash,
+        status: 'success',
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? 'Payment failed');
-      setTxHash(data.tx_result ?? null);
+
       setDone(true);
       setTimeout(onSuccess, 2500);
     } catch (e: unknown) {

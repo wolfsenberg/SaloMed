@@ -14,7 +14,7 @@ interface Props {
   onSwitchTab: (tab: any) => void;
 }
 
-import { calcPadala } from '@/lib/contract';
+import { calcPadala, sendPadala } from '@/lib/contract';
 import { saveTx } from '@/lib/transactions';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
@@ -60,8 +60,8 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
   const savingsBalance = ofwAddress && vault ? Number(vault.salo_points) / 50 : 0;
   const activeBalance = payFrom === 'vault' ? vaultXlm : savingsBalance;
   
-  // GCash recipient → input is PHP; Stellar → XLM or PHP toggle
-  const isPhpMode = recipientMethod === 'gcash' || showPhp;
+  // User can toggle between XLM and PHP input modes
+  const isPhpMode = showPhp;
 
   const parsedXlm = isPhpMode
     ? (parseFloat(amount) || 0) / phpRate
@@ -90,47 +90,58 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
     setError(null);
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_URL}/api/gcash/cash-in`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          beneficiary_address: resolvedAddress,
-          amount_php: parsedPhp,
-          gcash_reference: `${recipientMethod === 'gcash' ? 'GCASH' : 'XLM'}-PADALA-${Date.now()}`,
-          sender_address: ofwAddress ?? undefined,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? 'Padala failed');
+      let hash = '';
 
-      if (ofwAddress && pointsEarned > 0) {
-        await fetch(`${API_URL}/api/admin/award-points`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ patient_address: ofwAddress, points: pointsEarned }),
-        }).catch(() => { });
-      }
+      // REAL ON-CHAIN SIGNING via Freighter for both GCash and Stellar methods
+      hash = await sendPadala(ofwAddress, resolvedAddress, parsedXlm);
 
-      setTxHash(data.tx_result ?? null);
+      setTxHash(hash);
       if (ofwAddress) {
-        saveTx(ofwAddress, {
+        const sender = ofwAddress.toUpperCase();
+        const recipient = (recipientMethod === 'stellar' ? beneficiary.trim() : resolvedAddress).toUpperCase();
+
+        const senderLabel = sender.slice(0, 6) + '…' + sender.slice(-4);
+        const recipientLabel = recipientMethod === 'gcash'
+          ? gcashNumber
+          : recipient.slice(0, 6) + '…' + recipient.slice(-4);
+
+        // 1. Log for Sender (The current user)
+        saveTx(sender, {
           type: 'padala',
           amountXlm: parsedXlm,
           amountPhp: parsedPhp,
           recipientMethod,
-          recipientLabel: recipientMethod === 'gcash'
-            ? gcashNumber
-            : beneficiary.slice(0, 6) + '…' + beneficiary.slice(-4),
+          recipientLabel,
           payFrom,
           ptsEarned: pointsEarned,
-          txHash: data.tx_result ?? undefined,
+          txHash: hash || undefined,
           status: 'success',
+          direction: 'sent',
         });
+
+        // 2. Log for Recipient (If Stellar)
+        if (recipientMethod === 'stellar') {
+          const receivedAmountXlm = breakdown.recipientReceives;
+          const receivedAmountPhp = receivedAmountXlm * phpRate;
+
+          saveTx(recipient, {
+            type: 'padala',
+            amountXlm: receivedAmountXlm,
+            amountPhp: receivedAmountPhp,
+            recipientMethod: 'stellar',
+            recipientLabel, // Recipient's own address
+            senderLabel,    // The OFW who sent it
+            txHash: hash || undefined,
+            status: 'success',
+            direction: 'received',
+          });
+        }
       }
       setDone(true);
-      setTimeout(onSuccess, 2500);
+      setTimeout(onSuccess, 3000);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Padala failed — check backend.');
+      console.error('Padala error:', e);
+      setError(e instanceof Error ? e.message : 'Padala failed — check your wallet.');
     } finally {
       setSubmitting(false);
     }
@@ -147,10 +158,10 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
         <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center">
           <CheckCircle size={36} className="text-emerald-500" />
         </div>
-        <div className="space-y-1">
+         <div className="space-y-1">
           <h3 className="text-xl font-bold text-slate-900">Padala Sent!</h3>
           <p className="text-sm text-slate-500">
-            <span className="font-semibold text-slate-700">{parsedXlm.toFixed(4)} XLM</span>
+            <span className="font-semibold text-slate-700">{parsedXlm.toFixed(2)} XLM</span>
             {' '}(≈ ₱{parsedPhp.toFixed(2)}) credited on-chain.
           </p>
         </div>
@@ -161,8 +172,19 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
           </div>
         )}
         {txHash && (
-          <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-mono text-slate-500 break-all max-w-xs">
-            {typeof txHash === 'string' ? txHash.slice(0, 64) : JSON.stringify(txHash).slice(0, 64)}
+          <div className="space-y-2 w-full max-w-xs">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[10px] font-mono text-slate-500 break-all">
+              TX: {typeof txHash === 'string' ? txHash.slice(0, 64) : JSON.stringify(txHash).slice(0, 64)}
+            </div>
+            <a
+              href={`https://stellar.expert/explorer/testnet/account/${ofwAddress}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-1.5 text-xs text-blue-600 font-semibold hover:text-blue-700 transition-colors"
+            >
+              <Globe size={13} />
+              View on Explorer
+            </a>
           </div>
         )}
         <p className="text-xs text-slate-400">Returning to vault…</p>
@@ -311,18 +333,41 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
         
         {/* Pay from selection */}
         <div className="space-y-2">
-          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block">
-            Pay From
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block">
+              Pay From
+            </label>
+            <button
+              type="button"
+              onClick={() => { setShowPhp(v => !v); setError(null); }}
+              className="flex items-center gap-1 text-[10px] text-blue-500 hover:text-blue-700 font-bold uppercase tracking-wider"
+            >
+              <ArrowLeftRight size={10} />
+              {showPhp ? 'Show XLM Bal' : 'Show PHP Bal'}
+            </button>
+          </div>
           <div className="grid grid-cols-2 gap-2">
             {([
-              { f: 'vault' as PayFrom,   Icon: Lock,  label: 'Vault Balance', bal: `${vaultXlm.toFixed(2)} XLM` },
-              { f: 'savings' as PayFrom, Icon: Star,  label: 'Vault Savings', bal: `${savingsBalance.toFixed(2)} XLM` },
+              {
+                f: 'vault' as PayFrom,
+                Icon: Lock,
+                label: 'Vault Balance',
+                bal: showPhp
+                  ? `₱${(vaultXlm * phpRate).toFixed(2)}`
+                  : `${vaultXlm.toFixed(2)} XLM`
+              },
+              {
+                f: 'savings' as PayFrom,
+                Icon: Star,
+                label: 'Vault Savings',
+                bal: showPhp
+                  ? `₱${(savingsBalance * phpRate).toFixed(2)}`
+                  : `${savingsBalance.toFixed(2)} XLM`
+              },
             ] as const).map(({ f, Icon, label, bal }) => (
               <button key={f} type="button" onClick={() => { setPayFrom(f); setError(null); }}
-                className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all ${
-                  payFrom === f ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300'
-                }`}
+                className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all ${payFrom === f ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300'
+                  }`}
               >
                 <Icon size={15} />
                 <div className="text-left">
@@ -340,31 +385,29 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
               <Coins size={11} /> Amount
             </label>
-            {/* Toggle only for Stellar recipient (GCash is always PHP) */}
-            {recipientMethod === 'stellar' && (
-              <button
-                type="button"
-                onClick={() => { setShowPhp(v => !v); setAmount(''); setError(null); }}
-                className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 font-semibold"
-              >
-                <ArrowLeftRight size={11} />
-                {showPhp ? 'Switch to XLM' : 'Switch to PHP'}
-              </button>
-            )}
+            {/* Toggle for both GCash and Stellar methods */}
+            <button
+              type="button"
+              onClick={() => { setShowPhp(v => !v); setError(null); }}
+              className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 font-semibold"
+            >
+              <ArrowLeftRight size={11} />
+              {showPhp ? 'Switch to XLM' : 'Switch to PHP'}
+            </button>
           </div>
           <div className="relative">
             {isPhpMode && (
               <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-sm">₱</span>
             )}
-            <input
-              value={amount}
-              onChange={e => { setAmount(e.target.value); setError(null); }}
-              type="number"
-              min="0"
-              step={isPhpMode ? '1' : '0.0001'}
-              placeholder={isPhpMode ? '0.00' : '0.0000'}
-              className={`w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl ${isPhpMode ? 'pl-8' : 'px-4'} pr-16 py-3 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all`}
-            />
+              <input
+                value={amount}
+                onChange={e => { setAmount(e.target.value); setError(null); }}
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                className={`w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl ${isPhpMode ? 'pl-8' : 'px-4'} pr-16 py-3 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all`}
+              />
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
               {isPhpMode ? 'PHP' : 'XLM'}
             </span>
@@ -374,26 +417,57 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Breakdown</p>
               <div className="flex justify-between">
                 <span className="text-slate-500">You send</span>
-                <span className="font-semibold text-slate-700">{parsedXlm.toFixed(4)} XLM</span>
+                <div className="text-right">
+                  <p className="font-semibold text-slate-700">{showPhp ? `₱${parsedPhp.toFixed(2)}` : `${parsedXlm.toFixed(2)} XLM`}</p>
+                  <p className="text-[10px] text-slate-400">≈ {showPhp ? `${parsedXlm.toFixed(2)} XLM` : `₱${parsedPhp.toFixed(2)}`}</p>
+                </div>
               </div>
               <div className="flex justify-between text-slate-400">
                 <span>Platform fee ({(breakdown.feeRate * 100).toFixed(1)}%)</span>
-                <span>−{breakdown.salomedFee.toFixed(4)} XLM</span>
+                <span>{showPhp ? `₱${(breakdown.salomedFee * phpRate).toFixed(2)}` : `${breakdown.salomedFee.toFixed(2)} XLM`}</span>
               </div>
               <div className="flex justify-between text-slate-500">
                 <span>Recipient receives</span>
-                <span>{breakdown.recipientReceives.toFixed(4)} XLM</span>
+                <div className="text-right">
+                  <p className="font-semibold text-slate-700">
+                    {showPhp ? `₱${(breakdown.recipientReceives * phpRate).toFixed(2)}` : `${breakdown.recipientReceives.toFixed(2)} XLM`}
+                  </p>
+                  <p className="text-[10px] text-slate-400">
+                    ≈ {showPhp ? `${breakdown.recipientReceives.toFixed(2)} XLM` : `₱${(breakdown.recipientReceives * phpRate).toFixed(2)}`}
+                  </p>
+                </div>
               </div>
               <div className="border-t border-slate-200 pt-1.5 space-y-1">
                 <div className="flex justify-between text-blue-600 font-semibold">
                   <span className="flex items-center gap-1"><Star size={10} /> Cashback earned</span>
-                  <span>+{breakdown.ptsEarned} pts ≈ {breakdown.cashbackXlm.toFixed(4)} XLM</span>
+                  <span>
+                    +{breakdown.ptsEarned} pts ≈ {showPhp ? `₱${(breakdown.cashbackXlm * phpRate).toFixed(2)}` : `${breakdown.cashbackXlm.toFixed(2)} XLM`}
+                  </span>
                 </div>
                 <div className="flex justify-between text-emerald-600 font-bold">
                   <span>Net cost to you</span>
-                  <span>{breakdown.effectiveCost.toFixed(4)} XLM</span>
+                  <div className="text-right">
+                    <p>{showPhp ? `₱${(breakdown.effectiveCost * phpRate).toFixed(2)}` : `${breakdown.effectiveCost.toFixed(2)} XLM`}</p>
+                    <p className="text-[10px] font-medium opacity-80">
+                      ≈ {showPhp ? `${breakdown.effectiveCost.toFixed(2)} XLM` : `₱${(breakdown.effectiveCost * phpRate).toFixed(2)}`}
+                    </p>
+                  </div>
                 </div>
               </div>
+            </div>
+          ) : txHash ? (
+            <div className="bg-emerald-50 rounded-xl border border-emerald-100 p-3 space-y-1 mt-1">
+              <p className="text-emerald-600/70 text-[10px] tabular-nums break-all">
+                TX: {txHash?.slice(0, 32)}...
+              </p>
+              <a
+                href={`https://stellar.expert/explorer/testnet/tx/${txHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[11px] text-emerald-600 font-bold underline decoration-emerald-200 underline-offset-2 hover:text-emerald-700 transition-colors"
+              >
+                View on Explorer
+              </a>
             </div>
           ) : (
             <p className="text-xs text-slate-400">
@@ -418,7 +492,7 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
               <div className="space-y-1">
                 <p className="text-sm font-bold text-amber-900">Not enough balance</p>
                 <p className="text-xs text-amber-700 leading-relaxed">
-                  Your {payFrom === 'vault' ? 'vault' : 'savings'} balance ({activeBalance.toFixed(4)} XLM) is not enough to cover this padala.
+                  Your {payFrom === 'vault' ? 'vault' : 'savings'} balance ({activeBalance.toFixed(2)} XLM) is not enough to cover this padala.
                 </p>
               </div>
             </div>

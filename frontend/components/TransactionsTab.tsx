@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Receipt, ArrowDownToLine, QrCode, Globe, HandCoins,
-  Star, Building2, FlaskConical, Clock,
+  Star, Building2, FlaskConical, Clock, Loader2
 } from 'lucide-react';
-import { loadTxs, Transaction, TxType } from '@/lib/transactions';
+import { fetchHorizonTxs, loadTxs, Transaction, TxType } from '@/lib/transactions';
 
 interface Props {
   address: string | null;
@@ -45,8 +45,20 @@ function fmtDate(ts: number): string {
   );
 }
 
-function TxCard({ tx }: { tx: Transaction }) {
-  const cfg  = TYPE_CFG[tx.type];
+function TxCard({ tx, address }: { tx: Transaction, address: string }) {
+  let cfg = { ...TYPE_CFG[tx.type] };
+  
+  // Differentiate Padala direction
+  if (tx.type === 'padala' && tx.direction === 'received') {
+    cfg.label = 'Received Padala';
+    cfg.Icon = ArrowDownToLine; // Use same icon as Top-up for incoming
+    cfg.iconBg = 'bg-emerald-100';
+    cfg.iconTxt = 'text-emerald-600';
+    cfg.accent = 'bg-emerald-400';
+  } else if (tx.type === 'padala') {
+    cfg.label = 'Sent Padala';
+  }
+
   const Icon = cfg.Icon;
 
   return (
@@ -67,8 +79,8 @@ function TxCard({ tx }: { tx: Transaction }) {
             </div>
           </div>
           <div className="text-right shrink-0">
-            <p className={`text-sm font-bold ${tx.type === 'topup' ? 'text-emerald-600' : 'text-slate-800'}`}>
-              {tx.type === 'topup' ? '+' : ''}{tx.amountXlm.toFixed(4)} XLM
+            <p className={`text-sm font-bold ${ (tx.type === 'topup' || (tx.type === 'padala' && tx.direction === 'received')) ? 'text-emerald-600' : 'text-slate-800'}`}>
+              {(tx.type === 'topup' || (tx.type === 'padala' && tx.direction === 'received')) ? '+' : ''}{tx.amountXlm.toFixed(2)} XLM
             </p>
             <p className="text-[10px] text-slate-400">≈ ₱{tx.amountPhp.toFixed(2)}</p>
           </div>
@@ -85,10 +97,19 @@ function TxCard({ tx }: { tx: Transaction }) {
               {tx.payFrom === 'savings' && <span className="ml-1 text-slate-400">(from Savings)</span>}
             </p>
           )}
-          {tx.type === 'padala' && tx.recipientLabel && (
+          {tx.type === 'padala' && (
             <p className="flex items-center gap-1 truncate">
-              <Globe size={10} className="text-violet-400 shrink-0" />
-              {tx.recipientMethod === 'gcash' ? 'GCash' : 'Stellar'} — {tx.recipientLabel}
+              {tx.direction === 'received' ? (
+                <>
+                  <ArrowDownToLine size={10} className="text-emerald-400 shrink-0" />
+                  From {tx.senderLabel || 'Unknown Sender'}
+                </>
+              ) : (
+                <>
+                  <Globe size={10} className="text-violet-400 shrink-0" />
+                  To {tx.recipientMethod === 'gcash' ? 'GCash' : 'Stellar'} — {tx.recipientLabel}
+                </>
+              )}
             </p>
           )}
           {tx.type === 'topup' && tx.gcashRef && (
@@ -103,12 +124,28 @@ function TxCard({ tx }: { tx: Transaction }) {
         </div>
 
         {/* pts earned */}
-        {(tx.ptsEarned ?? 0) > 0 && (
-          <div className="flex items-center gap-1 bg-blue-50 rounded-lg px-2 py-1 w-fit">
-            <Star size={9} className="text-blue-500" />
-            <span className="text-[10px] font-bold text-blue-600">+{tx.ptsEarned} SaloPoints</span>
-          </div>
-        )}
+        <div className="flex items-center justify-between gap-2">
+          {(tx.ptsEarned ?? 0) > 0 && (
+            <div className="flex items-center gap-1 bg-blue-50 rounded-lg px-2 py-1 w-fit">
+              <Star size={9} className="text-blue-500" />
+              <span className="text-[10px] font-bold text-blue-600">+{tx.ptsEarned} SaloPoints</span>
+            </div>
+          )}
+
+          {tx.txHash && tx.txHash.length > 20 && (
+            <a
+              href={`https://stellar.expert/explorer/testnet/account/${address}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] text-blue-500 hover:text-blue-700 flex items-center gap-1 transition-colors ml-auto"
+            >
+              <Globe size={10} />
+              View on Explorer
+            </a>
+          )}
+        </div>
+
+        {/* pending badge for loan */}
 
         {/* pending badge for loan */}
         {tx.status === 'pending' && (
@@ -124,9 +161,53 @@ function TxCard({ tx }: { tx: Transaction }) {
 export default function TransactionsTab({ address, phpRate: _phpRate }: Props) {
   const [filter, setFilter] = useState<Filter>('all');
   const [txs, setTxs]       = useState<Transaction[]>([]);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
-    if (address) setTxs(loadTxs(address));
+    if (address) {
+      const addr = address.toUpperCase();
+      
+      const sync = async () => {
+        setSyncing(true);
+        // 1. Initial load from LocalStorage (Instant UI)
+        const local = loadTxs(addr);
+        setTxs(local);
+
+        // 2. Fetch from Blockchain (Horizon) to ensure persistence across devices/reloads
+        const remote = await fetchHorizonTxs(addr);
+
+        // 3. Merge & De-duplicate
+        setTxs(current => {
+          const combined = [...current];
+          remote.forEach(rtx => {
+            // Check if this blockchain record already exists in our local storage
+            // We prioritize local records because they contain extra metadata (like provider name)
+            const exists = combined.some(ctx => 
+              (ctx.txHash === rtx.txHash && rtx.txHash !== undefined) || 
+              (ctx.id === rtx.id)
+            );
+            if (!exists) combined.push(rtx);
+          });
+          return combined.sort((a,b) => b.timestamp - a.timestamp);
+        });
+        setSyncing(false);
+      };
+
+      sync();
+
+      // Listen for local transaction updates (Instant)
+      const onUpdate = (e: any) => {
+        if (e.detail?.address === addr || e.type === 'storage') {
+          sync();
+        }
+      };
+      window.addEventListener('salomed_tx_update', onUpdate);
+      window.addEventListener('storage', onUpdate);
+      return () => {
+        window.removeEventListener('salomed_tx_update', onUpdate);
+        window.removeEventListener('storage', onUpdate);
+      };
+    }
   }, [address]);
 
   const filtered = filter === 'all' ? txs : txs.filter(t => t.type === filter);
@@ -152,7 +233,15 @@ export default function TransactionsTab({ address, phpRate: _phpRate }: Props) {
 
       {/* Header */}
       <div>
-        <h2 className="text-xl font-bold text-slate-900">Transaction History</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-slate-900">Transaction History</h2>
+          {syncing && (
+            <div className="flex items-center gap-1.5 text-blue-500 animate-pulse">
+              <Loader2 size={12} className="animate-spin" />
+              <span className="text-[10px] font-bold uppercase tracking-wider">Syncing...</span>
+            </div>
+          )}
+        </div>
         <p className="text-xs text-slate-400 mt-0.5">
           {address.slice(0, 6)}…{address.slice(-6)}
           {' · '}{txs.length} transaction{txs.length !== 1 ? 's' : ''}
@@ -211,7 +300,7 @@ export default function TransactionsTab({ address, phpRate: _phpRate }: Props) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.035 }}
               >
-                <TxCard tx={tx} />
+                <TxCard tx={tx} address={address} />
               </motion.div>
             ))}
           </AnimatePresence>

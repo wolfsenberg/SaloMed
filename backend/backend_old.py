@@ -11,7 +11,7 @@ The frontend calls /api/gcash/cash-in or /api/qrph/pay as if talking to a
 real payment processor.  This backend adds a realistic delay, then shells out
 to `stellar contract invoke` to execute the actual on-chain transaction.
 
-Contract : CA4CHLSYNVJHTCXIDJO4B732YZQTA4BKWUGI5OHZASLICFQOENSI7CLB
+CONTRACT_ID : CAO3K6OYB5A3VNVV3HKCSVG3ZZ442DZCDKAXG4CTSLBTN7FOYCCBRZ34
 Network  : testnet
 Source   : salomed-admin  (must be configured in ~/.config/stellar/identity/)
 
@@ -44,6 +44,19 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+# ── Stellar SDK (Python) ─────────────────────────────────────────────────────
+try:
+    from stellar_sdk import (
+        Server, Keypair, TransactionBuilder, Network, Asset, SorobanServer
+    )
+    from stellar_sdk.exceptions import BaseRequestError
+    STELLAR_SDK_OK = True
+except ImportError:
+    STELLAR_SDK_OK = False
+    print("[WARN] stellar-sdk not installed. Run: pip install stellar-sdk>=11.0.0")
+
+# USDC Testnet (Placeholder Issuer - using ADMIN_ADDRESS to ensure valid checksum)
+
 # ── dotenv (optional — fine to skip if vars are already exported) ──────────────
 try:
     from dotenv import load_dotenv
@@ -55,11 +68,14 @@ except ImportError:
 # CONFIG
 # ─────────────────────────────────────────────────────────────────────────────
 
-CONTRACT_ID   = os.getenv("CONTRACT_ID",     "CA4CHLSYNVJHTCXIDJO4B732YZQTA4BKWUGI5OHZASLICFQOENSI7CLB")
+CONTRACT_ID   = os.getenv("CONTRACT_ID",     "CAO3K6OYB5A3VNVV3HKCSVG3ZZ442DZCDKAXG4CTSLBTN7FOYCCBRZ34")
 NETWORK       = os.getenv("STELLAR_NETWORK", "testnet")
 SOURCE        = os.getenv("STELLAR_SOURCE",  "salomed-admin")
-ADMIN_ADDRESS = os.getenv("ADMIN_ADDRESS",   "")
+ADMIN_ADDRESS = os.getenv("ADMIN_ADDRESS",   "GBSXYPN2XWTJEZPLAMRIYQQVQTCJ2MEQOVOA3G73USGCMEXJ5YXPU2G7")
 PHP_PER_USDC  = float(os.getenv("PHP_PER_USDC", "56.0"))
+ADMIN_ADDRESS = os.getenv("ADMIN_ADDRESS",   "GBSXYPN2XWTJEZPLAMRIYQQVQTCJ2MEQOVOA3G73USGCMEXJ5YXPU2G7")
+PHP_PER_XLM   = float(os.getenv("PHP_PER_USDC", "56.0"))
+PHP_PER_USDC  = PHP_PER_XLM # Alias for backward compatibility
 
 # When DEMO_FALLBACK=true (default), CLI failures are silently replaced with
 # in-memory demo state so the app remains fully functional without a real
@@ -68,6 +84,18 @@ DEMO_FALLBACK = os.getenv("DEMO_FALLBACK", "true").lower() == "true"
 
 # ── In-memory demo vault state ────────────────────────────────────────────────
 # Keyed by Stellar address. Resets on server restart — acceptable for demo.
+
+# RPC and Horizon Setup
+HORIZON_URL = os.getenv("HORIZON_URL", "https://horizon-testnet.stellar.org")
+RPC_URL     = os.getenv("RPC_URL",     "https://soroban-testnet.stellar.org")
+SIGNER_SECRET = os.getenv("SALOMED_SIGNER_SECRET", "") # Used ONLY for system-signed top-ups
+
+if STELLAR_SDK_OK:
+    horizon_server = Server(HORIZON_URL)
+    rpc_server     = SorobanServer(RPC_URL)
+else:
+    horizon_server = None  # type: ignore
+    rpc_server     = None  # type: ignore
 
 _demo_vaults: dict[str, dict] = {}
 
@@ -124,12 +152,20 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+# Build the list of allowed origins from environment variables
+origins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3000",
+]
+env_origins = os.getenv("FRONTEND_ORIGIN", "")
+if env_origins:
+    # Support comma-separated origins e.g. "https://myapp.vercel.app,https://another.com"
+    origins.extend([o.strip() for o in env_origins.split(",") if o.strip()])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        os.getenv("FRONTEND_ORIGIN", ""),
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -685,21 +721,40 @@ async def get_vault_balance(
 ):
     """
     Calls `get_vault` on the Soroban contract and returns the patient's:
-    - USDC balance (stroops + human-readable)
+    - XLM balance (stroops + human-readable)
     - SaloPoints
     - Credit tier (Bronze / Silver / Gold)
-
-    CLI equivalent:
-    ```
-    stellar contract invoke --id <CONTRACT> --source salomed-admin --network testnet
-      -- get_vault --patient <ADDRESS>
-    ```
     """
-    # _demo_vaults is the single source of truth.
-    # All write operations (top-up, payment, padala) always update it regardless
-    # of whether the on-chain CLI call succeeded — so this is always accurate.
-    # REAL: on-chain state exists when CLI calls succeed; SIMULATED: demo state
-    # is always in sync and used for display.
+    # 1. Try to fetch real on-chain state first
+    try:
+        raw_vault = invoke_contract("get_vault", "--patient", patient_address, read_only=True)
+        if raw_vault and isinstance(raw_vault, dict):
+            balance_stroops = int(raw_vault.get("balance", "0"))
+            salo_points     = int(raw_vault.get("salo_points", 0))
+            credit_tier     = _parse_credit_tier(raw_vault.get("credit_tier", "Bronze"))
+
+            # CRITICAL: Always sync our local cache if we have a successful on-chain read
+            d = _vault(patient_address)
+            d["balance"]     = balance_stroops
+            d["salo_points"] = salo_points
+            d["credit_tier"] = credit_tier
+            
+            print(f"[ON-CHAIN SYNC] {patient_address[:8]}: {balance_stroops} stroops")
+
+            return VaultResponse(
+                patient_address=patient_address,
+                balance_stroops=balance_stroops,
+                balance_usdc=stroops_to_usdc(balance_stroops),
+                salo_points=salo_points,
+                credit_tier=credit_tier,
+                raw=raw_vault,
+            )
+    except Exception as e:
+        print(f"[ON-CHAIN ERROR] Failed to fetch vault for {patient_address[:8]}: {e}")
+        if not DEMO_FALLBACK:
+            raise
+
+    # 2. Fallback to demo state
     demo = _vault(patient_address)
     return VaultResponse(
         patient_address=patient_address,
@@ -709,6 +764,294 @@ async def get_vault_balance(
         credit_tier=demo["credit_tier"],
         raw=demo,
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ENDPOINTS  ·  Legit Simulation Logic
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.post(
+    "/api/topup",
+    summary="GCash Top-Up → REAL XLM sent by backend (Auto-Activation)",
+    tags=["Demo"],
+)
+async def topup(
+    patient_address: str = Query(..., description="User's Stellar address (G…)"),
+    amount_php: float  = Query(..., description="PHP amount to convert to XLM"),
+):
+    """
+    Architecture: Fake GCash Success → Backend signs REAL tx → user wallet gets XLM on testnet.
+
+    1. Convert PHP → XLM using PHP_PER_XLM rate.
+    2. Check if recipient account exists on Horizon.
+       - If NOT exists → CreateAccount (activates wallet + funds it).
+       - If exists     → Payment (sends XLM).
+    3. Backend signs the tx using SALOMED_SIGNER_SECRET.
+    4. Submits directly to Horizon.
+    5. Returns the real tx hash.
+    """
+    if not STELLAR_SDK_OK:
+        raise HTTPException(status_code=500, detail="stellar-sdk not installed. Run: pip install stellar-sdk>=11.0.0")
+    if not SIGNER_SECRET:
+        raise HTTPException(status_code=500, detail="SALOMED_SIGNER_SECRET not set in .env")
+
+    xlm_amount = round(amount_php / PHP_PER_XLM, 6)
+    if xlm_amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive.")
+
+    await asyncio.sleep(2)  # Simulate GCash processing delay
+
+    try:
+        kp             = Keypair.from_secret(SIGNER_SECRET)
+        source_account = horizon_server.load_account(kp.public_key)
+
+        # Check if recipient account exists on testnet
+        exists = True
+        try:
+            horizon_server.load_account(patient_address)
+        except Exception:
+            exists = False
+
+        builder = TransactionBuilder(
+            source_account,
+            network_passphrase=Network.TESTNET_NETWORK_PASSPHRASE,
+            base_fee=1000,
+        ).set_timeout(30)
+
+        if not exists:
+            # Account needs to be created — minimum 1 XLM reserve + send amount
+            starting_bal = str(max(2.0, xlm_amount))
+            builder.append_create_account_op(
+                destination=patient_address,
+                starting_balance=starting_bal,
+                source=kp.public_key,
+            )
+            xlm_funded = float(starting_bal)
+            msg = f"GCash top-up: wallet ACTIVATED and funded with {xlm_funded} XLM (testnet)."
+        else:
+            builder.append_payment_op(
+                destination=patient_address,
+                asset=Asset.native(),
+                amount=str(xlm_amount),
+                source=kp.public_key,
+            )
+            xlm_funded = xlm_amount
+            msg = f"GCash top-up: sent {xlm_amount} XLM to wallet (testnet)."
+
+        tx = builder.build()
+        tx.sign(kp)
+        response = horizon_server.submit_transaction(tx)
+
+        tx_hash = response.get("hash", response.get("id", "unknown"))
+        print(f"[TOPUP OK] {patient_address[:8]}… ← {xlm_funded} XLM | tx: {tx_hash}")
+
+        # Keep demo state in sync
+        _demo_deposit(patient_address, usdc_to_stroops(xlm_funded))
+
+        return {
+            "success":   True,
+            "message":   msg,
+            "tx_hash":   tx_hash,
+            "xlm_sent":  xlm_funded,
+            "amount_php": amount_php,
+            "recipient": patient_address,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        detail = str(e)
+        # Extract Horizon error detail if present
+        if hasattr(e, 'extras') and e.extras:  # type: ignore
+            try:
+                detail = str(e.extras.get('result_codes', detail))  # type: ignore
+            except Exception:
+                pass
+        print(f"[TOPUP ERROR] {detail}")
+        raise HTTPException(status_code=500, detail=f"Top-up failed: {detail}")
+
+
+@app.post(
+    "/api/prepare-payment",
+    summary="Prepare Payment XDR — Unsigned (User → Merchant, for Freighter to sign)",
+    tags=["Demo"],
+)
+async def prepare_payment(
+    user_address:      str   = Query(..., description="Stellar address of the paying user"),
+    recipient_address: str   = Query(..., description="Stellar address of the merchant/hospital"),
+    amount_xlm:        float = Query(..., description="Amount in XLM to send"),
+):
+    """
+    Architecture: User clicks Pay → Backend builds unsigned XDR → Freighter signs → Frontend submits to Horizon.
+
+    Returns unsigned transaction XDR for the frontend to pass to Freighter.
+    The tx is a simple native XLM payment: user_address → recipient_address.
+    """
+    if not STELLAR_SDK_OK:
+        raise HTTPException(status_code=500, detail="stellar-sdk not installed on backend.")
+    if amount_xlm <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive.")
+
+    try:
+        source = horizon_server.load_account(user_address)
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="Sender wallet not found on Testnet. Please fund your account first (use GCash top-up or Stellar Friendbot)."
+        )
+
+    try:
+        tx = (
+            TransactionBuilder(
+                source,
+                network_passphrase=Network.TESTNET_NETWORK_PASSPHRASE,
+                base_fee=10000,
+            )
+            .append_payment_op(
+                destination=recipient_address,
+                asset=Asset.native(),
+                amount=str(round(amount_xlm, 7)),
+                source=user_address,
+            )
+            .set_timeout(30)
+            .build()
+        )
+        xdr = tx.to_xdr()
+        print(f"[PREPARE PAYMENT] {user_address[:8]}… → {recipient_address[:8]}… | {amount_xlm} XLM")
+        return {"success": True, "xdr": xdr, "amount_xlm": amount_xlm}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[PREPARE PAYMENT ERROR] {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post(
+    "/api/prepare-padala",
+    summary="Prepare Padala XDR — Unsigned (OFW → Beneficiary, for Freighter to sign)",
+    tags=["Demo"],
+)
+async def prepare_padala(
+    ofw_address:          str   = Query(..., description="Stellar address of the sender (OFW)"),
+    beneficiary_address:  str   = Query(..., description="Stellar address of the recipient"),
+    amount_xlm:           float = Query(..., description="Amount in XLM to send"),
+):
+    """
+    Architecture: OFW clicks Send → Backend builds unsigned XDR → Freighter signs → Frontend submits to Horizon.
+
+    Returns unsigned transaction XDR: ofw_address → beneficiary_address, native XLM.
+    """
+    if not STELLAR_SDK_OK:
+        raise HTTPException(status_code=500, detail="stellar-sdk not installed on backend.")
+    if amount_xlm <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive.")
+
+    try:
+        source = horizon_server.load_account(ofw_address)
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="Sender wallet not found on Testnet. Top up your wallet first."
+        )
+
+    try:
+        tx = (
+            TransactionBuilder(
+                source,
+                network_passphrase=Network.TESTNET_NETWORK_PASSPHRASE,
+                base_fee=10000,
+            )
+            .append_payment_op(
+                destination=beneficiary_address,
+                asset=Asset.native(),
+                amount=str(round(amount_xlm, 7)),
+                source=ofw_address,
+            )
+            .set_timeout(30)
+            .build()
+        )
+        xdr = tx.to_xdr()
+        print(f"[PREPARE PADALA] {ofw_address[:8]}… → {beneficiary_address[:8]}… | {amount_xlm} XLM")
+        return {"success": True, "xdr": xdr, "amount_xlm": amount_xlm}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[PREPARE PADALA ERROR] {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Keep the old endpoint names as aliases so nothing breaks if called
+@app.post("/api/simulate-topup", tags=["Utility"], include_in_schema=False)
+async def simulate_topup_alias(patient_address: str = Query(...), amount_php: float = Query(...)):
+    """Backward-compat alias for /api/topup."""
+    return await topup(patient_address=patient_address, amount_php=amount_php)
+
+
+@app.post("/api/prepare-spend", tags=["Utility"], include_in_schema=False)
+async def prepare_spend_alias(user_address: str = Query(...), hospital_id: str = Query(...), amount_usdc: float = Query(...)):
+    """Backward-compat alias for /api/prepare-payment."""
+    return await prepare_payment(user_address=user_address, recipient_address=hospital_id, amount_xlm=amount_usdc)
+
+
+@app.post(
+    "/api/demo/grant",
+    summary="[DEMO ONLY] Grant 10,000 XLM to a tester's WALLET (Pocket)",
+    tags=["Utility"],
+)
+async def demo_grant(patient_address: str = Query(...)):
+    """
+    On-chain grant: Admin sends 10,000 native XLM to the user's wallet.
+    This gives the user funds to test the 'Top Up' feature manually.
+    """
+    grant_amount_xlm = 10000.0
+    try:
+        cmd = [
+            "stellar", "asset", "transfer",
+            "--source", SOURCE,
+            "--network", NETWORK,
+            "--asset", "native",
+            "--to", patient_address,
+            "--amount", str(grant_amount_xlm)
+        ]
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
+        return {
+            "success": True,
+            "message": f"Successfully granted {grant_amount_xlm:,.0f} XLM to your WALLET ({patient_address[:8]}...).",
+            "note": "You can now use these funds to TOP UP your SaloMed Vault."
+        }
+    except Exception as e:
+        print(f"[FAUCET ERROR] {e}")
+        return {"success": False, "detail": str(e)}
+
+
+@app.post(
+    "/api/demo/fund-fees",
+    summary="[DEMO ONLY] Send 5 native XLM to a wallet for transaction fees",
+    tags=["Utility"],
+)
+async def fund_fees(address: str = Query(...)):
+    """
+    Simulates a small 'gas' gift. The admin sends 5 native XLM to the user.
+    This is required for new Testnet wallets to pay Soroban transaction fees.
+    """
+    try:
+        # Use stellar-sdk directly if possible, or shell out to 'stellar transfer'
+        # To keep it consistent, let's use the CLI 'stellar asset transfer'
+        cmd = [
+            "stellar", "asset", "transfer",
+            "--source", SOURCE,
+            "--network", NETWORK,
+            "--asset", "native",
+            "--to", address,
+            "--amount", "5"
+        ]
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
+        return {"success": True, "message": f"Sent 5 XLM to {address[:8]}... for fees."}
+    except Exception as e:
+        # Fallback: maybe they already have enough or Friendbot is better
+        return {"success": False, "detail": str(e)}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -805,6 +1148,50 @@ def gcash_rate():
     }
 
 
+@app.get("/api/balance", tags=["Utility"])
+async def get_native_balance(address: str = Query(..., description="Stellar address (G…)")):
+    """
+    Returns the real native XLM balance for any address by querying Horizon directly.
+    This is the source of truth for the vault balance display.
+    The frontend calls this after every top-up or payment to refresh the displayed balance.
+    """
+    if not STELLAR_SDK_OK:
+        raise HTTPException(status_code=500, detail="stellar-sdk not installed on backend.")
+    try:
+        data = horizon_server.accounts().account_id(address).call()
+        balances = data.get("balances", [])
+        xlm_bal = 0.0
+        for b in balances:
+            if b.get("asset_type") == "native":
+                xlm_bal = float(b.get("balance", 0.0))
+                break
+        # Convert XLM to stroops for consistency with VaultResponse schema
+        stroops = int(xlm_bal * 10_000_000)
+        # Also read demo vault for salo_points / tier
+        demo = _vault(address)
+        return {
+            "address":        address,
+            "xlm_balance":    xlm_bal,
+            "balance_stroops": stroops,
+            "balance_usdc":   round(xlm_bal, 6),
+            "salo_points":    demo["salo_points"],
+            "credit_tier":    demo["credit_tier"],
+            "source":         "horizon-testnet",
+        }
+    except Exception as e:
+        # If account not found on Horizon (unfunded), return zeroes
+        return {
+            "address":        address,
+            "xlm_balance":    0.0,
+            "balance_stroops": 0,
+            "balance_usdc":   0.0,
+            "salo_points":    0,
+            "credit_tier":    "Bronze",
+            "source":         "unfunded",
+            "note":           "Account not found on Testnet — fund it via GCash top-up first.",
+        }
+
+
 @app.get("/health", tags=["System"])
 def health():
     return {
@@ -812,6 +1199,7 @@ def health():
         "contract_id":    CONTRACT_ID,
         "network":        NETWORK,
         "source_account": SOURCE,
+        "stellar_sdk":    STELLAR_SDK_OK,
     }
 
 

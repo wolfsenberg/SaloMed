@@ -85,6 +85,36 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
       .catch(() => { });
   }, []);
 
+  // Persistent Connection: Restoration on page load
+  useEffect(() => {
+    // 1. Prioritize manual disconnect flag
+    const manualDisconnect = localStorage.getItem('salomed_manual_disconnect') === 'true';
+    if (manualDisconnect) return;
+
+    // 2. Try to restore from localStorage immediately for zero-flicker UI
+    const savedAddr = localStorage.getItem('salomed_address');
+    if (savedAddr) {
+      setAddress(savedAddr);
+      refreshVault(savedAddr);
+    }
+
+    // 3. Verify/Sync with Freighter in the background
+    const { getAddress } = require('@/lib/freighter');
+    getAddress().then((activeAddr: string | null) => {
+      if (activeAddr) {
+        // If Freighter is connected, ensure it's in sync
+        setAddress(activeAddr);
+        localStorage.setItem('salomed_address', activeAddr);
+        localStorage.removeItem('salomed_manual_disconnect');
+        refreshVault(activeAddr);
+      } else if (!savedAddr) {
+        // Only clear if we didn't have a saved one, to prevent flickering
+        // on slow extension loads.
+        setAddress(null);
+      }
+    });
+  }, [refreshVault]);
+
   function switchTab(next: Tab) {
     if (next === tab) return;
     const pi = TAB_ORDER.indexOf(prevTab.current);
@@ -102,9 +132,11 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
     try {
       const addr = await connectWallet();
       if (addr) {
+        localStorage.setItem('salomed_address', addr);
+        localStorage.removeItem('salomed_manual_disconnect');
         setAddress(addr);
-        await refreshVault(addr);
         setShowOnboarding(true);
+        await refreshVault(addr);
       }
     } catch (e) {
       setConnectError(e instanceof Error ? e.message : 'Could not connect to Freighter.');
@@ -114,6 +146,8 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
   }
 
   function handleDisconnect() {
+    localStorage.setItem('salomed_manual_disconnect', 'true');
+    localStorage.removeItem('salomed_address');
     setAddress(null);
     setVault(EMPTY_VAULT);
     switchTab('vault');
@@ -139,10 +173,10 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
           )}
         </AnimatePresence>
 
-        <div className={`min-h-dvh flex w-full ${forceMobile ? 'flex-col bg-slate-50 max-w-lg mx-auto shadow-2xl relative' : 'flex-col md:flex-row bg-slate-50'}`}>
+        <div className={`h-dvh flex w-full overflow-hidden ${forceMobile ? 'flex-col bg-slate-50 max-w-lg mx-auto shadow-2xl relative' : 'flex-col md:flex-row bg-slate-50'}`}>
 
           {/* Desktop Sidebar (hidden on mobile) */}
-          <aside className={`${forceMobile ? 'hidden' : 'hidden md:flex'} flex-col w-72 bg-white border-r border-slate-200 shrink-0`}>
+          <aside className={`${forceMobile ? 'hidden' : 'hidden md:flex'} flex-col w-72 bg-white border-r border-slate-200 shrink-0 h-full sticky top-0`}>
             <div className="px-6 py-6 border-b border-slate-100 flex flex-col gap-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -201,6 +235,8 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
                   </button>
                 );
               })}
+
+
             </nav>
 
 

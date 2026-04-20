@@ -41,11 +41,11 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
   }, []);
 
   const parsedPhp = parseFloat(amountPhp) || 0;
-  const xlmAmount = parsedPhp > 0 ? (parsedPhp / rate).toFixed(4) : '—';
+  const xlmAmount = parsedPhp > 0 ? (parsedPhp / rate).toFixed(2) : '—';
 
   function buildQRResult(): LocalQRResult {
     const refId  = 'SM' + Math.random().toString(36).slice(2, 10).toUpperCase();
-    const amtXlm = parseFloat((parsedPhp / rate).toFixed(6));
+    const amtXlm = parseFloat((parsedPhp / rate).toFixed(2));
     const payload =
       `00020101021226570011ph.ppmi.www0116${gcashNumber}` +
       `520400005303608540${parsedPhp.toFixed(2)}5802PH` +
@@ -69,28 +69,32 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
     if (!result) return;
     setStep('processing');
     try {
-      const res = await fetch(`${API_URL}/api/gcash/cash-in`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          beneficiary_address: beneficiaryAddress,
-          amount_php:          result.amount_php,
-          gcash_reference:     result.reference_id,
-        }),
+      const { depositToVault } = await import('@/lib/contract');
+      // The backend signs and submits the top-up using the admin keypair.
+      // No Freighter signing required — backend wallet (SALOMED_SIGNER_SECRET) sends XLM to the user.
+      const hash = await depositToVault(beneficiaryAddress, result.amount_xlm);
+      
+      setTxHash(hash);
+      saveTx(beneficiaryAddress, {
+        type:      'topup',
+        amountXlm: result.amount_xlm,
+        amountPhp: result.amount_php,
+        gcashRef:  result.reference_id,
+        txHash:    hash,
+        status:    'success',
       });
-      const data = await res.json();
-      if (res.ok) setTxHash(data.tx_result ?? null);
-    } catch { /* demo resilience — show success anyway */ }
-    setStep('done');
-    saveTx(beneficiaryAddress, {
-      type:      'topup',
-      amountXlm: result.amount_xlm,
-      amountPhp: result.amount_php,
-      gcashRef:  result.reference_id,
-      txHash:    txHash ?? undefined,
-      status:    'success',
-    });
-    setTimeout(onSuccess, 2200);
+      setStep('done');
+      setTimeout(onSuccess, 2200);
+
+    } catch (e: unknown) {
+      console.error('GCash top-up failed:', e);
+      setError(
+        e instanceof Error
+          ? e.message
+          : 'Top-up failed. Check that the backend is running and SALOMED_SIGNER_SECRET is funded on testnet.'
+      );
+      setStep('qr');
+    }
   }
 
   return (
@@ -263,10 +267,10 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                     onClick={handleSimulatePayment}
                     className="w-full py-3.5 rounded-xl bg-[#007DFF] hover:bg-blue-600 active:scale-[0.98] text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
                   >
-                    <Zap size={15} /> Pay with GCash
+                    <Zap size={15} /> Confirm GCash Payment
                   </button>
                   <p className="text-center text-xs text-slate-400">
-                    Triggers a real on-chain deposit via the backend
+                    Backend sends XLM to your wallet on Testnet — no Freighter needed
                   </p>
                 </div>
               </motion.div>
@@ -279,9 +283,10 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                 className="py-10 flex flex-col items-center gap-5"
               >
                 <Loader2 size={48} className="text-[#007DFF] animate-spin" />
-                <div className="text-center">
-                  <p className="font-bold text-slate-900">Processing Payment</p>
-                  <p className="text-xs text-slate-500 mt-1">Executing on-chain deposit…</p>
+                <div className="text-center space-y-1">
+                  <p className="font-bold text-slate-900">Processing GCash Payment</p>
+                  <p className="text-xs text-slate-500 mt-1">Backend is signing and submitting to Stellar Testnet…</p>
+                  <p className="text-xs text-slate-400">This takes 3–5 seconds</p>
                 </div>
               </motion.div>
             )}
@@ -302,15 +307,26 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                 <div>
                   <p className="text-lg font-bold text-slate-900">Payment Confirmed!</p>
                   <p className="text-sm text-slate-500 mt-1">
-                    <span className="font-semibold text-slate-700">{result.amount_xlm} XLM</span> credited to your SaloMed Vault.
+                    <span className="font-semibold text-slate-700">{result.amount_xlm.toFixed(2)} XLM</span> credited to your SaloMed Vault.
                   </p>
                 </div>
                 {txHash && (
-                  <div className="bg-slate-50 rounded-xl px-4 py-2 text-xs font-mono text-slate-400 break-all max-w-xs">
-                    {txHash.slice(0, 32)}…
+                  <div className="space-y-2">
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[10px] font-mono text-slate-400 break-all max-w-xs">
+                      TX: {txHash.slice(0, 64)}
+                    </div>
+                    <a
+                      href={`https://stellar.expert/explorer/testnet/account/${beneficiaryAddress}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-1.5 text-xs text-blue-600 font-semibold hover:text-blue-700 transition-colors"
+                    >
+                      <Zap size={13} className="text-blue-400" />
+                      View on Explorer
+                    </a>
                   </div>
                 )}
-                <div className="bg-slate-50 rounded-xl px-4 py-2 text-xs font-mono text-slate-400">
+                <div className="bg-slate-50 border border-slate-100 rounded-lg px-3 py-1.5 text-[10px] font-mono text-slate-400">
                   Ref: {result.reference_id}
                 </div>
                 <p className="text-xs text-slate-400">Returning to dashboard…</p>

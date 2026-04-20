@@ -39,52 +39,25 @@ export default function FreighterTopUpModal({ address, onClose, onSuccess }: Pro
     if (parsedXlm <= 0) { setError('Enter a positive amount.'); return; }
     setError(null);
 
-    // ── Step 1: Open Freighter and get the signed-in address ────────────────
-    setStep('connecting');
-    let walletAddress: string;
-    try {
-      walletAddress = (await connectWallet())!;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not connect to Freighter.');
-      setStep('form');
-      return;
-    }
-    setSignerAddress(walletAddress);
-
-    // ── Step 2: Backend executes deposit_remittance with admin credentials ──
-    // deposit_remittance requires a USDC token transfer from the OFW's wallet.
-    // On testnet most wallets don't hold USDC, so the admin key is used as the
-    // funder — same as the GCash path. Freighter connection proves the user's
-    // wallet identity and authorises the top-up request.
     setStep('processing');
     try {
-      const refId = `FREIGHTER-${walletAddress.slice(0, 6)}-${Date.now()}`;
-      const res = await fetch(`${API_URL}/api/gcash/cash-in`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          beneficiary_address: address,
-          amount_php:          parsedPhp,
-          gcash_reference:     refId,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? 'Top-up failed');
-
-      setTxHash(data.tx_result ?? null);
+      const { depositToVault } = await import('@/lib/contract');
+      const hash = await depositToVault(address, parsedXlm);
+      
+      setTxHash(hash);
       saveTx(address, {
         type:      'topup',
         amountXlm: parsedXlm,
         amountPhp: parsedPhp,
-        gcashRef:  refId,
-        txHash:    data.tx_result ?? undefined,
+        txHash:    hash,
         status:    'success',
       });
       setStep('done');
       setTimeout(onSuccess, 2200);
 
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Top-up failed — check backend.');
+      console.error('Top-up failed:', e);
+      setError(e instanceof Error ? e.message : 'Top-up failed — ensure you have XLM in your wallet.');
       setStep('form');
     }
   }

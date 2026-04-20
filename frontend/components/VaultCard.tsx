@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Award, CreditCard, Star, Lock, RefreshCw,
+  Award, CreditCard, Star, Lock, RefreshCw, Globe,
   TrendingUp, ShieldCheck, Link, ArrowLeftRight,
 } from 'lucide-react';
 import { HealthVault, savingsXlm } from '@/lib/contract';
@@ -58,10 +58,10 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
   const phpValue  = xlmValue * phpRate;
 
   function fmtXlm(v: number) {
-    return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+    return v.toFixed(2);
   }
   function fmtPhp(v: number) {
-    return v.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return v.toFixed(2);
   }
 
   if (!address) {
@@ -146,9 +146,20 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
           </p>
         )}
 
-        <p className="text-xs text-blue-300 font-mono mt-1 truncate">
-          {address.slice(0, 8)}…{address.slice(-8)}
-        </p>
+        <div className="flex items-center justify-between mt-1">
+          <p className="text-xs text-blue-300 font-mono truncate mr-2">
+            {address.slice(0, 8)}…{address.slice(-8)}
+          </p>
+          <a
+            href={`https://stellar.expert/explorer/testnet/account/${address}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded flex items-center gap-1 transition-colors"
+          >
+            <Globe size={10} />
+            Explorer
+          </a>
+        </div>
 
         {/* Actions row */}
         <div className="mt-4 space-y-2">
@@ -229,7 +240,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
               <TrendingUp size={12} /> Vault Savings
             </p>
             <p className="text-2xl font-bold text-slate-900 tabular-nums">
-              {savingsXlm(vault).toFixed(4)}
+              {savingsXlm(vault).toFixed(2)}
               <span className="text-base font-normal text-slate-400 ml-1.5">XLM</span>
             </p>
             <p className="text-xs text-slate-400 mt-0.5">
@@ -245,6 +256,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
           Earned from payments — use as an alternative balance when paying providers.
         </p>
       </motion.div>
+
 
       {/* Stats */}
       <motion.div variants={card} className="grid grid-cols-2 gap-3">
