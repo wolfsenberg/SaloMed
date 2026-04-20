@@ -45,8 +45,20 @@ function fmtDate(ts: number): string {
   );
 }
 
-function TxCard({ tx }: { tx: Transaction }) {
-  const cfg  = TYPE_CFG[tx.type];
+function TxCard({ tx, address }: { tx: Transaction, address: string }) {
+  let cfg = { ...TYPE_CFG[tx.type] };
+  
+  // Differentiate Padala direction
+  if (tx.type === 'padala' && tx.direction === 'received') {
+    cfg.label = 'Received Padala';
+    cfg.Icon = ArrowDownToLine; // Use same icon as Top-up for incoming
+    cfg.iconBg = 'bg-emerald-100';
+    cfg.iconTxt = 'text-emerald-600';
+    cfg.accent = 'bg-emerald-400';
+  } else if (tx.type === 'padala') {
+    cfg.label = 'Sent Padala';
+  }
+
   const Icon = cfg.Icon;
 
   return (
@@ -67,8 +79,8 @@ function TxCard({ tx }: { tx: Transaction }) {
             </div>
           </div>
           <div className="text-right shrink-0">
-            <p className={`text-sm font-bold ${tx.type === 'topup' ? 'text-emerald-600' : 'text-slate-800'}`}>
-              {tx.type === 'topup' ? '+' : ''}{tx.amountXlm.toFixed(4)} XLM
+            <p className={`text-sm font-bold ${ (tx.type === 'topup' || (tx.type === 'padala' && tx.direction === 'received')) ? 'text-emerald-600' : 'text-slate-800'}`}>
+              {(tx.type === 'topup' || (tx.type === 'padala' && tx.direction === 'received')) ? '+' : ''}{tx.amountXlm.toFixed(2)} XLM
             </p>
             <p className="text-[10px] text-slate-400">≈ ₱{tx.amountPhp.toFixed(2)}</p>
           </div>
@@ -85,10 +97,19 @@ function TxCard({ tx }: { tx: Transaction }) {
               {tx.payFrom === 'savings' && <span className="ml-1 text-slate-400">(from Savings)</span>}
             </p>
           )}
-          {tx.type === 'padala' && tx.recipientLabel && (
+          {tx.type === 'padala' && (
             <p className="flex items-center gap-1 truncate">
-              <Globe size={10} className="text-violet-400 shrink-0" />
-              {tx.recipientMethod === 'gcash' ? 'GCash' : 'Stellar'} — {tx.recipientLabel}
+              {tx.direction === 'received' ? (
+                <>
+                  <ArrowDownToLine size={10} className="text-emerald-400 shrink-0" />
+                  From {tx.senderLabel || 'Unknown Sender'}
+                </>
+              ) : (
+                <>
+                  <Globe size={10} className="text-violet-400 shrink-0" />
+                  To {tx.recipientMethod === 'gcash' ? 'GCash' : 'Stellar'} — {tx.recipientLabel}
+                </>
+              )}
             </p>
           )}
           {tx.type === 'topup' && tx.gcashRef && (
@@ -103,12 +124,28 @@ function TxCard({ tx }: { tx: Transaction }) {
         </div>
 
         {/* pts earned */}
-        {(tx.ptsEarned ?? 0) > 0 && (
-          <div className="flex items-center gap-1 bg-blue-50 rounded-lg px-2 py-1 w-fit">
-            <Star size={9} className="text-blue-500" />
-            <span className="text-[10px] font-bold text-blue-600">+{tx.ptsEarned} SaloPoints</span>
-          </div>
-        )}
+        <div className="flex items-center justify-between gap-2">
+          {(tx.ptsEarned ?? 0) > 0 && (
+            <div className="flex items-center gap-1 bg-blue-50 rounded-lg px-2 py-1 w-fit">
+              <Star size={9} className="text-blue-500" />
+              <span className="text-[10px] font-bold text-blue-600">+{tx.ptsEarned} SaloPoints</span>
+            </div>
+          )}
+
+          {tx.txHash && tx.txHash.length > 20 && (
+            <a
+              href={`https://stellar.expert/explorer/testnet/account/${address}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] text-blue-500 hover:text-blue-700 flex items-center gap-1 transition-colors ml-auto"
+            >
+              <Globe size={10} />
+              View on Explorer
+            </a>
+          )}
+        </div>
+
+        {/* pending badge for loan */}
 
         {/* pending badge for loan */}
         {tx.status === 'pending' && (
@@ -211,7 +248,7 @@ export default function TransactionsTab({ address, phpRate: _phpRate }: Props) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.035 }}
               >
-                <TxCard tx={tx} />
+                <TxCard tx={tx} address={address} />
               </motion.div>
             ))}
           </AnimatePresence>

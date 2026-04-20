@@ -23,6 +23,8 @@ export interface Transaction {
   ptsEarned?:       number;
   txHash?:          string;
   status:           'success' | 'pending';
+  direction?:       'sent' | 'received';
+  senderLabel?:     string;
 }
 
 const storageKey = (address: string) => `salomed_txs_${address}`;

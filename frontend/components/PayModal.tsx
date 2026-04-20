@@ -2,7 +2,10 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Building2, Coins, X, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
+import { Building2, Coins, X, CheckCircle, Loader2, AlertCircle, Globe } from 'lucide-react';
+
+import { payHospital, calcPayment } from '@/lib/contract';
+import { saveTx } from '@/lib/transactions';
 
 interface Props {
   patientAddress: string;
@@ -13,18 +16,18 @@ interface Props {
   onSwitchTab?: (tab: string) => void;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
-
 function isValidStellarAddress(addr: string) {
   return addr.startsWith('G') && addr.length === 56;
 }
 
-export default function PayModal({ patientAddress, amountXlm, onClose, onSuccess }: Props) {
+export default function PayModal({ patientAddress, amountXlm, vault, onClose, onSuccess, onSwitchTab }: Props) {
   const [hospitalAddress, setHospitalAddress] = useState('');
-  const [submitting, setSubmitting]           = useState(false);
-  const [error, setError]                     = useState<string | null>(null);
-  const [txHash, setTxHash]                   = useState<string | null>(null);
-  const [done, setDone]                       = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+  const [showPhp, setShowPhp] = useState(false);
+  const phpRate = 56; // demo rate
 
   const vaultBalance = vault ? Number(vault.balance) / 10_000_000 : Infinity;
   const isInsufficient = amountXlm > vaultBalance;
@@ -36,22 +39,30 @@ export default function PayModal({ patientAddress, amountXlm, onClose, onSuccess
     setError(null);
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_URL}/api/qrph/pay`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          patient_address: patientAddress,
-          hospital_id:     hospitalAddress.trim(),
-          amount_usdc:     amountXlm,
-        }),
+      // Execute REAL on-chain transaction signed by the user's Freighter wallet
+      const hash = await payHospital(patientAddress, hospitalAddress.trim(), amountXlm);
+      
+      setTxHash(hash);
+      
+      // Save to local history
+      const breakdown = calcPayment(amountXlm, 'hospital');
+      saveTx(patientAddress, {
+        type: 'payment',
+        amountXlm,
+        amountPhp: amountXlm * 56, // demo rate
+        providerName: 'Whitelisted Hospital',
+        providerType: 'hospital',
+        payFrom: 'vault',
+        ptsEarned: breakdown.ptsEarned,
+        txHash: hash,
+        status: 'success',
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? 'Payment failed');
-      setTxHash(data.tx_result ?? null);
+
       setDone(true);
-      setTimeout(onSuccess, 1800);
+      setTimeout(onSuccess, 3000);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Payment failed — try again.');
+      console.error('Payment error:', e);
+      setError(e instanceof Error ? e.message : 'Payment failed — check your Freighter wallet.');
     } finally {
       setSubmitting(false);
     }
@@ -84,13 +95,23 @@ export default function PayModal({ patientAddress, amountXlm, onClose, onSuccess
 
         {/* Amount display */}
         <div className="gradient-brand rounded-xl p-4 flex items-center justify-between text-white">
-          <div className="flex items-center gap-2 text-blue-200">
-            <Coins size={15} />
-            <span className="text-sm">Transfer Amount</span>
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2 text-blue-200">
+              <Coins size={15} />
+              <span className="text-[10px] font-bold uppercase tracking-wider">Transfer Amount</span>
+            </div>
+            <span className="text-2xl font-bold tabular-nums">
+              {showPhp ? (amountXlm * phpRate).toFixed(2) : amountXlm.toFixed(2)}
+              <span className="text-sm font-normal text-blue-200 ml-1.5">{showPhp ? 'PHP' : 'XLM'}</span>
+            </span>
           </div>
-          <span className="text-2xl font-bold">
-            {amountXlm.toLocaleString('en-US', { minimumFractionDigits: 4 })} XLM
-          </span>
+          <button
+            onClick={() => setShowPhp(!showPhp)}
+            className="bg-white/20 hover:bg-white/30 p-2 rounded-lg transition-colors"
+            title="Switch Currency"
+          >
+            <ArrowLeftRight size={16} />
+          </button>
         </div>
 
         {/* Hospital address */}
@@ -131,7 +152,7 @@ export default function PayModal({ patientAddress, amountXlm, onClose, onSuccess
               <div className="space-y-0.5">
                 <p className="text-sm font-bold text-amber-900">Not enough balance</p>
                 <p className="text-xs text-amber-700">
-                  Your vault has {vaultBalance.toFixed(4)} XLM, which is not enough for this payment.
+                  Your vault has {vaultBalance.toFixed(2)} XLM, which is not enough for this payment.
                 </p>
               </div>
             </div>
@@ -160,11 +181,20 @@ export default function PayModal({ patientAddress, amountXlm, onClose, onSuccess
               <div className="space-y-1">
                 <p className="text-emerald-900 font-bold text-base">Payment Sent!</p>
                 <p className="text-emerald-700 text-sm font-semibold">
-                  {amountXlm.toFixed(4)} XLM
+                  {amountXlm.toFixed(2)} XLM (≈ ₱{(amountXlm * phpRate).toFixed(2)})
                 </p>
                 <p className="text-emerald-600/70 text-[10px] tabular-nums break-all">
                   TX: {txHash?.slice(0, 32)}...
                 </p>
+                <a
+                  href={`https://stellar.expert/explorer/testnet/account/${patientAddress}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] text-emerald-600 font-bold underline decoration-emerald-200 underline-offset-2 hover:text-emerald-700 transition-colors"
+                >
+                  <Globe size={11} />
+                  View on Explorer
+                </a>
               </div>
               <p className="text-slate-400 text-xs pt-2">Returning to dashboard…</p>
             </motion.div>

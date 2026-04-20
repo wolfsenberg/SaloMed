@@ -85,6 +85,21 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
       .catch(() => { });
   }, []);
 
+  // Persistent Connection: Check if Freighter is already connected on page load
+  useEffect(() => {
+    // Only auto-connect if the user didn't manually disconnect last time
+    const manualDisconnect = localStorage.getItem('salomed_manual_disconnect') === 'true';
+    if (manualDisconnect) return;
+
+    const { getAddress } = require('@/lib/freighter');
+    getAddress().then((addr: string | null) => {
+      if (addr) {
+        setAddress(addr);
+        refreshVault(addr);
+      }
+    });
+  }, [refreshVault]);
+
   function switchTab(next: Tab) {
     if (next === tab) return;
     const pi = TAB_ORDER.indexOf(prevTab.current);
@@ -102,9 +117,10 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
     try {
       const addr = await connectWallet();
       if (addr) {
+        localStorage.removeItem('salomed_manual_disconnect');
         setAddress(addr);
-        await refreshVault(addr);
         setShowOnboarding(true);
+        await refreshVault(addr);
       }
     } catch (e) {
       setConnectError(e instanceof Error ? e.message : 'Could not connect to Freighter.');
@@ -114,6 +130,7 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
   }
 
   function handleDisconnect() {
+    localStorage.setItem('salomed_manual_disconnect', 'true');
     setAddress(null);
     setVault(EMPTY_VAULT);
     switchTab('vault');
@@ -201,6 +218,8 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
                   </button>
                 );
               })}
+
+
             </nav>
 
 
