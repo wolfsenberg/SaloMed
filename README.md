@@ -10,6 +10,8 @@
 
 ## **The Solution: Enter SaloMed: Your Health Alkansya**
 
+<img width="6400" height="2400" alt="salomed_banner" src="https://github.com/user-attachments/assets/6d05e905-735f-493d-a85c-e624f928aaf3" />
+
 SaloMed is a purpose-built digital health alkansya (piggy bank). It functions just like the e-wallets we use every single day, but with one massive difference: the money you put in here is strictly locked and can only be spent on healthcare.
 
 Think of it as the ultimate discipline tool for your health savings. We give you a super familiar, frictionless e-wallet experience, but quietly empower it with an unbreakable layer of smart contracts running on the Stellar Network.
@@ -89,6 +91,8 @@ SaloMed creates a win-win-win ecosystem for the Filipino healthcare landscape.
 <img width="1414" height="487" alt="salomed_testings" src="https://github.com/user-attachments/assets/35a38279-8d1b-4150-9500-383b917853ea" />
 <img width="1307" height="230" alt="salomed_deployment" src="https://github.com/user-attachments/assets/561fda96-fe7a-484e-acdb-3f902186b137" />
 <img width="1908" height="965" alt="salomed_contract" src="https://github.com/user-attachments/assets/688fffd5-21f3-4aae-8048-6569bf03d8bc" />
+<img width="1920" height="1080" alt="Screenshot (6437)" src="https://github.com/user-attachments/assets/23da38d7-d610-44d2-8c15-3df0dd72d566" />
+
 
 | Function | Description |
 |---|---|
@@ -132,7 +136,7 @@ SaloMed/
 ---
 
 ## Demo Flow
-> 📺 **Watch the Demo:** [Video Link](https://drive.google.com/file/d/1FdqfCqWRw6hjVrcqbt7UpLAgSdgnlXAR/view?usp=sharing)
+>  **Watch the Demo:** [Video Link](https://drive.google.com/file/d/1FdqfCqWRw6hjVrcqbt7UpLAgSdgnlXAR/view?usp=sharing)
 
 Experience the SaloMed lifecycle in 5 easy steps:
 
