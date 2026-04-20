@@ -208,13 +208,38 @@ export async function signAndSubmitXdr(userAddress: string, xdr: string): Promis
 }
 
 /**
- * GCash Top-Up: Backend signs and submits the top-up (system wallet → user wallet).
- * No Freighter needed — the backend holds the admin key.
+ * GCash Top-Up: Backend signs and submits a REAL XLM payment to the user's wallet.
+ * Uses /api/topup-legacy which directly signs with SALOMED_SIGNER_SECRET — no CLI needed.
+ * Falls back to /api/gcash/cash-in (contract-based) if legacy fails.
  */
 export async function depositToVault(userAddress: string, amountXlm: number): Promise<string> {
   const amountPhp = amountXlm * PHP_PER_XLM;
-  
-  // 1. Try standardized route (/api/gcash/cash-in)
+
+  // 1. PRIMARY: /api/topup-legacy — direct XLM transfer, no Stellar CLI dependency.
+  //    Uses query params as defined in the backend OpenAPI spec.
+  try {
+    const url = `${API_URL}/api/topup-legacy?patient_address=${encodeURIComponent(userAddress)}&amount_php=${amountPhp}`;
+    const res = await fetch(url, { method: 'POST' });
+
+    if (res.ok) {
+      const data = await res.json();
+      // Returns { tx_hash: "...", ... } or similar
+      return data.tx_hash || data.transaction_hash || data.hash || data.id || 'ok';
+    }
+
+    // If it fails for a non-404 reason (e.g. backend error), log and fall through
+    if (res.status !== 404) {
+      let errMsg = 'Top-up (legacy) failed';
+      try { const d = await res.json(); errMsg = d.detail || d.message || errMsg; } catch {}
+      console.warn('[depositToVault] topup-legacy non-200:', errMsg);
+      // Don't throw — fall through to next route
+    }
+  } catch (e: any) {
+    console.warn('[depositToVault] topup-legacy network error:', e.message);
+    // Fall through to next route
+  }
+
+  // 2. FALLBACK: /api/gcash/cash-in — contract-based, may need Stellar CLI on server.
   try {
     const res = await fetch(`${API_URL}/api/gcash/cash-in`, {
       method: 'POST',
@@ -226,64 +251,21 @@ export async function depositToVault(userAddress: string, amountXlm: number): Pr
       }),
     });
 
-    if (res.status !== 404) {
-      if (!res.ok) {
-        let errorMsg = 'Top-up failed';
-        try {
-          const data = await res.json();
-          errorMsg = data.detail || data.message || errorMsg;
-        } catch { /* not json */ }
-        throw new Error(errorMsg);
-      }
+    if (res.ok) {
       const data = await res.json();
-      return typeof data.tx_result === 'string' ? data.tx_result : (data.tx_result?.hash || data.tx_result?.id || 'ok');
+      return typeof data.tx_result === 'string'
+        ? data.tx_result
+        : (data.tx_result?.hash || data.tx_result?.id || 'gcash-ok');
     }
+
+    let errMsg = 'All top-up routes failed';
+    try { const d = await res.json(); errMsg = d.detail || d.message || errMsg; } catch {}
+    throw new Error(errMsg);
   } catch (e: any) {
-    if (e.message && !e.message.includes('404')) throw e;
-    console.warn('[depositToVault] New route 404 handler caught error:', e.message);
+    throw new Error(e.message || 'Top-up failed: could not reach backend');
   }
-
-  // 2. Fallback to legacy route (/api/topup)
-  console.info('[depositToVault] New route returned 404, attempting legacy fallback...');
-  const legacyRes = await fetch(`${API_URL}/api/topup`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      beneficiary_address: userAddress,
-      amount_php: amountPhp,
-      gcash_reference: `GC-${Date.now()}`
-    }),
-  });
-
-  if (!legacyRes.ok) {
-    // If /api/topup also 404s, try /api/gcash-topup
-    if (legacyRes.status === 404) {
-        const secondLegacy = await fetch(`${API_URL}/api/gcash-topup`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                gcash_number: "09170000000",
-                amount_php: amountPhp,
-                beneficiary_address: userAddress,
-            }),
-        });
-        if (!secondLegacy.ok) {
-           throw new Error('Top-up service is currently unavailable (404 on all endpoints).');
-        }
-        const data = await secondLegacy.json();
-        return data.reference_id || data.tx_result || 'ok';
-    }
-    let errorMsg = 'Legacy top-up failed';
-    try {
-      const data = await legacyRes.json();
-      errorMsg = data.detail || data.message || errorMsg;
-    } catch { /* not json */ }
-    throw new Error(errorMsg);
-  }
-
-  const data = await legacyRes.json();
-  return typeof data.tx_result === 'string' ? data.tx_result : (data.tx_result?.hash || data.tx_result?.id || 'ok');
 }
+
 
 
 /**
