@@ -212,9 +212,40 @@ export async function signAndSubmitXdr(userAddress: string, xdr: string): Promis
  * No Freighter needed — the backend holds the admin key.
  */
 export async function depositToVault(userAddress: string, amountXlm: number): Promise<string> {
-  // Convert XLM to PHP for the backend (backend converts PHP → XLM internally)
   const amountPhp = amountXlm * PHP_PER_XLM;
-  const res = await fetch(`${API_URL}/api/gcash/cash-in`, {
+  
+  // 1. Try standardized route (/api/gcash/cash-in)
+  try {
+    const res = await fetch(`${API_URL}/api/gcash/cash-in`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        beneficiary_address: userAddress,
+        amount_php: amountPhp,
+        gcash_reference: `GC-${Date.now()}`
+      }),
+    });
+
+    if (res.status !== 404) {
+      if (!res.ok) {
+        let errorMsg = 'Top-up failed';
+        try {
+          const data = await res.json();
+          errorMsg = data.detail || data.message || errorMsg;
+        } catch { /* not json */ }
+        throw new Error(errorMsg);
+      }
+      const data = await res.json();
+      return typeof data.tx_result === 'string' ? data.tx_result : (data.tx_result?.hash || data.tx_result?.id || 'ok');
+    }
+  } catch (e: any) {
+    if (e.message && !e.message.includes('404')) throw e;
+    console.warn('[depositToVault] New route 404 handler caught error:', e.message);
+  }
+
+  // 2. Fallback to legacy route (/api/topup)
+  console.info('[depositToVault] New route returned 404, attempting legacy fallback...');
+  const legacyRes = await fetch(`${API_URL}/api/topup`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -223,16 +254,37 @@ export async function depositToVault(userAddress: string, amountXlm: number): Pr
       gcash_reference: `GC-${Date.now()}`
     }),
   });
-  const data = await res.json();
-  if (res.status === 404) {
-    throw new Error(`Endpoint not found (404). Check if NEXT_PUBLIC_API_URL is set correctly and the backend is deployed. URL: ${API_URL}/api/gcash/cash-in`);
+
+  if (!legacyRes.ok) {
+    // If /api/topup also 404s, try /api/gcash-topup
+    if (legacyRes.status === 404) {
+        const secondLegacy = await fetch(`${API_URL}/api/gcash-topup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                gcash_number: "09170000000",
+                amount_php: amountPhp,
+                beneficiary_address: userAddress,
+            }),
+        });
+        if (!secondLegacy.ok) {
+           throw new Error('Top-up service is currently unavailable (404 on all endpoints).');
+        }
+        const data = await secondLegacy.json();
+        return data.reference_id || data.tx_result || 'ok';
+    }
+    let errorMsg = 'Legacy top-up failed';
+    try {
+      const data = await legacyRes.json();
+      errorMsg = data.detail || data.message || errorMsg;
+    } catch { /* not json */ }
+    throw new Error(errorMsg);
   }
-  if (!res.ok) throw new Error(data.detail ?? 'Top-up failed');
-  
-  // The standardized TxResponse returns tx_result which might be the hash or an object
-  const hash = typeof data.tx_result === 'string' ? data.tx_result : (data.tx_result?.hash || data.tx_result?.id || 'ok');
-  return hash;
+
+  const data = await legacyRes.json();
+  return typeof data.tx_result === 'string' ? data.tx_result : (data.tx_result?.hash || data.tx_result?.id || 'ok');
 }
+
 
 /**
  * Payment: user → merchant/hospital.
@@ -244,14 +296,29 @@ export async function payHospital(
   amountXlm: number,
 ): Promise<string> {
   // 1. Get unsigned XDR from backend
-  const res = await fetch(
+  let res = await fetch(
     `${API_URL}/api/prepare-payment?user_address=${encodeURIComponent(patientAddress)}&recipient_address=${encodeURIComponent(hospitalAddress)}&amount_xlm=${amountXlm}`,
     { method: 'POST' },
   );
-  const data = await res.json();
+  
+  // Fallback to /api/qrph/pay if prepare-payment isn't there
   if (res.status === 404) {
-    throw new Error(`Payment endpoint not found (404). Check backend deployment. URL: ${API_URL}/api/prepare-payment`);
+    console.info('[payHospital] prepare-payment 404, falling back to /api/qrph/pay...');
+    const triggerRes = await fetch(`${API_URL}/api/qrph/pay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        patient_address: patientAddress,
+        hospital_id: hospitalAddress,
+        amount_usdc: amountXlm,
+      }),
+    });
+    if (!triggerRes.ok) throw new Error('Hospital payment failed (legacy)');
+    const data = await triggerRes.json();
+    return typeof data.tx_result === 'string' ? data.tx_result : (data.tx_result?.hash || 'ok');
   }
+
+  const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? 'Preparation failed');
 
   // 2. Sign with Freighter + submit to Horizon
@@ -268,16 +335,36 @@ export async function sendPadala(
   amountXlm: number,
 ): Promise<string> {
   // 1. Get unsigned XDR from backend
-  const res = await fetch(
+  let res = await fetch(
     `${API_URL}/api/prepare-padala?ofw_address=${encodeURIComponent(ofwAddress)}&beneficiary_address=${encodeURIComponent(beneficiaryAddress)}&amount_xlm=${amountXlm}`,
     { method: 'POST' },
   );
+
+  // Fallback to /api/gcash/cash-in if prepare-padala is missing
+  if (res.status === 404) {
+    console.info('[sendPadala] prepare-padala 404, falling back to /api/gcash/cash-in...');
+    const triggerRes = await fetch(`${API_URL}/api/gcash/cash-in`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        beneficiary_address: beneficiaryAddress,
+        sender_address: ofwAddress,
+        amount_php: amountXlm * PHP_PER_XLM,
+        gcash_reference: `GC-REMIT-${Date.now()}`
+      }),
+    });
+    if (!triggerRes.ok) throw new Error('Padala failed (legacy)');
+    const data = await triggerRes.json();
+    return typeof data.tx_result === 'string' ? data.tx_result : (data.tx_result?.hash || 'ok');
+  }
+
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? 'Padala preparation failed');
 
   // 2. Sign with Freighter + submit to Horizon
   return await signAndSubmitXdr(ofwAddress, data.xdr);
 }
+
 
 // PHP per XLM rate (used for depositToVault conversion)
 // Moved to config.ts

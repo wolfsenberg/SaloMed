@@ -22,13 +22,13 @@ interface Props {
 type Step = 'form' | 'qr' | 'processing' | 'done';
 
 const QUICK_AMOUNTS = [100, 500, 1000, 5000];
-import { API_URL } from '@/lib/config';
+import { API_URL, PHP_PER_XLM } from '@/lib/config';
 
 export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: Props) {
   const [step, setStep]               = useState<Step>('form');
   const [gcashNumber, setGcashNumber] = useState('09171234567');
   const [amountPhp, setAmountPhp]     = useState('');
-  const [rate, setRate]               = useState(6);
+  const [rate, setRate]               = useState(PHP_PER_XLM);
   const [result, setResult]           = useState<LocalQRResult | null>(null);
   const [txHash, setTxHash]           = useState<string | null>(null);
   const [error, setError]             = useState<string | null>(null);
@@ -36,12 +36,17 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
   useEffect(() => {
     fetch(`${API_URL}/api/gcash-rate`)
       .then(r => r.json())
-      .then((d: { php_per_usdc: number }) => setRate(d.php_per_usdc))
-      .catch(() => {});
+      .then((d: { php_per_usdc: number }) => {
+          if (d.php_per_usdc > 0) setRate(d.php_per_usdc);
+      })
+      .catch(() => {
+          console.warn('[GCashModal] Failed to fetch live rate, using default:', PHP_PER_XLM);
+      });
   }, []);
 
   const parsedPhp = parseFloat(amountPhp) || 0;
-  const xlmAmount = parsedPhp > 0 ? (parsedPhp / rate).toFixed(2) : '—';
+  const xlmAmount = parsedPhp > 0 ? (parsedPhp / (rate || 56)).toFixed(2) : '—';
+
 
   function buildQRResult(): LocalQRResult {
     const refId  = 'SM' + Math.random().toString(36).slice(2, 10).toUpperCase();
