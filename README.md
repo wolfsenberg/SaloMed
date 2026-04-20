@@ -29,11 +29,11 @@ Think of it as the ultimate discipline tool for your health savings. We give you
 *   [The Vision: Why Philippines? Why Now?](#the-vision-why-philippines-why-now)
 *   [Tech Stack](#tech-stack)
 *   [Smart Contract](#smart-contract)
+*   [How Stellar Powers SaloMed](#how-stellar-powers-salomed)
 *   [Architecture & Structure](#architecture--structure)
 *   [Demo Flow](#demo-flow)
 *   [Escrow Lifecycle](#escrow-lifecycle)
 *   [Setup](#setup)
-*   [How Stellar Powers SaloMed](#how-stellar-powers-salomed)
 
 ---
 
@@ -109,6 +109,18 @@ As the Philippines undergoes a digital payment revolution, the ease of spending 
 | `pay_hospital` | Atomic payment from vault to whitelisted hospital |
 | `get_vault` | Fetch balance, SaloPoints, and credit tier |
 | `whitelist_hospital` | Admin: Add authorized medical providers |
+
+---
+
+## How Stellar Powers SaloMed
+
+SaloMed is more than an application; it is a decentralized financial protocol for health security, leveraged by the specific architectural strengths of the Stellar Network:
+
+*   **Automated Financial Discipline**: Our Soroban smart contracts act as an immutable, non-custodial guardian. By hardcoding the "healthcare-only" rule on-chain, we eliminate human temptation and ensure that emergency funds are preserved for their intended purpose.
+*   **Atomic Multi-Party Settlement**: Using Stellar's atomic operations, we ensure that a vault is only debited *if and only if* a whitelisted healthcare provider simultaneously receives the funds. This creates a zero-trust environment where patient funds are safe until the point of care.
+*   **Hyper-Scalability via Micro-fees**: With transaction costs at a fraction of a cent, SaloMed remains economically viable for frequent micro-savings and micro-remittances that would otherwise be consumed by traditional banking fees.
+*   **Asset Versatility & Stability**: By utilizing USDC for value preservation and XLM for network utility, we provide a stable e-wallet experience backed by the speed and transparency of a global public ledger.
+*   **Seamless Global-to-Local Remittances**: Stellar eliminates the friction of cross-border health support. Funds sent from anywhere in the world arrive instantly as purpose-bound health credits, ready for immediate medical use in the Philippines.
 
 ---
 
@@ -265,18 +277,6 @@ soroban contract invoke \
   --admin <ADMIN_ADDRESS> \
   --hospital <HOSPITAL_ADDRESS>
 ```
-
----
-
-## How Stellar Powers SaloMed
-
-SaloMed isn't just an app; it's a financial protocol for health security, leveraged by the specific strengths of the Stellar Network:
-
-*   **Immutable Discipline**: Our smart contracts act as an automated guardian. By hardcoding the "healthcare-only" rule on-chain, we eliminate the human temptation to spend emergency funds on non-essentials.
-*   **Atomic Multi-Party Settlement**: Using Stellar's atomic operations, we ensure that a vault is only debited *if and only if* the whitelisted provider receives the funds. This creates instant trust in a zero-trust environment.
-*   **Financial Inclusion via Micro-fees**: With transaction costs at a fraction of a cent, SaloMed remains viable for micro-savings and micro-loans that would be eaten up by fees on other networks or traditional banks.
-*   **Asset Versatility**: By utilizing USDC for value stability and XLM for network utility, we provide a familiar, stable e-wallet experience backed by the transparency of a public ledger.
-*   **Seamless Remittances**: Stellar allows OFWs to send health-support in their local currency, arriving instantly as locked health-credits for their loved ones in the Philippines.
 
 ---
 
