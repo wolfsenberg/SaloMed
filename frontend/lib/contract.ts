@@ -196,6 +196,9 @@ export async function depositToVault(userAddress: string, amountXlm: number): Pr
     }),
   });
   const data = await res.json();
+  if (res.status === 404) {
+    throw new Error(`Endpoint not found (404). Check if NEXT_PUBLIC_API_URL is set correctly and the backend is deployed. URL: ${API_URL}/api/gcash/cash-in`);
+  }
   if (!res.ok) throw new Error(data.detail ?? 'Top-up failed');
   
   // The standardized TxResponse returns tx_result which might be the hash or an object
@@ -218,6 +221,9 @@ export async function payHospital(
     { method: 'POST' },
   );
   const data = await res.json();
+  if (res.status === 404) {
+    throw new Error(`Payment endpoint not found (404). Check backend deployment. URL: ${API_URL}/api/prepare-payment`);
+  }
   if (!res.ok) throw new Error(data.detail ?? 'Preparation failed');
 
   // 2. Sign with Freighter + submit to Horizon
