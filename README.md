@@ -139,7 +139,7 @@ SaloMed/
 
 ## Demo Flow
 
-> 📺 **Watch the Demo:** [Google Drive](https://drive.google.com/file/d/1FdqfCqWRw6hjVrcqbt7UpLAgSdgnlXAR/view?usp=sharing)
+> **Watch the Demo:** [Google Drive](https://drive.google.com/file/d/1FdqfCqWRw6hjVrcqbt7UpLAgSdgnlXAR/view?usp=sharing)
 
 Experience the SaloMed lifecycle in 5 easy steps:
 
