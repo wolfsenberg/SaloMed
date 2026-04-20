@@ -80,12 +80,15 @@ export async function fetchHorizonTxs(address: string): Promise<Transaction[]> {
     const records = data._embedded?.records || [];
 
     return records.map((r: any) => {
-      const isSender = r.from === addr;
-      const amountXlm = parseFloat(r.amount);
+      // Horizon 'payments' endpoint returns 'payment' or 'create_account'
+      const from = r.from || r.funder || '';
+      const to = r.to || r.account || '';
+      const amountStr = r.amount || r.starting_balance || '0';
+      const amountXlm = parseFloat(amountStr);
       
-      // Attempt to identify type (Native XLM payments)
-      // Note: In a real app, we'd use memo or specific logic to distinguish 
-      // hospital vs padala, but for this demo falling back to 'padala' for unknown types.
+      const isSender = from.toUpperCase() === addr;
+      
+      // Identify type
       let type: TxType = 'padala';
       if (r.type === 'create_account') type = 'topup';
 
@@ -98,8 +101,8 @@ export async function fetchHorizonTxs(address: string): Promise<Transaction[]> {
         direction: isSender ? 'sent' : 'received',
         status: 'success',
         txHash: r.transaction_hash,
-        senderLabel: isSender ? undefined : (r.from.slice(0,6) + '…' + r.from.slice(-4)),
-        recipientLabel: isSender ? (r.to.slice(0,6) + '…' + r.to.slice(-4)) : undefined,
+        senderLabel: (!isSender && from) ? (from.slice(0, 6) + '…' + from.slice(-4)) : undefined,
+        recipientLabel: (isSender && to) ? (to.slice(0, 6) + '…' + to.slice(-4)) : undefined,
       } as Transaction;
     });
   } catch (e) {

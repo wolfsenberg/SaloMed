@@ -1424,18 +1424,4 @@ async def scan_bill(file: UploadFile = File(...)):
         raw_text=raw_text,
     )
 
-@app.get('/api/gcash-rate')
-async def gcash_rate():
-    return {
-        'php_per_usdc': PHP_PER_USDC,
-        'source': 'fixed'
-    }
-
-@app.get('/health')
-def health():
-    return {
-        'status': 'ok',
-        'service': 'SaloMed API v2 (Native Settlement)',
-        'contract_id': CONTRACT_ID
-    }
 
