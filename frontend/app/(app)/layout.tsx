@@ -14,6 +14,7 @@ import TransactionsTab from '@/components/TransactionsTab';
 import OnboardingSlides from '@/components/OnboardingSlides';
 import { connectWallet } from '@/lib/freighter';
 import { getVault, HealthVault, EMPTY_VAULT } from '@/lib/contract';
+import { API_URL } from '@/lib/config';
 import '@/app/globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -79,7 +80,7 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
   }, [address]);
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'}/api/gcash-rate`)
+    fetch(`${API_URL}/api/gcash-rate`)
       .then(r => r.json())
       .then((d: { php_per_usdc: number }) => setPhpRate(d.php_per_usdc))
       .catch(() => { });

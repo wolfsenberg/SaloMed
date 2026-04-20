@@ -25,7 +25,7 @@ const TIER = {
   Gold:   { gradient: 'gradient-gold',   badge: 'bg-yellow-100 text-yellow-700',  rate: '2%' },
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+import { API_URL } from '@/lib/config';
 
 function tierProgress(vault: HealthVault): number {
   if (vault.credit_tier === 'Gold')   return 1;

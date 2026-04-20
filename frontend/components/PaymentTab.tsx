@@ -25,7 +25,7 @@ type View         = 'home' | 'generate' | 'manual';
 type ProviderType = 'hospital' | 'pharmacy';
 type PayFrom      = 'vault' | 'savings';
 
-const API_URL   = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+import { API_URL } from '@/lib/config';
 const QUICK_AMT = [1, 5, 10, 25, 50];
 
 export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: Props) {

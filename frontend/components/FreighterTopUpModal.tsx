@@ -6,7 +6,7 @@ import { X, Loader2, CheckCircle, Wallet, AlertCircle, ArrowDownToLine, Zap } fr
 import { connectWallet } from '@/lib/freighter';
 import { saveTx } from '@/lib/transactions';
 
-const API_URL      = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+import { API_URL } from '@/lib/config';
 const QUICK_AMOUNTS = [1, 5, 10, 25, 50];
 
 interface Props {

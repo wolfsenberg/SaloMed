@@ -1,10 +1,7 @@
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { signTransaction } from './freighter';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
-const CONTRACT_ID = process.env.NEXT_PUBLIC_CONTRACT_ID ?? 'CAO3K6OYB5A3VNVV3HKCSVG3ZZ442DZCDKAXG4CTSLBTN7FOYCCBRZ34';
-const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL ?? 'https://soroban-testnet.stellar.org';
-const NETWORK_PASSPHRASE = process.env.NEXT_PUBLIC_NETWORK_PASSPHRASE ?? StellarSdk.Networks.TESTNET;
+import { API_URL, CONTRACT_ID, RPC_URL, NETWORK_PASSPHRASE, PHP_PER_XLM } from './config';
 
 const rpc = new StellarSdk.rpc.Server(RPC_URL);
 const horizon = new StellarSdk.Horizon.Server("https://horizon-testnet.stellar.org");
@@ -241,4 +238,4 @@ export async function sendPadala(
 }
 
 // PHP per XLM rate (used for depositToVault conversion)
-const PHP_PER_XLM = 56;
+// Moved to config.ts
