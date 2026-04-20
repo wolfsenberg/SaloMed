@@ -188,6 +188,13 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
     switchTab('vault');
   }
 
+  const copyAddress = useCallback(() => {
+    if (!address) return;
+    navigator.clipboard.writeText(address);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [address]);
+
   return (
     <html lang="en">
       <head>
