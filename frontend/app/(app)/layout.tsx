@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wallet, QrCode, Globe, HandCoins, Receipt, LogOut, Smartphone, Monitor, Info } from 'lucide-react';
+import { Wallet, QrCode, Globe, HandCoins, Receipt, LogOut, Smartphone, Monitor, Info, Copy, Check } from 'lucide-react';
 import { Inter } from 'next/font/google';
 import Image from 'next/image';
 import SplashScreen from '@/components/SplashScreen';
@@ -53,6 +53,7 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
   const [dir, setDir] = useState(0);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [forceMobile, setForceMobile] = useState(false);
+  const [copied, setCopied] = useState(false);
   const prevTab = useRef<Tab>('vault');
 
   // Sync initial tab from URL on mount, then lock down popstate so that
@@ -228,11 +229,20 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
               <div>
                 {address ? (
                   <div className="flex flex-col gap-3">
-                    <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                      <span className="text-sm font-mono text-blue-700 font-medium">
-                        {address.slice(0, 6)}…{address.slice(-4)}
-                      </span>
+                    <div className="group flex items-center justify-between bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                        <span className="text-sm font-mono text-blue-700 font-medium tracking-tight">
+                          {address.slice(0, 10)}…{address.slice(-6)}
+                        </span>
+                      </div>
+                      <button
+                        onClick={copyAddress}
+                        className="text-blue-400 hover:text-blue-700 transition-colors"
+                        title="Copy address"
+                      >
+                        {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                      </button>
                     </div>
                     <button
                       onClick={handleDisconnect}
@@ -291,12 +301,16 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
 
               {address ? (
                 <div className="flex items-center gap-1.5">
-                  <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-full px-3 py-1.5">
+                  <button
+                    onClick={copyAddress}
+                    className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-full px-3 py-1.5 active:scale-95 transition-transform"
+                  >
                     <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                    <span className="text-xs font-mono text-blue-700 font-medium">
+                    <span className="text-[10px] font-mono text-blue-700 font-medium tracking-tight">
                       {address.slice(0, 4)}…{address.slice(-4)}
                     </span>
-                  </div>
+                    {copied ? <Check size={10} className="text-emerald-500" /> : <Copy size={10} className="text-blue-400" />}
+                  </button>
                   <button
                     onClick={handleDisconnect}
                     title="Disconnect wallet"
