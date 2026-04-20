@@ -12,8 +12,6 @@
 
 <img width="6400" height="2400" alt="salomed_banner" src="https://github.com/user-attachments/assets/aef0d074-76c7-4bd5-82eb-9bedeb4f9ac4" />
 
-
-
 SaloMed is a purpose-built digital health alkansya (piggy bank). It functions just like the e-wallets we use every single day, but with one massive difference: the money you put in here is strictly locked and can only be spent on healthcare.
 
 Think of it as the ultimate discipline tool for your health savings. We give you a super familiar, frictionless e-wallet experience, but quietly empower it with an unbreakable layer of smart contracts running on the Stellar Network.
@@ -27,15 +25,15 @@ Think of it as the ultimate discipline tool for your health savings. We give you
 ---
 
 ### Table of Contents
-- [Key Features](#key-features)
-- [Target Market & Benefits](#target-market--benefits)
-- [Tech Stack](#tech-stack)
-- [Smart Contract](#smart-contract)
-- [Architecture & Structure](#architecture--structure)
-- [Demo Flow](#demo-flow)
-- [Escrow Lifecycle](#escrow-lifecycle)
-- [Setup](#setup)
-- [How Stellar Powers SaloMed](#how-stellar-powers-salomed)
+*   [Key Features](#key-features)
+*   [Target Market & Benefits](#target-market--benefits)
+*   [Tech Stack](#tech-stack)
+*   [Smart Contract](#smart-contract)
+*   [Architecture & Structure](#architecture--structure)
+*   [Demo Flow](#demo-flow)
+*   [Escrow Lifecycle](#escrow-lifecycle)
+*   [Setup](#setup)
+*   [How Stellar Powers SaloMed](#how-stellar-powers-salomed)
 
 ---
 
@@ -90,11 +88,11 @@ SaloMed creates a win-win-win ecosystem for the Filipino healthcare landscape.
 ## Smart Contract
 
 **Contract ID (Testnet):** `CAO3K6OYB5A3VNVV3HKCSVG3ZZ442DZCDKAXG4CTSLBTN7FOYCCBRZ34`
+
 <img width="1414" height="487" alt="salomed_testings" src="https://github.com/user-attachments/assets/35a38279-8d1b-4150-9500-383b917853ea" />
 <img width="1307" height="230" alt="salomed_deployment" src="https://github.com/user-attachments/assets/561fda96-fe7a-484e-acdb-3f902186b137" />
 <img width="1908" height="965" alt="salomed_contract" src="https://github.com/user-attachments/assets/688fffd5-21f3-4aae-8048-6569bf03d8bc" />
 <img width="1920" height="1080" alt="Screenshot (6437)" src="https://github.com/user-attachments/assets/23da38d7-d610-44d2-8c15-3df0dd72d566" />
-
 
 | Function | Description |
 |---|---|
@@ -108,19 +106,21 @@ SaloMed creates a win-win-win ecosystem for the Filipino healthcare landscape.
 
 ## Architecture & Structure
 
-SaloMed follows a hybrid architecture for a frictionless and secure experience:
+SaloMed follows a high-resiliency **Hybrid Sync Architecture** to ensure the app remains functional even during backend processing delays:
 
 ```text
        [ User / Wallet ]
                ↓
-    [ Next.js Web Frontend ] <————> [ Soroban Smart Contract ]
+    [ Next.js Web Frontend ] <————> [ Stellar Horizon / RPC ]
                ↓                            ↑
-     [ FastAPI Backend ] ———————————————————/
+      [ FastAPI Backend ] ———————————————————/
 ```
 
-- **Frontend**: The primary UI built with Next.js 14, handling user interaction and wallet signing.
-- **Backend**: A middleware bridge using FastAPI for off-chain tasks and GCash simulations.
-- **On-Chain**: The source of truth for funds and escrow logic via Soroban Smart Contracts.
+*   **Frontend**: Built with Next.js 14. Directly queries **Stellar Horizon** for real-time balance and transaction history to ensure 100% data accuracy.
+*   **Backend**: Acts as a bridge for "Mock Fiat" operations. Uses a **Direct Signer Logic** (`topup-legacy`) to fund wallets instantly without relying on heavy server-side CLI dependencies.
+*   **Auto-Sync Engine**: The UI implements a dual-layer sync:
+    *   **Event-Driven**: Instantly refreshes balance after any successful payment or padala.
+    *   **Polling**: Directly queries the blockchain every 20 seconds to catch inbound deposits or external transfers.
 
 ### Directory Structure
 ```
@@ -138,7 +138,8 @@ SaloMed/
 ---
 
 ## Demo Flow
->  **Watch the Demo:** [Video Link](https://drive.google.com/file/d/1FdqfCqWRw6hjVrcqbt7UpLAgSdgnlXAR/view?usp=sharing)
+
+> 📺 **Watch the Demo:** [Google Drive](https://drive.google.com/file/d/1FdqfCqWRw6hjVrcqbt7UpLAgSdgnlXAR/view?usp=sharing)
 
 Experience the SaloMed lifecycle in 5 easy steps:
 
@@ -200,7 +201,6 @@ cd frontend
 npm install
 npm run dev
 ```
-Update `.env.local` to point `NEXT_PUBLIC_API_URL` to the FastAPI instance.
 
 ### Mandatory Environment Variables
 
@@ -213,6 +213,8 @@ For a successful production deployment (Render/Vercel), ensure the following are
 | `ADMIN_ADDRESS` | Backend | The public key (G...) matching the signer secret. |
 | `NEXT_PUBLIC_API_URL` | Frontend | Your deployed FastAPI URL (ensure it starts with `https://`). |
 | `DEMO_FALLBACK` | Backend | Set to `true` to enable mock responses if Stellar CLI is unavailable. |
+
+---
 
 ### Sample CLI Invocations
 
