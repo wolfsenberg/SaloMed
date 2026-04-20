@@ -73,6 +73,18 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
   async function handleSimulatePayment() {
     if (!result) return;
     setStep('processing');
+
+    // Save transaction IMMEDIATELY as pending — this ensures it always shows
+    // in history even if the backend has a transient error.
+    saveTx(beneficiaryAddress, {
+      type:      'topup',
+      amountXlm: result.amount_xlm,
+      amountPhp: result.amount_php,
+      gcashRef:  result.reference_id,
+      txHash:    undefined,
+      status:    'pending',
+    });
+
     try {
       const { depositToVault } = await import('@/lib/contract');
       // The backend signs and submits the top-up using the admin keypair.
@@ -80,6 +92,8 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
       const hash = await depositToVault(beneficiaryAddress, result.amount_xlm);
       
       setTxHash(hash);
+
+      // Update the saved transaction from 'pending' → 'success' with the real tx hash
       saveTx(beneficiaryAddress, {
         type:      'topup',
         amountXlm: result.amount_xlm,
@@ -88,16 +102,27 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
         txHash:    hash,
         status:    'success',
       });
+
+      // Dispatch a storage event to force TransactionsTab to refresh immediately
+      window.dispatchEvent(new CustomEvent('salomed_tx_update', { detail: { address: beneficiaryAddress.toUpperCase() } }));
+
       setStep('done');
-      setTimeout(onSuccess, 2200);
+      // Call onSuccess after 1.5 seconds to let user see the success screen, then it
+      // triggers refreshVault in the parent to update the balance on the dashboard.
+      setTimeout(() => {
+        onSuccess();
+      }, 1500);
 
     } catch (e: unknown) {
       console.error('GCash top-up failed:', e);
+      // Even on backend error, the pending tx is already saved — user can see it
+      // in history and try again.
       setError(
         e instanceof Error
           ? e.message
           : 'Top-up failed. Check that the backend is running and SALOMED_SIGNER_SECRET is funded on testnet.'
       );
+
       setStep('qr');
     }
   }
