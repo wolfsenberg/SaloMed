@@ -186,13 +186,21 @@ export async function signAndSubmitXdr(userAddress: string, xdr: string): Promis
 export async function depositToVault(userAddress: string, amountXlm: number): Promise<string> {
   // Convert XLM to PHP for the backend (backend converts PHP → XLM internally)
   const amountPhp = amountXlm * PHP_PER_XLM;
-  const res = await fetch(
-    `${API_URL}/api/topup?patient_address=${encodeURIComponent(userAddress)}&amount_php=${amountPhp}`,
-    { method: 'POST' },
-  );
+  const res = await fetch(`${API_URL}/api/gcash/cash-in`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      beneficiary_address: userAddress,
+      amount_php: amountPhp,
+      gcash_reference: `GC-${Date.now()}`
+    }),
+  });
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? 'Top-up failed');
-  return data.tx_hash ?? 'ok';
+  
+  // The standardized TxResponse returns tx_result which might be the hash or an object
+  const hash = typeof data.tx_result === 'string' ? data.tx_result : (data.tx_result?.hash || data.tx_result?.id || 'ok');
+  return hash;
 }
 
 /**
