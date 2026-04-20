@@ -846,10 +846,20 @@ async def get_vault_balance(
 
 @app.post(
     "/api/topup",
-    summary="GCash Top-Up → REAL XLM sent by backend (Auto-Activation)",
-    tags=["Demo"],
+    response_model=TxResponse,
+    summary="GCash Top-Up alias for backward compatibility",
+    tags=["GCash (Mock Fiat)"],
 )
-async def topup(
+async def topup_alias(body: GCashCashInRequest):
+    return await gcash_cash_in(body)
+
+
+@app.post(
+    "/api/topup-legacy",
+    summary="GCash Top-Up → REAL XLM sent by backend (Auto-Activation)",
+    tags=["Legacy"],
+)
+async def topup_legacy(
     patient_address: str = Query(..., description="User's Stellar address (G…)"),
     amount_php: float  = Query(..., description="PHP amount to convert to XLM"),
 ):
