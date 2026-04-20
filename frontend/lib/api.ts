@@ -62,21 +62,40 @@ export async function gcashTopUp(
   amountPhp: number,
   beneficiaryAddress: string,
 ): Promise<GCashTopUpResult> {
-  // Standardizing route to match Backend: /api/gcash/cash-in
-  const res = await fetch(`${API_URL}/api/gcash/cash-in`, {
+  // 1. Try standardized route (/api/gcash/cash-in)
+  try {
+    const res = await fetch(`${API_URL}/api/gcash/cash-in`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        beneficiary_address: beneficiaryAddress,
+        amount_php: amountPhp,
+        gcash_reference: `GC-${Date.now()}`
+      }),
+    });
+
+    if (res.status !== 404) {
+      return handleResponse<GCashTopUpResult>(res);
+    }
+  } catch (e) {
+    // If network error, maybe attempt fallback if it looks like a 404-ish case
+  }
+
+  // 2. Fallback to legacy route (/api/gcash-topup)
+  // This is for the currently deployed Render backend which is on an older version.
+  const legacyRes = await fetch(`${API_URL}/api/gcash-topup`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      beneficiary_address: beneficiaryAddress,
+      gcash_number: gcashNumber,
       amount_php: amountPhp,
-      gcash_reference: `GC-${Date.now()}` // Mock reference
+      beneficiary_address: beneficiaryAddress,
     }),
   });
-  if (res.status === 404) {
-    throw new Error(`GCash endpoint not found (404). URL: ${API_URL}/api/gcash/cash-in`);
-  }
-  return handleResponse<GCashTopUpResult>(res);
+
+  return handleResponse<GCashTopUpResult>(legacyRes);
 }
+
 
 export async function gcashConfirm(
   referenceId: string,
@@ -96,18 +115,39 @@ export async function depositRemittance(
   beneficiaryAddress: string,
   amountUsdc: number,
 ): Promise<TriggerResult> {
-  // Route alignment: deposit_remittance is handled by /api/gcash/cash-in 
-  // with an optional sender_address.
-  const res = await fetch(`${API_URL}/api/gcash/cash-in`, {
+  // 1. Try new route (/api/gcash/cash-in)
+  try {
+    const res = await fetch(`${API_URL}/api/gcash/cash-in`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        function_name: 'deposit_remittance',
+        beneficiary_address: beneficiaryAddress,
+        sender_address: ofwAddress,
+        amount_php: amountUsdc * 56,
+        gcash_reference: `REMIT-${Date.now()}`
+      }),
+    });
+
+    if (res.status !== 404) {
+      return handleResponse<TriggerResult>(res);
+    }
+  } catch (e) {
+    // network error
+  }
+
+  // 2. Fallback to old route (/api/trigger-contract)
+  const legacyRes = await fetch(`${API_URL}/api/trigger-contract`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       function_name: 'deposit_remittance',
-      beneficiary_address: beneficiaryAddress,
-      sender_address: ofwAddress,
-      amount_php: amountUsdc * 56, // Simple conversion
-      gcash_reference: `REMIT-${Date.now()}`
+      patient_address: beneficiaryAddress,
+      ofw_address: ofwAddress,
+      amount_usdc: amountUsdc,
     }),
   });
-  return handleResponse<TriggerResult>(res);
+
+  return handleResponse<TriggerResult>(legacyRes);
 }
+
