@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+import { API_URL } from './config';
 
 export interface BillScanResult {
   total_bill: number;
@@ -62,13 +62,14 @@ export async function gcashTopUp(
   amountPhp: number,
   beneficiaryAddress: string,
 ): Promise<GCashTopUpResult> {
-  const res = await fetch(`${API_URL}/api/gcash-topup`, {
+  // Standardizing route to match Backend: /api/gcash/cash-in
+  const res = await fetch(`${API_URL}/api/gcash/cash-in`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      gcash_number: gcashNumber,
-      amount_php: amountPhp,
       beneficiary_address: beneficiaryAddress,
+      amount_php: amountPhp,
+      gcash_reference: `GC-${Date.now()}` // Mock reference
     }),
   });
   return handleResponse<GCashTopUpResult>(res);
@@ -78,11 +79,8 @@ export async function gcashConfirm(
   referenceId: string,
   beneficiaryAddress: string,
 ): Promise<{ status: string; message: string }> {
-  const res = await fetch(
-    `${API_URL}/api/gcash-confirm?reference_id=${encodeURIComponent(referenceId)}&beneficiary_address=${encodeURIComponent(beneficiaryAddress)}`,
-    { method: 'POST' },
-  );
-  return handleResponse(res);
+  // Deprecated confirm endpoint — now handled within cash-in for demo simplicity
+  return { status: 'success', message: 'Confirmed via auto-settle' };
 }
 
 export async function getGCashRate(): Promise<{ php_per_usdc: number }> {
@@ -95,14 +93,17 @@ export async function depositRemittance(
   beneficiaryAddress: string,
   amountUsdc: number,
 ): Promise<TriggerResult> {
-  const res = await fetch(`${API_URL}/api/trigger-contract`, {
+  // Route alignment: deposit_remittance is handled by /api/gcash/cash-in 
+  // with an optional sender_address.
+  const res = await fetch(`${API_URL}/api/gcash/cash-in`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       function_name: 'deposit_remittance',
-      patient_address: beneficiaryAddress,
-      ofw_address: ofwAddress,
-      amount_usdc: amountUsdc,
+      beneficiary_address: beneficiaryAddress,
+      sender_address: ofwAddress,
+      amount_php: amountUsdc * 56, // Simple conversion
+      gcash_reference: `REMIT-${Date.now()}`
     }),
   });
   return handleResponse<TriggerResult>(res);

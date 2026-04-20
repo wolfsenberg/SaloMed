@@ -52,7 +52,7 @@ interface Props {
   onSuccess: () => void;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+import { API_URL } from '@/lib/config';
 
 export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: Props) {
   const [submitting, setSubmitting] = useState(false);

@@ -17,7 +17,7 @@ interface Props {
 import { calcPadala, sendPadala } from '@/lib/contract';
 import { saveTx } from '@/lib/transactions';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+import { API_URL } from '@/lib/config';
 
 type RecipientMethod = 'gcash' | 'stellar';
 type PayFrom = 'vault' | 'savings';
