@@ -504,24 +504,33 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Breakdown</p>
                   <div className="flex justify-between">
                     <span className="text-slate-500">You pay</span>
-                    <span className="font-semibold text-slate-700">{parsedXlm.toFixed(2)} XLM</span>
+                    <div className="text-right">
+                      <p className="font-semibold text-slate-700">{showPhp ? `₱${parsedPhp.toFixed(2)}` : `${parsedXlm.toFixed(2)} XLM`}</p>
+                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${parsedXlm.toFixed(2)} XLM` : `₱${parsedPhp.toFixed(2)}`}</p>
+                    </div>
                   </div>
                   <div className="flex justify-between text-slate-400">
                     <span>Platform fee ({(genBreakdown.feeRate * 100).toFixed(1)}%)</span>
-                    <span>−{genBreakdown.salomedFee.toFixed(2)} XLM</span>
+                    <span>{showPhp ? `₱${(genBreakdown.salomedFee * phpRate).toFixed(2)}` : `${genBreakdown.salomedFee.toFixed(2)} XLM`}</span>
                   </div>
                   <div className="flex justify-between text-slate-500">
                     <span>Merchant receives</span>
-                    <span>{genBreakdown.merchantReceives.toFixed(2)} XLM</span>
+                    <div className="text-right">
+                      <p className="font-semibold text-slate-700">{showPhp ? `₱${(genBreakdown.merchantReceives * phpRate).toFixed(2)}` : `${genBreakdown.merchantReceives.toFixed(2)} XLM`}</p>
+                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${genBreakdown.merchantReceives.toFixed(2)} XLM` : `₱${(genBreakdown.merchantReceives * phpRate).toFixed(2)}`}</p>
+                    </div>
                   </div>
                   <div className="border-t border-slate-200 pt-1.5 space-y-1">
                     <div className="flex justify-between text-blue-600 font-semibold">
                       <span className="flex items-center gap-1"><Star size={10} /> Cashback earned</span>
-                      <span>+{genBreakdown.ptsEarned} pts ≈ {genBreakdown.cashbackXlm.toFixed(2)} XLM</span>
+                      <span>+{genBreakdown.ptsEarned} pts ≈ {showPhp ? `₱${(genBreakdown.cashbackXlm * phpRate).toFixed(2)}` : `${genBreakdown.cashbackXlm.toFixed(2)} XLM`}</span>
                     </div>
                     <div className="flex justify-between text-emerald-600 font-bold">
                       <span>Net cost to you</span>
-                      <span>{genBreakdown.effectiveCost.toFixed(2)} XLM</span>
+                      <div className="text-right">
+                        <p>{showPhp ? `₱${(genBreakdown.effectiveCost * phpRate).toFixed(2)}` : `${genBreakdown.effectiveCost.toFixed(2)} XLM`}</p>
+                        <p className="text-[10px] font-medium opacity-80">≈ {showPhp ? `${genBreakdown.effectiveCost.toFixed(2)} XLM` : `₱${(genBreakdown.effectiveCost * phpRate).toFixed(2)}`}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -829,24 +838,33 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Breakdown</p>
                   <div className="flex justify-between">
                     <span className="text-slate-500">You pay</span>
-                    <span className="font-semibold text-slate-700">{manualParsed.toFixed(2)} XLM</span>
+                    <div className="text-right">
+                      <p className="font-semibold text-slate-700">{showPhp ? `₱${manualParsedPhp.toFixed(2)}` : `${manualParsed.toFixed(2)} XLM`}</p>
+                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${manualParsed.toFixed(2)} XLM` : `₱${manualParsedPhp.toFixed(2)}`}</p>
+                    </div>
                   </div>
                   <div className="flex justify-between text-slate-400">
                     <span>Platform fee ({(manualBreakdown.feeRate * 100).toFixed(1)}%)</span>
-                    <span>−{manualBreakdown.salomedFee.toFixed(2)} XLM</span>
+                    <span>{showPhp ? `₱${(manualBreakdown.salomedFee * phpRate).toFixed(2)}` : `${manualBreakdown.salomedFee.toFixed(2)} XLM`}</span>
                   </div>
                   <div className="flex justify-between text-slate-500">
                     <span>Merchant receives</span>
-                    <span>{manualBreakdown.merchantReceives.toFixed(2)} XLM</span>
+                    <div className="text-right">
+                      <p className="font-semibold text-slate-700">{showPhp ? `₱${(manualBreakdown.merchantReceives * phpRate).toFixed(2)}` : `${manualBreakdown.merchantReceives.toFixed(2)} XLM`}</p>
+                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${manualBreakdown.merchantReceives.toFixed(2)} XLM` : `₱${(manualBreakdown.merchantReceives * phpRate).toFixed(2)}`}</p>
+                    </div>
                   </div>
                   <div className="border-t border-slate-200 pt-1.5 space-y-1">
                     <div className="flex justify-between text-blue-600 font-semibold">
                       <span className="flex items-center gap-1"><Star size={10} /> Cashback earned</span>
-                      <span>+{manualBreakdown.ptsEarned} pts ≈ {manualBreakdown.cashbackXlm.toFixed(2)} XLM</span>
+                      <span>+{manualBreakdown.ptsEarned} pts ≈ {showPhp ? `₱${(manualBreakdown.cashbackXlm * phpRate).toFixed(2)}` : `${manualBreakdown.cashbackXlm.toFixed(2)} XLM`}</span>
                     </div>
                     <div className="flex justify-between text-emerald-600 font-bold">
                       <span>Net cost to you</span>
-                      <span>{manualBreakdown.effectiveCost.toFixed(2)} XLM</span>
+                      <div className="text-right">
+                        <p>{showPhp ? `₱${(manualBreakdown.effectiveCost * phpRate).toFixed(2)}` : `${manualBreakdown.effectiveCost.toFixed(2)} XLM`}</p>
+                        <p className="text-[10px] font-medium opacity-80">≈ {showPhp ? `${manualBreakdown.effectiveCost.toFixed(2)} XLM` : `₱${(manualBreakdown.effectiveCost * phpRate).toFixed(2)}`}</p>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Receipt, ArrowDownToLine, QrCode, Globe, HandCoins,
-  Star, Building2, FlaskConical, Clock,
+  Star, Building2, FlaskConical, Clock, Loader2
 } from 'lucide-react';
-import { loadTxs, Transaction, TxType } from '@/lib/transactions';
+import { fetchHorizonTxs, loadTxs, Transaction, TxType } from '@/lib/transactions';
 
 interface Props {
   address: string | null;
@@ -161,9 +161,53 @@ function TxCard({ tx, address }: { tx: Transaction, address: string }) {
 export default function TransactionsTab({ address, phpRate: _phpRate }: Props) {
   const [filter, setFilter] = useState<Filter>('all');
   const [txs, setTxs]       = useState<Transaction[]>([]);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
-    if (address) setTxs(loadTxs(address));
+    if (address) {
+      const addr = address.toUpperCase();
+      
+      const sync = async () => {
+        setSyncing(true);
+        // 1. Initial load from LocalStorage (Instant UI)
+        const local = loadTxs(addr);
+        setTxs(local);
+
+        // 2. Fetch from Blockchain (Horizon) to ensure persistence across devices/reloads
+        const remote = await fetchHorizonTxs(addr);
+
+        // 3. Merge & De-duplicate
+        setTxs(current => {
+          const combined = [...current];
+          remote.forEach(rtx => {
+            // Check if this blockchain record already exists in our local storage
+            // We prioritize local records because they contain extra metadata (like provider name)
+            const exists = combined.some(ctx => 
+              (ctx.txHash === rtx.txHash && rtx.txHash !== undefined) || 
+              (ctx.id === rtx.id)
+            );
+            if (!exists) combined.push(rtx);
+          });
+          return combined.sort((a,b) => b.timestamp - a.timestamp);
+        });
+        setSyncing(false);
+      };
+
+      sync();
+
+      // Listen for local transaction updates (Instant)
+      const onUpdate = (e: any) => {
+        if (e.detail?.address === addr || e.type === 'storage') {
+          sync();
+        }
+      };
+      window.addEventListener('salomed_tx_update', onUpdate);
+      window.addEventListener('storage', onUpdate);
+      return () => {
+        window.removeEventListener('salomed_tx_update', onUpdate);
+        window.removeEventListener('storage', onUpdate);
+      };
+    }
   }, [address]);
 
   const filtered = filter === 'all' ? txs : txs.filter(t => t.type === filter);
@@ -189,7 +233,15 @@ export default function TransactionsTab({ address, phpRate: _phpRate }: Props) {
 
       {/* Header */}
       <div>
-        <h2 className="text-xl font-bold text-slate-900">Transaction History</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-slate-900">Transaction History</h2>
+          {syncing && (
+            <div className="flex items-center gap-1.5 text-blue-500 animate-pulse">
+              <Loader2 size={12} className="animate-spin" />
+              <span className="text-[10px] font-bold uppercase tracking-wider">Syncing...</span>
+            </div>
+          )}
+        </div>
         <p className="text-xs text-slate-400 mt-0.5">
           {address.slice(0, 6)}…{address.slice(-6)}
           {' · '}{txs.length} transaction{txs.length !== 1 ? 's' : ''}

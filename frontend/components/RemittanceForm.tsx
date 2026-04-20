@@ -97,14 +97,21 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
 
       setTxHash(hash);
       if (ofwAddress) {
-        saveTx(ofwAddress, {
+        const sender = ofwAddress.toUpperCase();
+        const recipient = (recipientMethod === 'stellar' ? beneficiary.trim() : resolvedAddress).toUpperCase();
+
+        const senderLabel = sender.slice(0, 6) + '…' + sender.slice(-4);
+        const recipientLabel = recipientMethod === 'gcash'
+          ? gcashNumber
+          : recipient.slice(0, 6) + '…' + recipient.slice(-4);
+
+        // 1. Log for Sender (The current user)
+        saveTx(sender, {
           type: 'padala',
           amountXlm: parsedXlm,
           amountPhp: parsedPhp,
           recipientMethod,
-          recipientLabel: recipientMethod === 'gcash'
-            ? gcashNumber
-            : beneficiary.slice(0, 6) + '…' + beneficiary.slice(-4),
+          recipientLabel,
           payFrom,
           ptsEarned: pointsEarned,
           txHash: hash || undefined,
@@ -112,16 +119,18 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
           direction: 'sent',
         });
 
-        // NEW: Also log the "received" transaction for the beneficiary if they are on Stellar
-        // This ensures the recipient sees the entry in their local history too.
-        if (recipientMethod === 'stellar' && resolvedAddress) {
-          saveTx(resolvedAddress, {
+        // 2. Log for Recipient (If Stellar)
+        if (recipientMethod === 'stellar') {
+          const receivedAmountXlm = breakdown.recipientReceives;
+          const receivedAmountPhp = receivedAmountXlm * phpRate;
+
+          saveTx(recipient, {
             type: 'padala',
-            amountXlm: parsedXlm,
-            amountPhp: parsedPhp,
+            amountXlm: receivedAmountXlm,
+            amountPhp: receivedAmountPhp,
             recipientMethod: 'stellar',
-            recipientLabel: beneficiary.slice(0, 6) + '…' + beneficiary.slice(-4),
-            senderLabel: ofwAddress.slice(0, 6) + '…' + ofwAddress.slice(-4),
+            recipientLabel, // Recipient's own address
+            senderLabel,    // The OFW who sent it
             txHash: hash || undefined,
             status: 'success',
             direction: 'received',
@@ -408,24 +417,41 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Breakdown</p>
               <div className="flex justify-between">
                 <span className="text-slate-500">You send</span>
-                <span className="font-semibold text-slate-700">{parsedXlm.toFixed(2)} XLM</span>
+                <div className="text-right">
+                  <p className="font-semibold text-slate-700">{showPhp ? `₱${parsedPhp.toFixed(2)}` : `${parsedXlm.toFixed(2)} XLM`}</p>
+                  <p className="text-[10px] text-slate-400">≈ {showPhp ? `${parsedXlm.toFixed(2)} XLM` : `₱${parsedPhp.toFixed(2)}`}</p>
+                </div>
               </div>
               <div className="flex justify-between text-slate-400">
                 <span>Platform fee ({(breakdown.feeRate * 100).toFixed(1)}%)</span>
-                <span>−{breakdown.salomedFee.toFixed(2)} XLM</span>
+                <span>{showPhp ? `₱${(breakdown.salomedFee * phpRate).toFixed(2)}` : `${breakdown.salomedFee.toFixed(2)} XLM`}</span>
               </div>
               <div className="flex justify-between text-slate-500">
                 <span>Recipient receives</span>
-                <span>{breakdown.recipientReceives.toFixed(2)} XLM</span>
+                <div className="text-right">
+                  <p className="font-semibold text-slate-700">
+                    {showPhp ? `₱${(breakdown.recipientReceives * phpRate).toFixed(2)}` : `${breakdown.recipientReceives.toFixed(2)} XLM`}
+                  </p>
+                  <p className="text-[10px] text-slate-400">
+                    ≈ {showPhp ? `${breakdown.recipientReceives.toFixed(2)} XLM` : `₱${(breakdown.recipientReceives * phpRate).toFixed(2)}`}
+                  </p>
+                </div>
               </div>
               <div className="border-t border-slate-200 pt-1.5 space-y-1">
                 <div className="flex justify-between text-blue-600 font-semibold">
                   <span className="flex items-center gap-1"><Star size={10} /> Cashback earned</span>
-                  <span>+{breakdown.ptsEarned} pts ≈ {breakdown.cashbackXlm.toFixed(2)} XLM</span>
+                  <span>
+                    +{breakdown.ptsEarned} pts ≈ {showPhp ? `₱${(breakdown.cashbackXlm * phpRate).toFixed(2)}` : `${breakdown.cashbackXlm.toFixed(2)} XLM`}
+                  </span>
                 </div>
                 <div className="flex justify-between text-emerald-600 font-bold">
                   <span>Net cost to you</span>
-                  <span>{breakdown.effectiveCost.toFixed(2)} XLM</span>
+                  <div className="text-right">
+                    <p>{showPhp ? `₱${(breakdown.effectiveCost * phpRate).toFixed(2)}` : `${breakdown.effectiveCost.toFixed(2)} XLM`}</p>
+                    <p className="text-[10px] font-medium opacity-80">
+                      ≈ {showPhp ? `${breakdown.effectiveCost.toFixed(2)} XLM` : `₱${(breakdown.effectiveCost * phpRate).toFixed(2)}`}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
