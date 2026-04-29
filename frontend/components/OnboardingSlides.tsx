@@ -3,31 +3,33 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck, SmartphoneNfc, Globe, ChevronRight } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n/LanguageContext';
 
 interface Props {
   onComplete: () => void;
 }
 
-const SLIDES = [
-  {
-    Icon: ShieldCheck,
-    title: 'Your Health Alkansya',
-    text: 'Unlike regular e-wallets, SaloMed vaults are Purpose-Bound. The funds you save here are strictly locked and can exclusively be spent on healthcare at whitelisted hospitals and pharmacies.',
-  },
-  {
-    Icon: SmartphoneNfc,
-    title: 'Zero-Crypto Anxiety',
-    text: 'Enjoy a seamless app experience that feels exactly like your everyday e-wallet. Fund your vault in PHP and scan to pay instantly, while unbreakable Stellar blockchain security runs quietly in the background.',
-  },
-  {
-    Icon: Globe,
-    title: 'The Ultimate Health Pasaload',
-    text: 'Send instant medical support to your family anywhere. With all transactions permanently recorded on-chain, you have guaranteed peace of mind that your padala is spent exactly on medicine and healthcare.',
-  },
-];
-
 export default function OnboardingSlides({ onComplete }: Props) {
   const [current, setCurrent] = useState(0);
+  const { t } = useTranslation();
+
+  const SLIDES = [
+    {
+      Icon: ShieldCheck,
+      title: t('onboard_slide1_title'),
+      text: t('onboard_slide1_desc'),
+    },
+    {
+      Icon: SmartphoneNfc,
+      title: t('onboard_slide2_title'),
+      text: t('onboard_slide2_desc'),
+    },
+    {
+      Icon: Globe,
+      title: t('onboard_slide3_title'),
+      text: t('onboard_slide3_desc'),
+    },
+  ];
 
   function nextSlide() {
     if (current < SLIDES.length - 1) {
@@ -48,7 +50,7 @@ export default function OnboardingSlides({ onComplete }: Props) {
           onClick={onComplete}
           className="text-blue-200 hover:text-white text-sm font-semibold tracking-wide transition-colors"
         >
-          Skip
+          {t('onboard_skip')}
         </button>
       </div>
 
@@ -95,7 +97,7 @@ export default function OnboardingSlides({ onComplete }: Props) {
           onClick={nextSlide}
           className="w-full max-w-xs py-4 rounded-2xl bg-white text-blue-600 font-bold text-base hover:bg-blue-50 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg"
         >
-          {current === SLIDES.length - 1 ? 'Get Started' : 'Next'}
+          {current === SLIDES.length - 1 ? t('onboard_start') : t('onboard_next')}
           <ChevronRight size={18} strokeWidth={2.5} />
         </button>
       </div>

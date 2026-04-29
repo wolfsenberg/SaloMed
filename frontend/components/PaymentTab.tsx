@@ -13,6 +13,7 @@ import { savingsXlm, POINTS_RATE, calcPayment, payHospital } from '@/lib/contrac
 import { saveTx } from '@/lib/transactions';
 import QRScannerModal from '@/components/QRScannerModal';
 import ProviderCombobox from '@/components/ProviderCombobox';
+import { useTranslation } from '@/lib/i18n/LanguageContext';
 
 interface Props {
   address: string | null;
@@ -29,6 +30,7 @@ import { API_URL } from '@/lib/config';
 const QUICK_AMT = [1, 5, 10, 25, 50];
 
 export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: Props) {
+  const { t } = useTranslation();
   const [view, setView]                   = useState<View>('home');
   const [providerType, setProviderType]   = useState<ProviderType>('hospital');
   const [providerName, setProviderName]   = useState('');
@@ -167,9 +169,9 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
         <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center">
           <QrCode size={32} className="text-blue-400" />
         </div>
-        <h2 className="text-lg font-bold text-slate-800">Connect Wallet to Pay</h2>
+        <h2 className="text-lg font-bold text-slate-800">{t('connect_pay_title')}</h2>
         <p className="text-sm text-slate-500 max-w-[280px]">
-          Connect your Freighter wallet to generate QR codes and make payments.
+          {t('connect_pay_desc')}
         </p>
       </div>
     );
@@ -241,7 +243,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
             {/* Balance header */}
             <div className="gradient-brand rounded-2xl p-5 text-white">
               <p className="text-xs font-semibold uppercase tracking-widest text-blue-200 mb-1 flex items-center gap-1.5">
-                <Sparkles size={11} /> Available Balance
+                <Sparkles size={11} /> {t('pay_available_balance')}
               </p>
               <div className="flex items-end justify-between">
                 <div>
@@ -347,7 +349,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                 <ChevronLeft size={18} />
               </button>
               <div>
-                <h2 className="font-bold text-lg text-slate-900">Generate Payment QR</h2>
+                <h2 className="font-bold text-lg text-slate-900">{t('pay_title')}</h2>
                 <p className="text-xs text-slate-400">Enter amount, then show QR to the cashier</p>
               </div>
             </div>
@@ -435,7 +437,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
 
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
-                  <Coins size={11} /> Payment Amount
+                  <Coins size={11} /> {t('pay_amount')}
                 </label>
                 <button
                   onClick={() => setShowPhp(v => !v)}
@@ -619,7 +621,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     >
                       {genSubmitting
                         ? <><Loader2 size={15} className="animate-spin" /> Processing…</>
-                        : <><CheckCircle size={15} /> Confirm Payment Sent</>
+                        : <><CheckCircle size={15} /> {t('pay_confirm_btn')}</>
                       }
                     </button>
                   </div>

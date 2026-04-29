@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import type { HealthVault } from '@/lib/contract';
 import { loadTxs, Transaction, saveTx } from '@/lib/transactions';
+import { useTranslation } from '@/lib/i18n/LanguageContext';
 
 interface Props {
   address: string | null;
@@ -36,6 +37,7 @@ const php = (n: number) =>
 type Step = 'overview' | 'apply' | 'done';
 
 export default function LoanTab({ address, vault, phpRate }: Props) {
+  const { t } = useTranslation();
   const [step, setStep]             = useState<Step>('overview');
   const [amountPhp, setAmountPhp]   = useState('');
   const [showXlm, setShowXlm]       = useState(false);
@@ -80,9 +82,9 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
         <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center">
           <Lock size={32} className="text-blue-400" />
         </div>
-        <h2 className="text-lg font-bold text-slate-800">Connect Wallet</h2>
+        <h2 className="text-lg font-bold text-slate-800">{t('connect_loan_title')}</h2>
         <p className="text-sm text-slate-500 max-w-[280px]">
-          Connect your Freighter wallet to view loan options and apply.
+          {t('connect_loan_desc')}
         </p>
       </div>
     );
@@ -367,7 +369,7 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
               )}
             </AnimatePresence>
 
-            <p className="text-xs text-slate-400 text-center">Demo mode — applications are simulated.</p>
+            <p className="text-xs text-slate-400 text-center">{t('common_demo_simulated')}</p>
 
             <button
               onClick={handleApply}

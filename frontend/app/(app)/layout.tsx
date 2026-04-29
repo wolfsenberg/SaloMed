@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wallet, QrCode, Globe, HandCoins, Receipt, LogOut, Smartphone, Monitor, Info, Copy, Check } from 'lucide-react';
+import { Wallet, QrCode, Globe, HandCoins, Receipt, LogOut, Smartphone, Monitor, Info, Copy, Check, Languages } from 'lucide-react';
 import { Inter } from 'next/font/google';
 import Image from 'next/image';
 import SplashScreen from '@/components/SplashScreen';
@@ -12,9 +12,12 @@ import LoanTab from '@/components/LoanTab';
 import RemittanceForm from '@/components/RemittanceForm';
 import TransactionsTab from '@/components/TransactionsTab';
 import OnboardingSlides from '@/components/OnboardingSlides';
-import { connectWallet } from '@/lib/freighter';
+import LanguageSelectionModal from '@/components/LanguageSelectionModal';
+import { connectWallet, isFreighterInstalled } from '@/lib/freighter';
 import { getVault, HealthVault, EMPTY_VAULT } from '@/lib/contract';
 import { API_URL } from '@/lib/config';
+import { LanguageProvider, useTranslation } from '@/lib/i18n/LanguageContext';
+import { Language } from '@/lib/i18n/translations';
 import '@/app/globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -41,7 +44,23 @@ const slide = {
   exit: (d: number) => ({ x: -d * 30, opacity: 0 }),
 };
 
-export default function AppLayout({ children: _ }: { children: React.ReactNode }) {
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <head>
+        <title>SaloMed: Your Health Alkansya</title>
+        <link rel="icon" href="/SaloMed_logo.png" />
+      </head>
+      <body className={`${inter.className} antialiased font-sans`}>
+        <LanguageProvider>
+          <AppContent>{children}</AppContent>
+        </LanguageProvider>
+      </body>
+    </html>
+  );
+}
+
+function AppContent({ children: _ }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [phpRate, setPhpRate] = useState(56);
   const [address, setAddress] = useState<string | null>(null);
@@ -52,9 +71,14 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
   const [tab, setTab] = useState<Tab>('vault');
   const [dir, setDir] = useState(0);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showLangModal, setShowLangModal] = useState(false);
+  const [showLangDropdown, setShowLangDropdown] = useState(false);
   const [forceMobile, setForceMobile] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [hasFreighter, setHasFreighter] = useState<boolean>(true);
   const prevTab = useRef<Tab>('vault');
+
+  const { t, language, setLanguage, hasChosenLanguage } = useTranslation();
 
   // Sync initial tab from URL on mount, then lock down popstate so that
   // html5-qrcode (or any other lib) pushing/popping history doesn't navigate away.
@@ -72,12 +96,32 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  const refreshVault = useCallback(async (addr?: string) => {
+  const refreshVault = useCallback(async (addr?: string, isBackground: boolean = false) => {
     const a = addr ?? address;
     if (!a) return;
-    setLoadingVault(true);
-    try { setVault(await getVault(a)); }
-    finally { setLoadingVault(false); }
+    
+    if (!isBackground) setLoadingVault(true);
+
+    // Fast path: Update balance instantly from Horizon to mask Vercel cold starts
+    fetch(`https://horizon-testnet.stellar.org/accounts/${encodeURIComponent(a)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.balances) {
+          const nativeBal = data.balances.find((b: any) => b.asset_type === 'native');
+          const xlm = parseFloat(nativeBal?.balance ?? '0');
+          setVault(prev => ({ ...prev, balance: BigInt(Math.floor(xlm * 10_000_000)) }));
+          if (!isBackground) setLoadingVault(false); // Stop loading spinner early
+        }
+      })
+      .catch(() => {});
+
+    try { 
+      const fullVault = await getVault(a);
+      setVault(fullVault); 
+    }
+    finally { 
+      if (!isBackground) setLoadingVault(false); 
+    }
   }, [address]);
 
   // ── Auto-sync vault balance ───────────────────────────────────────────────
@@ -102,9 +146,9 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
     const onStorage = () => refreshVault(address);
     window.addEventListener('storage', onStorage);
 
-    // Poll every 20 seconds — directly queries Horizon so no backend needed
+    // Poll every 20 seconds — background refresh without showing loading UI
     const POLL_INTERVAL_MS = 20_000;
-    const pollId = setInterval(() => refreshVault(address), POLL_INTERVAL_MS);
+    const pollId = setInterval(() => refreshVault(address, true), POLL_INTERVAL_MS);
 
     return () => {
       window.removeEventListener('salomed_tx_update', onTxUpdate);
@@ -118,6 +162,8 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
       .then(r => r.json())
       .then((d: { php_per_usdc: number }) => setPhpRate(d.php_per_usdc))
       .catch(() => { });
+
+    isFreighterInstalled().then(setHasFreighter);
   }, []);
 
   // Persistent Connection: Restoration on page load
@@ -196,26 +242,40 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
   }, [address]);
 
   return (
-    <html lang="en">
-      <head>
-        <title>SaloMed: Your Health Alkansya</title>
-        <link rel="icon" href="/SaloMed_logo.png" />
-      </head>
-      <body className={`${inter.className} antialiased font-sans`}>
-        {!ready && <SplashScreen onDone={() => setReady(true)} />}
+    <>
+      {!ready && <SplashScreen onDone={() => setReady(true)} />}
 
-        <AnimatePresence>
-          {showOnboarding && (
-            <OnboardingSlides
-              onComplete={() => {
-                setShowOnboarding(false);
-                localStorage.setItem('salomed_onboarded', 'true');
-              }}
-            />
-          )}
-        </AnimatePresence>
+      <AnimatePresence>
+        {showOnboarding && (
+          <OnboardingSlides
+            onComplete={() => {
+              setShowOnboarding(false);
+              localStorage.setItem('salomed_onboarded', 'true');
+              if (!hasChosenLanguage) {
+                setShowLangModal(true);
+              }
+            }}
+          />
+        )}
+      </AnimatePresence>
 
-        <div className={`h-dvh flex w-full overflow-hidden ${forceMobile ? 'flex-col bg-slate-50 max-w-lg mx-auto shadow-2xl relative' : 'flex-col md:flex-row bg-slate-50'}`}>
+      <AnimatePresence>
+        {showLangModal && (
+          <LanguageSelectionModal onComplete={() => setShowLangModal(false)} />
+        )}
+      </AnimatePresence>
+
+      <div className={`h-dvh flex flex-col w-full overflow-hidden ${forceMobile ? 'bg-slate-50 max-w-lg mx-auto shadow-2xl relative' : 'md:flex-col bg-slate-50'}`}>
+        {!hasFreighter && (
+          <div className="w-full bg-blue-600 text-white text-xs font-semibold px-4 py-2.5 flex items-center justify-center gap-2 text-center z-[60]">
+            <Info size={14} /> 
+            Please install the Freighter app to use SaloMed. 
+            <a href="https://www.freighter.app/" target="_blank" rel="noopener noreferrer" className="underline decoration-blue-300 underline-offset-2 hover:text-blue-100 transition-colors">
+              Install Freighter
+            </a>
+          </div>
+        )}
+        <div className={`flex-1 flex overflow-hidden ${forceMobile ? 'flex-col' : 'flex-col md:flex-row'}`}>
 
           {/* Desktop Sidebar (hidden on mobile) */}
           <aside className={`${forceMobile ? 'hidden' : 'hidden md:flex'} flex-col w-72 bg-white border-r border-slate-200 shrink-0 h-full sticky top-0`}>
@@ -227,9 +287,11 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
                   </div>
                   <span className="font-bold text-xl text-slate-900 tracking-tight">SaloMed</span>
                 </div>
-                <button onClick={() => setShowOnboarding(true)} className="text-slate-400 hover:text-blue-600 transition-colors" title="About SaloMed">
-                  <Info size={18} />
-                </button>
+                <div className="flex gap-2">
+                  <button onClick={() => setShowOnboarding(true)} className="text-slate-400 hover:text-blue-600 transition-colors" title="About SaloMed">
+                    <Info size={18} />
+                  </button>
+                </div>
               </div>
 
               {/* Desktop Wallet Connect/Disconnect UI */}
@@ -255,7 +317,7 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
                       onClick={handleDisconnect}
                       className="flex items-center justify-center gap-2 w-full py-2 rounded-xl text-xs font-semibold text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors"
                     >
-                      <LogOut size={14} /> Disconnect
+                      <LogOut size={14} /> {t('common_disconnect')}
                     </button>
                   </div>
                 ) : (
@@ -264,25 +326,27 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
                     disabled={connecting}
                     className="w-full text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl py-3 transition-all disabled:opacity-60 shadow-sm"
                   >
-                    {connecting ? 'Connecting…' : 'Connect Wallet'}
+                    {connecting ? t('common_connecting') : t('common_connect_wallet')}
                   </button>
                 )}
               </div>
             </div>
 
             <nav className="flex-1 px-4 py-6 space-y-2">
-              {TAB_ORDER.map(t => {
-                const { Icon, label } = TAB_META[t];
-                const active = tab === t;
+              {TAB_ORDER.map(tKey => {
+                const { Icon, label } = TAB_META[tKey];
+                const active = tab === tKey;
+                // Provide translation keys dynamically mapping nav_vault, nav_payment, etc.
+                const transKey = `nav_${tKey}` as any;
                 return (
                   <button
-                    key={t + '-desktop'}
-                    onClick={() => switchTab(t)}
+                    key={tKey + '-desktop'}
+                    onClick={() => switchTab(tKey)}
                     className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-semibold transition-all ${active ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                       }`}
                   >
                     <Icon size={20} strokeWidth={active ? 2.5 : 2} />
-                    <span className="text-sm">{label}</span>
+                    <span className="text-sm">{t(transKey) || label}</span>
                   </button>
                 );
               })}
@@ -301,9 +365,11 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
                   <Image src="/SaloMed_logo.png" alt="SaloMed" fill className="object-contain" priority />
                 </div>
                 <span className="font-bold text-base text-slate-900 tracking-tight">SaloMed</span>
-                <button onClick={() => setShowOnboarding(true)} className="text-slate-400 hover:text-blue-600 transition-colors ml-1" title="About SaloMed">
-                  <Info size={16} />
-                </button>
+                <div className="flex gap-1 ml-1 items-center">
+                  <button onClick={() => setShowOnboarding(true)} className="text-slate-400 hover:text-blue-600 transition-colors" title="About SaloMed">
+                    <Info size={16} />
+                  </button>
+                </div>
               </div>
 
               {address ? (
@@ -396,18 +462,19 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
             {/* Bottom tab bar (Mobile only) */}
             <nav className={`${forceMobile ? 'block' : 'md:hidden'} bg-white border-t border-slate-100 shadow-[0_-1px_4px_0_rgb(0,0,0,0.06)] shrink-0`}>
               <div className="flex">
-                {TAB_ORDER.map(t => {
-                  const { Icon, label } = TAB_META[t];
-                  const active = tab === t;
+                {TAB_ORDER.map(tKey => {
+                  const { Icon, label } = TAB_META[tKey];
+                  const active = tab === tKey;
+                  const transKey = `nav_${tKey}` as any;
                   return (
                     <button
-                      key={t}
-                      onClick={() => switchTab(t)}
+                      key={tKey}
+                      onClick={() => switchTab(tKey)}
                       className={`relative flex-1 flex flex-col items-center gap-1 py-3 transition-colors ${active ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
                         }`}
                     >
                       <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
-                      <span className="text-[11px] font-semibold">{label}</span>
+                      <span className="text-[11px] font-semibold">{t(transKey) || label}</span>
                       {active && (
                         <motion.div layoutId="tab-dot" className="absolute top-1 w-1 h-1 rounded-full bg-blue-600" />
                       )}
@@ -418,20 +485,64 @@ export default function AppLayout({ children: _ }: { children: React.ReactNode }
             </nav>
           </div>
 
-          {/* Floating button to toggle desktop/mobile view */}
-          <button
-            onClick={() => setForceMobile(!forceMobile)}
-            className="hidden md:flex fixed top-4 right-4 items-center gap-1.5 bg-slate-800/90 hover:bg-slate-900 text-white px-3.5 py-2 rounded-full shadow-md text-xs font-semibold backdrop-blur-sm transition-all z-50 hover:scale-105 active:scale-95"
-          >
-            {forceMobile ? (
-              <><Monitor size={14} strokeWidth={2.5} /> Desktop View</>
-            ) : (
-              <><Smartphone size={14} strokeWidth={2.5} /> Mobile View</>
-            )}
-          </button>
+          {/* Floating UI on the right */}
+          <div className={`fixed right-4 flex flex-col gap-2 z-50 items-end transition-all duration-300 ${!hasFreighter ? 'top-14' : 'top-4'}`}>
+            {/* View Toggle */}
+            <button
+              onClick={() => setForceMobile(!forceMobile)}
+              className="hidden md:flex items-center gap-1.5 bg-slate-800/90 hover:bg-slate-900 text-white px-3.5 py-2 rounded-full shadow-md text-xs font-semibold backdrop-blur-sm transition-all hover:scale-105 active:scale-95"
+            >
+              {forceMobile ? (
+                <><Monitor size={14} strokeWidth={2.5} /> {t('common_desktop_view')}</>
+              ) : (
+                <><Smartphone size={14} strokeWidth={2.5} /> {t('common_mobile_view')}</>
+              )}
+            </button>
+
+            {/* Floating Language Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowLangDropdown(!showLangDropdown)}
+                className="flex items-center gap-1.5 bg-blue-600/90 hover:bg-blue-700 text-white px-3.5 py-2 rounded-full shadow-md text-xs font-semibold backdrop-blur-sm transition-all hover:scale-105 active:scale-95"
+              >
+                <Languages size={14} strokeWidth={2.5} /> {t('common_language')}: {language === 'taglish' ? 'Default' : language === 'en' ? 'English' : 'Tagalog'}
+              </button>
+
+              <AnimatePresence>
+                {showLangDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 top-full mt-2 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden w-32 flex flex-col"
+                  >
+                    {[
+                      { val: 'taglish', label: 'Default' },
+                      { val: 'en', label: 'English' },
+                      { val: 'tl', label: 'Tagalog' },
+                    ].map(opt => (
+                      <button
+                        key={opt.val}
+                        onClick={() => {
+                          setLanguage(opt.val as Language);
+                          setShowLangDropdown(false);
+                        }}
+                        className={`text-left px-4 py-3 text-xs font-semibold transition-colors hover:bg-blue-50 hover:text-blue-600 ${
+                          language === opt.val ? 'bg-blue-50 text-blue-700' : 'text-slate-600'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
 
         </div>
-      </body>
-    </html>
+      </div>
+    </>
   );
 }

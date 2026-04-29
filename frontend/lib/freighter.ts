@@ -53,6 +53,17 @@ export async function signTransaction(xdr: string): Promise<string | null> {
   }
 }
 
+export async function isFreighterInstalled(): Promise<boolean> {
+  const f = await api();
+  if (!f) return false;
+  try {
+    const conn = await f.isConnected();
+    return typeof conn === 'boolean' ? conn : (conn as { isConnected: boolean }).isConnected;
+  } catch {
+    return false;
+  }
+}
+
 export async function getAddress(): Promise<string | null> {
   const f = await api();
   if (!f) return null;

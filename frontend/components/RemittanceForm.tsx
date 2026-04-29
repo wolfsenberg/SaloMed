@@ -16,6 +16,7 @@ interface Props {
 
 import { calcPadala, sendPadala } from '@/lib/contract';
 import { saveTx } from '@/lib/transactions';
+import { useTranslation } from '@/lib/i18n/LanguageContext';
 
 import { API_URL } from '@/lib/config';
 
@@ -27,6 +28,7 @@ function isValidStellarAddress(addr: string) {
 }
 
 export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchTab }: Props) {
+  const { t } = useTranslation();
   const [payFrom, setPayFrom] = useState<PayFrom>('vault');
   const [recipientMethod, setRecipientMethod] = useState<RecipientMethod>('gcash');
   const [beneficiary, setBeneficiary] = useState('');
@@ -199,9 +201,9 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
           <Lock size={36} className="text-blue-400" />
         </div>
         <div className="space-y-2">
-          <h2 className="text-xl font-bold text-slate-900">Connect Your Wallet</h2>
+          <h2 className="text-xl font-bold text-slate-900">{t('connect_remit_title')}</h2>
           <p className="text-sm text-slate-500 max-w-xs leading-relaxed mx-auto">
-            Please connect your Freighter wallet to send a Padala or fund another family member&apos;s vault.
+            {t('connect_remit_desc')}
           </p>
         </div>
       </div>
@@ -218,13 +220,11 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
         className="gradient-brand rounded-2xl p-5 text-white"
       >
         <p className="text-xs font-semibold uppercase tracking-widest text-blue-200 mb-1 flex items-center gap-1.5">
-          <Globe size={11} /> Padala
+          <Globe size={11} /> {t('nav_remittance')}
         </p>
-        <h2 className="text-xl font-bold mb-1">Purpose-Bound Padala</h2>
+        <h2 className="text-xl font-bold mb-1">{t('remit_title')}</h2>
         <p className="text-sm text-blue-100 leading-relaxed">
-          Send funds to any family member&apos;s SaloMed Vault — local or overseas.
-          Locked on-chain, spendable <strong>only</strong> at whitelisted providers.
-          Earn SaloPoints with every padala.
+          {t('remit_desc')}
         </p>
       </motion.div>
 
@@ -335,7 +335,7 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block">
-              Pay From
+              {t('pay_pay_from')}
             </label>
             <button
               type="button"
@@ -383,7 +383,7 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
-              <Coins size={11} /> Amount
+              <Coins size={11} /> {t('remit_amount')}
             </label>
             {/* Toggle for both GCash and Stellar methods */}
             <button
@@ -530,9 +530,9 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
             {submitting ? (
               <><Loader2 size={16} className="animate-spin" /> Sending on-chain…</>
             ) : recipientMethod === 'gcash' ? (
-              <><span className="w-4 h-4 bg-white rounded flex items-center justify-center text-[#007DFF] text-[10px] font-black leading-none">G</span> Send via GCash</>
+              <><span className="w-4 h-4 bg-white rounded flex items-center justify-center text-[#007DFF] text-[10px] font-black leading-none">G</span> {t('remit_send_btn')} (GCash)</>
             ) : (
-              <><Send size={15} /> Send via Stellar</>
+              <><Send size={15} /> {t('remit_send_btn')} (Stellar)</>
             )}
           </button>
         )}

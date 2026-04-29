@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Award, Percent, Star, CheckCircle, Loader2, Info } from 'lucide-react';
 import type { HealthVault } from '@/lib/contract';
+import { useTranslation } from '@/lib/i18n/LanguageContext';
 
 interface Props {
   gapAmount: number;
@@ -31,6 +32,7 @@ const php = (n: number) =>
 const TERMS = [3, 6, 12];
 
 export default function LoanModal({ gapAmount, vault, onClose, onSuccess }: Props) {
+  const { t } = useTranslation();
   const [selectedTerm, setSelectedTerm] = useState(6);
   const [submitting, setSubmitting]     = useState(false);
   const [done, setDone]                 = useState(false);
@@ -145,7 +147,7 @@ export default function LoanModal({ gapAmount, vault, onClose, onSuccess }: Prop
         )}
 
         <p className="text-xs text-slate-400 text-center">
-          Demo mode — applications are simulated.
+          {t('common_demo_simulated')}
         </p>
 
         {/* CTA */}
