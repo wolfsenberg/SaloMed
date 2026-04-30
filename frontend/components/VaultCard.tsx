@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Award, CreditCard, Star, Lock, RefreshCw, Globe,
-  TrendingUp, ShieldCheck, Link, ArrowLeftRight,
+  TrendingUp, ShieldCheck, Link, ArrowLeftRight, Smartphone, ChevronRight, X,
 } from 'lucide-react';
 import { HealthVault, savingsXlm } from '@/lib/contract';
 import GCashModal from '@/components/GCashModal';
@@ -17,6 +17,7 @@ interface Props {
   loading: boolean;
   connecting: boolean;
   onConnect: () => void;
+  onManualConnect: (address: string) => void;
   onRefresh: () => void;
 }
 
@@ -42,18 +43,24 @@ function tierNextLabel(vault: HealthVault): string {
 
 const card = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } };
 
-export default function VaultCard({ address, vault, loading, connecting, onConnect, onRefresh }: Props) {
+export default function VaultCard({ address, vault, loading, connecting, onConnect, onManualConnect, onRefresh }: Props) {
   const { t } = useTranslation();
   const [showGCash, setShowGCash]         = useState(false);
   const [showFreighter, setShowFreighter] = useState(false);
   const [showPhp, setShowPhp]             = useState(false);
-  const [phpRate, setPhpRate]             = useState(6);   // PHP per 1 XLM
+  const [phpRate, setPhpRate]             = useState(6);
+  const [isMobile, setIsMobile]           = useState(false);
+  const [showManual, setShowManual]       = useState(false);
+  const [manualAddr, setManualAddr]       = useState('');
+  const [manualErr, setManualErr]         = useState('');
 
   useEffect(() => {
     fetch(`${API_URL}/api/gcash-rate`)
       .then(r => r.json())
       .then((d: { php_per_usdc: number }) => setPhpRate(d.php_per_usdc))
       .catch(() => {});
+
+    setIsMobile(/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
   }, []);
 
   const xlmValue  = Number(vault.balance) / 10_000_000;
@@ -67,30 +74,101 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
   }
 
   if (!address) {
+    function handleManualSubmit() {
+      const addr = manualAddr.trim();
+      if (!addr.startsWith('G') || addr.length !== 56) {
+        setManualErr('Invalid Stellar address. Must start with G and be 56 characters.');
+        return;
+      }
+      setManualErr('');
+      onManualConnect(addr);
+    }
+
     return (
       <div className="flex flex-col items-center justify-center min-h-[65vh] px-6 gap-6">
         <div className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center shadow-sm">
           <Lock size={36} className="text-blue-400" />
         </div>
+
         <div className="text-center space-y-2">
           <h2 className="text-xl font-bold text-slate-900">
-            {t('connect_vault_title').split(', ')[0]},<br/><span className="text-blue-600">{t('connect_vault_title').split(', ')[1]}</span>
+            {t('connect_vault_title').split(', ')[0]},<br />
+            <span className="text-blue-600">{t('connect_vault_title').split(', ')[1]}</span>
           </h2>
           <p className="text-sm text-slate-500 max-w-xs leading-relaxed">
             {t('connect_vault_desc')}
           </p>
         </div>
+
         <div className="w-full max-w-xs space-y-3">
-          <button
-            onClick={onConnect}
-            disabled={connecting}
-            className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-semibold text-sm transition-all disabled:opacity-60 shadow-sm flex items-center justify-center gap-2"
-          >
-            <Link size={15} />
-            {connecting ? t('common_connecting') : t('common_connect_wallet')}
-          </button>
-          
-          <p className="text-[11px] text-slate-400 text-center pt-2">
+          {/* Freighter — desktop only */}
+          {!isMobile && (
+            <button
+              onClick={onConnect}
+              disabled={connecting}
+              className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-semibold text-sm transition-all disabled:opacity-60 shadow-sm flex items-center justify-center gap-2"
+            >
+              <Link size={15} />
+              {connecting ? t('common_connecting') : t('common_connect_wallet')}
+            </button>
+          )}
+
+          {/* Mobile notice */}
+          {isMobile && (
+            <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl p-3">
+              <Smartphone size={15} className="text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-700 leading-relaxed">
+                Ang Freighter extension ay para sa desktop browser lamang. Sa mobile, i-paste ang iyong Stellar address para makita ang iyong vault.
+              </p>
+            </div>
+          )}
+
+          {/* Manual address — always visible, expands on tap */}
+          <AnimatePresence mode="wait">
+            {!showManual ? (
+              <motion.button
+                key="show-btn"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                onClick={() => setShowManual(true)}
+                className="w-full py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 text-sm font-medium transition-all flex items-center justify-center gap-2"
+              >
+                <ChevronRight size={14} />
+                {isMobile ? 'Enter your Stellar address' : 'Or enter address manually'}
+              </motion.button>
+            ) : (
+              <motion.div
+                key="manual-form"
+                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                className="space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Stellar Address</p>
+                  <button onClick={() => { setShowManual(false); setManualAddr(''); setManualErr(''); }} className="text-slate-400 hover:text-slate-600">
+                    <X size={14} />
+                  </button>
+                </div>
+                <input
+                  value={manualAddr}
+                  onChange={e => { setManualAddr(e.target.value); setManualErr(''); }}
+                  placeholder="GABC…XYZ"
+                  spellCheck={false}
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl px-4 py-3 text-sm font-mono text-slate-800 placeholder-slate-400 outline-none transition-all"
+                />
+                {manualErr && <p className="text-xs text-red-500">{manualErr}</p>}
+                <button
+                  onClick={handleManualSubmit}
+                  className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
+                >
+                  <Link size={14} /> View Vault
+                </button>
+                <p className="text-[10px] text-slate-400 text-center">
+                  View-only on mobile. Use desktop Freighter to send transactions.
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <p className="text-[11px] text-slate-400 text-center pt-1">
             {t('common_demo_testnet')}
           </p>
         </div>
