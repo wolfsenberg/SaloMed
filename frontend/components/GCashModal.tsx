@@ -183,7 +183,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block">Amount (PHP)</label>
+                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block">Amount</label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">₱</span>
                     <input

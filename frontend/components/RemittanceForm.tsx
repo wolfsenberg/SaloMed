@@ -15,7 +15,7 @@ interface Props {
 }
 
 import { calcPadala, sendPadala } from '@/lib/contract';
-import { saveTx } from '@/lib/transactions';
+import { saveTx, addLocalSaloPoints } from '@/lib/transactions';
 import { useTranslation } from '@/lib/i18n/LanguageContext';
 
 import { API_URL } from '@/lib/config';
@@ -120,6 +120,7 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
           status: 'success',
           direction: 'sent',
         });
+        addLocalSaloPoints(sender, pointsEarned);
 
         // 2. Log for Recipient (If Stellar)
         if (recipientMethod === 'stellar') {
