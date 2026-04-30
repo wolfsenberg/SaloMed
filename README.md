@@ -43,14 +43,14 @@ Think of it as the ultimate discipline tool for your health savings. We give you
 
 ### Table of Contents
 *   [Key Features](#key-features)
-*   [The Vision: Why Philippines? Why Now?](#the-vision-why-philippines-why-now)
+*   [The Vision](#the-vision)
 *   [Tech Stack](#tech-stack)
 *   [Smart Contract](#smart-contract)
 *   [How Stellar Powers SaloMed](#how-stellar-powers-salomed)
 *   [Architecture and Structure](#architecture-and-structure)
 *   [CI/CD Pipeline](#cicd-pipeline)
 *   [Hackathon Requirements Detail](#hackathon-requirements-detail)
-*   [User Feedback and Future Improvements](#user-feedback-and-future-improvements)
+*   [User Feedback and Improvement Phase](#user-feedback-and-improvement-phase)
 *   [Demo Flow](#demo-flow)
 *   [Escrow Lifecycle](#escrow-lifecycle)
 *   [Setup](#setup)
@@ -60,53 +60,29 @@ Think of it as the ultimate discipline tool for your health savings. We give you
 ## Key Features
 
 ### 1. Purpose-Bound Savings (The "Lock" Feature)
-When you fund your SaloMed Vault, that money is secured and untouchable for casual spending. You cannot withdraw it to buy concert tickets or go shopping. It can exclusively be transacted at whitelisted partner hospitals, clinics, and pharmacies. When an emergency actually happens, you have absolute peace of mind knowing the budget is 100% intact and ready to use.
+When you fund your SaloMed Vault, that money is secured and untouchable for casual spending. You cannot withdraw it to buy concert tickets or go shopping. It can exclusively be transacted at whitelisted partner hospitals, clinics, and pharmacies.
 
 ### 2. Familiarity and "Zero-Crypto Anxiety"
-We intentionally designed SaloMed to avoid alienating Filipinos with complicated tech workflows. It feels exactly like the daily finance apps they are already accustomed to.
+*   **Recognizable Funding**: Top up via familiar e-wallet flows (GCash Bridge).
+*   **Scan-to-Pay**: Point-of-care QR payments just like your daily finance apps.
+*   **Local Currency Display**: Dynamic toggle between PHP and XLM for better accessibility.
 
-*   **Recognizable Funding**: We leverage the familiarity of leading local e-wallets, allowing users to effortlessly top up their vault or send funds in just a few taps.
-*   **Scan-to-Pay**: At the hospital checkout counter? Just open the SaloMed app, select "Scan QR," and pay the exact amount point-blank. Kung kaya mong mag-scan sa sari-sari store, kayang-kaya mong gamitin ang SaloMed (If you can scan at a local store, you can definitely use SaloMed).
-*   **Local Currency Display**: While powered by the Stellar network, the platform maintains a highly accessible interface. Users can dynamically toggle their balance between Philippine Pesos (PHP) and XLM, with all complex blockchain operations abstracted seamlessly in the background.
-
-### 3. The Ultimate "Health Pasaload" (Local and Global Padala)
-SaloMed completely redesigns how we support our families. While it is highly effective for OFWs wanting to ensure their remittances are spent properly, its utility is not limited to them. It works just like the uniquely Filipino concept of Pasaload (Sharing mobile credits).
-
-Need to instantly send medicine money to your sibling in the province? Just padala directly to their SaloMed Vault! Because the remittance is Purpose-Bound, you are 100% certain it will only be spent at a hospital or pharmacy. You get guaranteed transparency, whether you're sending from Dubai, Makati, or the next town over.
-
-### 4. Powered by Stellar: Fast, Cheap, and Ultra-Safe
-Because we built SaloMed on the Stellar blockchain, we get to leverage its absolute best features. Transactions settle in just seconds, and the network fees are practically non-existent. Most importantly, every single transaction is permanently intact and safe. Because it exists on a blockchain, bawat padala (every remittance) and every hospital payment is permanently and transparently recorded on an immutable ledger. No missing funds, no accounting blind spots: just unbreakable, uncompromisable security protecting your hard-earned health savings.
-
-### 5. SaloPoints and Micro-Loans (Gap Funding)
-To reward financial discipline, every time a user pays a healthcare provider using SaloMed, they earn SaloPoints as cashback. But what if the hospital bill exceeds the savings inside the vault? SaloMed features a highly accessible Micro-Loan system. Because your entire healthcare payment history is reliably recorded on-chain, you can instantly apply for short-term Gap Funding to quickly clear the remaining hospital balance. Over time, maintaining a healthy stash of SaloPoints unlocks significantly cheaper interest rates!
+### 3. The Ultimate "Health Pasaload" (Global Padala)
+Remit funds directly to a loved one's SaloMed Vault. Because the remittance is Purpose-Bound, you are 100% certain it will only be spent at a hospital or pharmacy, providing guaranteed transparency for senders worldwide.
 
 ---
 
 ## The Vision: Why Philippines? Why Now?
-
-SaloMed is born out of a critical need to bridge the gap between digital financial convenience and long-term medical security in the Philippines.
-
-### The Problem of "Out-of-Pocket" Healthcare
-In the Philippines, nearly half of healthcare spending is paid "out-of-pocket." Most families are one major illness away from falling back into poverty. SaloMed provides a safety net that traditional banking and e-wallets cannot: **Condition-based Saving.**
-
-### Target Market and Strategic Impact
-*   **The Transnational Filipino Family**: Designed for families separated by geography (OFWs, domestic migrants). It solves the "trust gap" in remittances, ensuring that medical funds stay in the vault until needed by a healthcare provider.
-*   **The Unbanked and Under-HMO**: For millions who do not have access to private health insurance (HMOs), SaloMed acts as a self-funded, community-backed insurance layer.
-*   **Healthcare Providers**: Hospitals and pharmacies benefit from instant, atomic settlement with zero credit risk.
+SaloMed acts as a self-funded, community-backed insurance layer for the millions of Filipinos who are "one illness away from poverty." We turn digital currency into **purposeful capital**, helping families build generational wealth rather than generational debt.
 
 ---
 
 ## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| **Blockchain** | Stellar Soroban (Smart Contracts) |
-| **Smart Contract** | Rust + soroban-sdk |
-| **Frontend** | Next.js 14 (App Router), Tailwind CSS, Framer Motion |
-| **Backend** | FastAPI (Python 3.11) |
-| **Wallet** | Freighter Wallet |
-| **Payments** | XLM and USDC (Stellar Assets) |
-| **Deployment** | Vercel (Frontend), Render (Backend) |
+*   **Blockchain**: Stellar Soroban (Smart Contracts)
+*   **Smart Contract**: Rust + soroban-sdk
+*   **Frontend**: Next.js 14 (App Router), Tailwind CSS, Framer Motion
+*   **Backend**: FastAPI (Python 3.11)
+*   **Wallet**: Freighter Wallet (Stellar Testnet)
 
 ---
 
@@ -125,201 +101,88 @@ In the Philippines, nearly half of healthcare spending is paid "out-of-pocket." 
 ---
 
 ## How Stellar Powers SaloMed
-
-SaloMed is more than an application: it is a decentralized financial protocol for health security, leveraged by the specific architectural strengths of the Stellar Network:
-
-*   **Automated Financial Discipline**: Our Soroban smart contracts act as an immutable, non-custodial guardian. By hardcoding the "healthcare-only" rule on-chain, we eliminate human temptation and ensure that emergency funds are preserved for their intended purpose.
-*   **Atomic Multi-Party Settlement**: Using Stellar's atomic operations, we ensure that a vault is only debited *if and only if* a whitelisted healthcare provider simultaneously receives the funds. This creates a zero-trust environment where patient funds are safe until the point of care.
-*   **Hyper-Scalability via Micro-fees**: With transaction costs at a fraction of a cent, SaloMed remains economically viable for frequent micro-savings and micro-remittances that would otherwise be consumed by traditional banking fees.
-*   **Asset Versatility and Stability**: By utilizing USDC for value preservation and XLM for network utility, we provide a stable e-wallet experience backed by the speed and transparency of a global public ledger.
-*   **Seamless Global-to-Local Remittances**: Stellar eliminates the friction of cross-border health support. Funds sent from anywhere in the world arrive instantly as purpose-bound health credits, ready for immediate medical use in the Philippines.
+*   **Automated Financial Discipline**: Soroban smart contracts act as an immutable guardian of health funds.
+*   **Atomic Settlement**: Multi-party settlement ensuring funds only leave the vault when care is provided.
+*   **Hyper-Scalability**: Transactions settle in seconds with near-zero micro-fees.
 
 ---
 
 ## Architecture and Structure
-
-SaloMed follows a high-resiliency **Hybrid Sync Architecture** to ensure the app remains functional even during backend processing delays:
-
-```text
-       [ User / Wallet ]
-               ↓
-    [ Next.js Web Frontend ] <————> [ Stellar Horizon / RPC ]
-               ↓                            ↑
-      [ FastAPI Backend ] ———————————————————/
-```
-
-*   **Frontend**: Built with Next.js 14. Directly queries **Stellar Horizon** for real-time balance and transaction history to ensure 100% data accuracy.
-*   **Backend**: Acts as a bridge for "Mock Fiat" operations. Uses a **Direct Signer Logic** (topup-legacy) to fund wallets instantly without relying on heavy server-side CLI dependencies.
-*   **Auto-Sync Engine**: The UI implements a dual-layer sync:
-    *   **Event-Driven**: Instantly refreshes balance after any successful payment or padala.
-    *   **Polling**: Directly queries the blockchain every 20 seconds to catch inbound deposits or external transfers.
+SaloMed follows a high-resiliency Hybrid Sync Architecture:
+1. **Frontend**: Directly queries Horizon RPC for real-time accuracy.
+2. **Backend**: GCash Bridge logic using SALOMED_SIGNER_SECRET.
+3. **Auto-Sync Engine**: Dual-layer sync (Event-driven and 20s Polling).
 
 ---
 
 ## CI/CD Pipeline
-
-SaloMed uses a robust **CI/CD Pipeline** via GitHub Actions to maintain code quality and ensure continuous delivery:
-
-*   **Continuous Integration (CI)**: Awtomatikong pinapatakbo ang mga sumusunod sa bawat push:
-    *   **Smart Contract Tests**: Ginagamit ang `cargo test` para i-verify ang integridad ng Soroban contracts.
-    *   **Frontend Validation**: Sinisiguro na ang Next.js build ay walang errors bago ang deployment.
-    *   **Dependency Audit**: Sinusuri ang mga security vulnerabilities sa backend at frontend packages.
-*   **Continuous Deployment (CD)**: Kapag pumasa ang lahat ng tests, ang app ay awtomatikong dine-deploy sa **Vercel** (Frontend) at **Render** (Backend).
+SaloMed uses a robust CI/CD Pipeline via GitHub Actions to maintain code quality and ensure continuous delivery:
+*   **Continuous Integration (CI)**: Automatically runs Smart Contract tests (cargo test), Frontend validation (Next.js build), and Dependency audits on every push.
+*   **Continuous Deployment (CD)**: Upon passing all tests, the app is automatically deployed to Vercel (Frontend) and Render (Backend).
 
 ---
 
 ## Hackathon Requirements Detail
 
 ### Level 3: Mini-dApp Evidence
-Ang SaloMed ay isang fully functional mini-dApp. Narito ang tatlong pangunahing tests na pumasa sa aming smart contract:
-1.  `test_initialize`: Bineverify ang tamang setup ng admin at token authority (Verified the correct admin and token authority setup).
-2.  `test_deposit_remittance`: Sinisiguro na ang pondo ay naka-lock sa tamang beneficiary vault (Ensures funds are locked in the correct beneficiary vault).
-3.  `test_pay_hospital`: Sinusuri ang atomic flow mula vault patungong hospital provider (Examines the atomic flow from vault to hospital provider).
+SaloMed is a fully functional mini-dApp. The following primary tests have passed in our smart contract:
+1.  `test_initialize`: Verified the correct admin and token authority setup.
+2.  `test_deposit_remittance`: Ensures funds are locked in the correct beneficiary vault.
+3.  `test_pay_hospital`: Examines the atomic flow from vault to hospital provider.
 
 ### Level 4: Advanced Features
-*   **Inter-contract Calls**: Ang aming contract ay direktang nakikipag-ugnayan sa Stellar Token Contract para sa atomic fund transfers (Our contract directly interacts with the Stellar Token Contract for atomic fund transfers).
-*   **Custom Token Mechanics**: Ang system ay dinisenyo para tumanggap ng custom Stellar Asset Contracts (SAC) para sa medical-specific tokens o liquidity pools sa hinaharap (The system is designed to accept custom Stellar Asset Contracts for medical-specific tokens or liquidity pools in the future).
-*   **Advanced Event Streaming**: Gumagamit ang frontend ng real-time sync engine na nag-uupdate ng balance at history tuwing may nadiditect na blockchain events o ledger closes (The frontend uses a real-time sync engine that updates balance and history whenever blockchain events or ledger closes are detected).
-*   **CI/CD Pipeline**: Naka-setup ang GitHub Actions para sa automated testing at build validation sa bawat push (GitHub Actions are set up for automated testing and build validation on every push).
+*   **Inter-contract Calls**: Our contract directly interacts with the Stellar Token Contract for atomic fund transfers.
+*   **Custom Token Mechanics**: The system is designed to accept custom Stellar Asset Contracts (SAC) for medical-specific tokens or liquidity pools in the future.
+*   **Advanced Event Streaming**: The frontend uses a real-time sync engine that updates balance and history whenever blockchain events or ledger closes are detected.
+*   **CI/CD Pipeline**: GitHub Actions are set up for automated testing and build validation on every push.
 
 ---
 
-## User Feedback and Future Improvements
+## User Feedback and Improvement Phase
 
-Kami ay nangolekta ng feedback mula sa aming initial test users para sa Level 5 requirement.
+We collected feedback from 8 initial test users to satisfy the Level 5 requirement. The overall impression was highly positive, with most users rating the concept 5/5.
 
 **Feedback Data Analysis**: [View User Responses Spreadsheet](https://docs.google.com/spreadsheets/d/1cGYpwIF1pgURlQtQvbi-ag1oKH0ZTKydAowQtGC0uus/edit?usp=sharing)
 
-### Future Improvements Based on Feedback
-Batay sa feedback ng mga users, narito ang aming plano para sa susunod na phase ng SaloMed:
+### Improvements Based on Real User Feedback
+Based on the collected data, we have identified and prioritized the following improvements for the next development phase:
 
-1.  **Enhanced UX for Seniors**: Maraming users ang nagsabing kailangan ng mas malaking fonts at voice commands para sa mga matatandang pasyente (Many users said larger fonts and voice commands are needed for elderly patients).
-2.  **Expanded Whitelist**: Mag-dadagdag kami ng mas maraming local clinics sa probinsya para sa mas malawak na coverage (We will add more local clinics in the province for wider coverage).
-3.  **Automated Micro-Loans**: I-aautomate ang gap funding application gamit ang on-chain credit scoring mula sa SaloPoints (Automate the gap funding application using on-chain credit scoring from SaloPoints).
+1.  **Core Feature Bug Fixes**: One user reported issues with the Savings and SaloPoints synchronization. We are currently debugging the smart contract state retrieval for these specific modules.
+2.  **Mobile View Optimization**: Feedback indicated that the mobile view on desktop can be difficult to use and scrolling needs to be smoother. We plan to optimize the responsive layout and CSS transitions.
+3.  **Performance and Speed**: Some users requested faster site loading. We will implement server-side rendering (SSR) optimizations and asset compression to improve performance.
 
 **Latest Improvement Commit**: [Implemented Transaction Toasts and Currency Toggle](https://github.com/wolfsenberg/SaloMed/commit/b6636f6)
 
 ---
 
 ## Demo Flow
-
-> **Watch the Demo:** [Google Drive](https://drive.google.com/file/d/1FdqfCqWRw6hjVrcqbt7UpLAgSdgnlXAR/view?usp=sharing)
-
-Experience the SaloMed lifecycle in 5 easy steps:
-
-1.  **Onboarding and Connection**: Connect your **Freighter Wallet**. If it's your first time, you'll see a professional onboarding walkthrough explaining the "Health Alkansya" concept.
-2.  **The Top-Up**: Funding your vault is seamless. You can send XLM/USDC directly, or use our **GCash Bridge** simulation to "top up" your health savings.
-3.  **Provider Verification**: Select a whitelisted hospital or pharmacy. SaloMed verifies the provider's Stellar address before allowing any transaction.
-4.  **Atomic Payment**: Confirm the payment. The smart contract ensures funds are only released to whitelisted healthcare providers. If your balance is low, the UI will suggest a **Micro-Loan** or a **Top-Up**. 
-5.  **Growth and History**: Every payment earns you **SaloPoints**, moving you from Bronze to Gold tiers. All transactions are synced between **LocalStorage** (for instant UI feedback) and **Stellar Horizon** (for permanent persistence).
+1.  **Onboarding and Connection**: Connect your Freighter Wallet and explore the "Health Alkansya" concept.
+2.  **The Top-Up**: Fund your vault via XLM/USDC or our GCash Bridge simulation.
+3.  **Provider Verification**: Select a whitelisted hospital. SaloMed verifies the address before any transaction.
+4.  **Atomic Payment**: Confirm payment. The smart contract ensures funds are only released to whitelisted providers.
+5.  **Growth and History**: Earn SaloPoints with every payment and track your history on-chain.
 
 ---
 
 ## Escrow Lifecycle
-
-SaloMed is more than an e-wallet: it's a **strictly-locked health escrow**.
-
-1.  **Inbound (Deposit)**: Funds enter the contract via `deposit_remittance`. The contract creates or updates a `Vault` entry associated with the user's public key.
-2.  **Locking**: Unlike a standard wallet, these funds cannot be withdrawn to any arbitrary address. They are "locked" within the SaloMed contract storage.
-3.  **Release Trigger (Payment)**: The `pay_hospital` function is the only gateway. It requires:
-    *   A signed transaction from the Vault owner.
-    *   A destination address that exists in the SaloMed **Provider Whitelist**.
-4.  **Atomic Settlement**: The transfer happens atomically. The user's vault balance decreases, and the hospital's account increases in a single ledger entry.
+SaloMed is a strictly-locked health escrow:
+1.  **Deposit**: Funds enter the contract and are associated with the user's vault.
+2.  **Locking**: Funds are "locked" within the contract and cannot be withdrawn to arbitrary addresses.
+3.  **Release Trigger**: The `pay_hospital` function requires a signed transaction and a destination in the Provider Whitelist.
+4.  **Atomic Settlement**: The transfer happens atomically in a single ledger entry.
 
 ---
 
 ## Setup
-
-### Prerequisites
-*   Node.js 18+ and npm
-*   Python 3.11+
-*   Stellar CLI and Rust (for contract development)
-
-### Smart Contract
 ```bash
-# Build the contract
-soroban contract build
+# Smart Contract Build and Test
+soroban contract build && cargo test
 
-# Execute unit and integration tests
-cargo test
+# Frontend
+cd frontend && npm run dev
 
-# Deploy to Stellar Testnet
-soroban contract deploy \
-  --wasm target/wasm32-unknown-unknown/release/salomed.wasm \
-  --source <your-identity> \
-  --network testnet
-```
-
-### Backend Setup
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # or venv\Scripts\activate on Windows
-pip install -r requirements.txt
-uvicorn main:app --reload
-```
-
-### Frontend Setup
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-### Mandatory Environment Variables
-
-For a successful production deployment (Render/Vercel), ensure the following are set:
-
-| Variable | Scope | Description |
-|---|---|---|
-| `SALOMED_SIGNER_SECRET` | Backend | **Critical**: The Stellar Secret Key (S...) used to sign top-up transactions. |
-| `FRONTEND_ORIGIN` | Backend | Allowed CORS origins (e.g., `https://your-app.vercel.app`). |
-| `ADMIN_ADDRESS` | Backend | The public key (G...) matching the signer secret. |
-| `NEXT_PUBLIC_API_URL` | Frontend | Your deployed FastAPI URL (ensure it starts with `https://`). |
-| `DEMO_FALLBACK` | Backend | Set to `true` to enable mock responses if Stellar CLI is unavailable. |
-
----
-
-### Sample CLI Invocations
-
-Transactions on SaloMed require interaction with the smart contract via the Stellar CLI. The contract ID for the current Testnet deployment is `CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS`.
-
-```bash
-# Fetch vault data: balance, SaloPoints, and credit tier
-soroban contract invoke \
-  --id CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS \
-  --network testnet \
-  -- get_vault \
-  --patient <PATIENT_ADDRESS>
-
-# Deposit health remittance: OFW locks USDC (in stroops) into a loved one's vault
-soroban contract invoke \
-  --id CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS \
-  --source ofw_identity \
-  --network testnet \
-  -- deposit_remittance \
-  --ofw <OFW_ADDRESS> \
-  --beneficiary <PATIENT_ADDRESS> \
-  --amount 1000000000
-
-# Pay medical bill: Atomic settlement from vault to a whitelisted hospital
-soroban contract invoke \
-  --id CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS \
-  --source patient_identity \
-  --network testnet \
-  -- pay_hospital \
-  --patient <PATIENT_ADDRESS> \
-  --hospital <HOSPITAL_ADDRESS> \
-  --amount 500000000
-
-# Whitelist hospital (Admin only)
-soroban contract invoke \
-  --id CDND234UYOEJJVXWBALEZDS7PIUU6XPF5KJFS5TD4D5RNETVHUUZ2POS \
-  --source admin_identity \
-  --network testnet \
-  -- whitelist_hospital \
-  --admin <ADMIN_ADDRESS> \
-  --hospital <HOSPITAL_ADDRESS>
+# Backend
+cd backend && uvicorn main:app --reload
 ```
 
 ---
