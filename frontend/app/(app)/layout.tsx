@@ -227,6 +227,13 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
     }
   }
 
+  function handleManualConnect(addr: string) {
+    setAddress(addr);
+    localStorage.setItem('salomed_address', addr);
+    localStorage.removeItem('salomed_manual_disconnect');
+    refreshVault(addr);
+  }
+
   function handleDisconnect() {
     localStorage.setItem('salomed_manual_disconnect', 'true');
     localStorage.removeItem('salomed_address');
@@ -438,6 +445,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
                       loading={loadingVault}
                       connecting={connecting}
                       onConnect={handleConnect}
+                      onManualConnect={handleManualConnect}
                       onRefresh={() => refreshVault()}
                     />
                   )}
