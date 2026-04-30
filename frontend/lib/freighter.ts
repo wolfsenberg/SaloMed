@@ -54,14 +54,25 @@ export async function signTransaction(xdr: string): Promise<string | null> {
 }
 
 export async function isFreighterInstalled(): Promise<boolean> {
-  const f = await api();
-  if (!f) return false;
-  try {
-    const conn = await f.isConnected();
-    return typeof conn === 'boolean' ? conn : (conn as { isConnected: boolean }).isConnected;
-  } catch {
-    return false;
-  }
+  if (typeof window === 'undefined') return false;
+
+  const check = async (): Promise<boolean> => {
+    const f = await api();
+    if (!f) return false;
+    try {
+      const conn = await f.isConnected();
+      return typeof conn === 'boolean' ? conn : (conn as { isConnected: boolean }).isConnected;
+    } catch {
+      return false;
+    }
+  };
+
+  // First attempt immediately
+  if (await check()) return true;
+
+  // Extension content-scripts load asynchronously — retry once after a delay
+  await new Promise(r => setTimeout(r, 1200));
+  return check();
 }
 
 export async function getAddress(): Promise<string | null> {

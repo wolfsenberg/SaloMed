@@ -32,7 +32,7 @@ export const TRANSLATIONS = {
     pay_manual_btn: 'Enter Manually',
     pay_manual_title: 'Manual Payment',
     pay_enter_provider: 'Enter provider G-address',
-    pay_amount: 'Amount to Pay (PHP)',
+    pay_amount: 'Amount to Pay',
     pay_pay_from: 'Pay From',
     pay_vault_balance: 'Vault Balance',
     pay_savings_balance: 'Savings Balance',
@@ -46,7 +46,7 @@ export const TRANSLATIONS = {
     remit_title: 'SaloMed Verified Padala',
     remit_desc: 'Send XLM instantly sa pamilya mo dito sa Pilipinas.',
     remit_recipient: 'Recipient Address',
-    remit_amount: 'Amount to Send (PHP)',
+    remit_amount: 'Amount to Send',
     remit_send_btn: 'Send Padala',
 
     // Connect Prompts
@@ -121,7 +121,7 @@ export const TRANSLATIONS = {
     pay_manual_btn: 'Enter Manually',
     pay_manual_title: 'Manual Payment',
     pay_enter_provider: 'Enter provider G-address',
-    pay_amount: 'Amount to Pay (PHP)',
+    pay_amount: 'Amount to Pay',
     pay_pay_from: 'Pay From',
     pay_vault_balance: 'Vault Balance',
     pay_savings_balance: 'Savings Balance',
@@ -135,7 +135,7 @@ export const TRANSLATIONS = {
     remit_title: 'SaloMed Verified Remittance',
     remit_desc: 'Send XLM instantly to your family in the Philippines.',
     remit_recipient: 'Recipient Address',
-    remit_amount: 'Amount to Send (PHP)',
+    remit_amount: 'Amount to Send',
     remit_send_btn: 'Send Remittance',
 
     // Connect Prompts
@@ -210,7 +210,7 @@ export const TRANSLATIONS = {
     pay_manual_btn: 'Manual na Ilagay',
     pay_manual_title: 'Manual na Pagbabayad',
     pay_enter_provider: 'Ilagay ang G-address ng provider',
-    pay_amount: 'Halagang Babayaran (PHP)',
+    pay_amount: 'Halagang Babayaran',
     pay_pay_from: 'Kunin ang bayad mula sa',
     pay_vault_balance: 'Vault Balance',
     pay_savings_balance: 'Savings Balance',
@@ -224,7 +224,7 @@ export const TRANSLATIONS = {
     remit_title: 'SaloMed Verified Padala',
     remit_desc: 'Magpadala agad ng XLM sa iyong pamilya dito sa Pilipinas.',
     remit_recipient: 'Recipient Address',
-    remit_amount: 'Halagang Ipapadala (PHP)',
+    remit_amount: 'Halagang Ipapadala',
     remit_send_btn: 'Ipadala',
 
     // Connect Prompts

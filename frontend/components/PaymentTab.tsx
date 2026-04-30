@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import type { HealthVault } from '@/lib/contract';
 import { savingsXlm, POINTS_RATE, calcPayment, payHospital } from '@/lib/contract';
-import { saveTx } from '@/lib/transactions';
+import { saveTx, addLocalSaloPoints } from '@/lib/transactions';
 import QRScannerModal from '@/components/QRScannerModal';
 import ProviderCombobox from '@/components/ProviderCombobox';
 import { useTranslation } from '@/lib/i18n/LanguageContext';
@@ -103,6 +103,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
         providerName: providerName || undefined, providerType, payFrom,
         ptsEarned: genBreakdown.ptsEarned, txHash, status: 'success',
       });
+      addLocalSaloPoints(address, genBreakdown.ptsEarned);
       setDone(true);
       setTimeout(onSuccess, 2500);
     } catch (e: unknown) {
@@ -143,6 +144,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
         txHash,
         status:       'success',
       });
+      addLocalSaloPoints(address, manualBreakdown.ptsEarned);
       setDone(true);
       setTimeout(onSuccess, 2500);
     } catch (e: unknown) {

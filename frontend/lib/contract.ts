@@ -1,5 +1,6 @@
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { signTransaction } from './freighter';
+import { getLocalSaloPoints } from './transactions';
 
 import { API_URL, CONTRACT_ID, RPC_URL, NETWORK_PASSPHRASE, PHP_PER_XLM } from './config';
 
@@ -130,6 +131,16 @@ export async function getVault(patientAddress: string): Promise<HealthVault> {
     balanceStroops = BigInt(Math.floor(xlm * 10_000_000));
   }
 
+  // Use whichever is higher: backend or locally tracked points.
+  // Backend resets on restart; local storage accumulates earned points client-side.
+  const localPts = getLocalSaloPoints(patientAddress);
+  saloPoints = Math.max(saloPoints, localPts);
+
+  // Recompute tier from final saloPoints
+  if (saloPoints >= 500) creditTier = 'Gold';
+  else if (saloPoints >= 100) creditTier = 'Silver';
+  else creditTier = 'Bronze';
+
   return {
     balance: balanceStroops,
     salo_points: saloPoints,
@@ -246,82 +257,126 @@ export async function depositToVault(userAddress: string, amountXlm: number): Pr
 
 
 /**
+ * Build a native XLM payment XDR directly via the Stellar SDK.
+ * Used as a fallback when the backend is unreachable (e.g. local dev without backend).
+ */
+async function buildPaymentXdr(
+  sourceAddress: string,
+  destinationAddress: string,
+  amountXlm: number,
+): Promise<string> {
+  const account = await horizon.loadAccount(sourceAddress);
+  const tx = new StellarSdk.TransactionBuilder(account, {
+    fee: StellarSdk.BASE_FEE,
+    networkPassphrase: StellarSdk.Networks.TESTNET,
+  })
+    .addOperation(
+      StellarSdk.Operation.payment({
+        destination: destinationAddress,
+        asset: StellarSdk.Asset.native(),
+        amount: amountXlm.toFixed(7),
+      }),
+    )
+    .setTimeout(30)
+    .build();
+  return tx.toXDR();
+}
+
+/**
  * Payment: user → merchant/hospital.
  * Backend prepares unsigned XDR → Freighter signs → frontend submits to Horizon.
+ * Falls back to SDK-built XDR when backend is unreachable (local dev).
  */
 export async function payHospital(
   patientAddress: string,
   hospitalAddress: string,
   amountXlm: number,
 ): Promise<string> {
-  // 1. Get unsigned XDR from backend
-  let res = await fetch(
-    `${API_URL}/api/prepare-payment?user_address=${encodeURIComponent(patientAddress)}&recipient_address=${encodeURIComponent(hospitalAddress)}&amount_xlm=${amountXlm}`,
-    { method: 'POST' },
-  );
-  
-  // Fallback to /api/qrph/pay if prepare-payment isn't there
-  if (res.status === 404) {
-    console.info('[payHospital] prepare-payment 404, falling back to /api/qrph/pay...');
-    const triggerRes = await fetch(`${API_URL}/api/qrph/pay`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        patient_address: patientAddress,
-        hospital_id: hospitalAddress,
-        amount_usdc: amountXlm,
-      }),
-    });
-    if (!triggerRes.ok) throw new Error('Hospital payment failed (legacy)');
-    const data = await triggerRes.json();
-    return typeof data.tx_result === 'string' ? data.tx_result : (data.tx_result?.hash || 'ok');
+  let xdr: string | null = null;
+
+  // 1. Try backend — catches both network errors and 404s
+  try {
+    const res = await fetch(
+      `${API_URL}/api/prepare-payment?user_address=${encodeURIComponent(patientAddress)}&recipient_address=${encodeURIComponent(hospitalAddress)}&amount_xlm=${amountXlm}`,
+      { method: 'POST' },
+    );
+
+    if (res.ok) {
+      const data = await res.json();
+      xdr = data.xdr ?? null;
+    } else if (res.status === 404) {
+      // Legacy route fallback
+      const triggerRes = await fetch(`${API_URL}/api/qrph/pay`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patient_address: patientAddress, hospital_id: hospitalAddress, amount_usdc: amountXlm }),
+      });
+      if (triggerRes.ok) {
+        const data = await triggerRes.json();
+        return typeof data.tx_result === 'string' ? data.tx_result : (data.tx_result?.hash || 'ok');
+      }
+    }
+  } catch {
+    console.info('[payHospital] Backend unreachable — building XDR locally');
   }
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.detail ?? 'Preparation failed');
+  // 2. SDK fallback: build XDR directly (works locally without backend)
+  if (!xdr) {
+    xdr = await buildPaymentXdr(patientAddress, hospitalAddress, amountXlm);
+  }
 
-  // 2. Sign with Freighter + submit to Horizon
-  return await signAndSubmitXdr(patientAddress, data.xdr);
+  return await signAndSubmitXdr(patientAddress, xdr);
 }
 
 /**
  * Padala (remittance): OFW → family member on Stellar.
  * Backend prepares unsigned XDR → Freighter signs → frontend submits to Horizon.
+ * Falls back to SDK-built XDR when backend is unreachable (local dev).
  */
 export async function sendPadala(
   ofwAddress: string,
   beneficiaryAddress: string,
   amountXlm: number,
 ): Promise<string> {
-  // 1. Get unsigned XDR from backend
-  let res = await fetch(
-    `${API_URL}/api/prepare-padala?ofw_address=${encodeURIComponent(ofwAddress)}&beneficiary_address=${encodeURIComponent(beneficiaryAddress)}&amount_xlm=${amountXlm}`,
-    { method: 'POST' },
-  );
+  let xdr: string | null = null;
 
-  // Fallback to /api/gcash/cash-in if prepare-padala is missing
-  if (res.status === 404) {
-    console.info('[sendPadala] prepare-padala 404, falling back to /api/gcash/cash-in...');
-    const triggerRes = await fetch(`${API_URL}/api/gcash/cash-in`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        beneficiary_address: beneficiaryAddress,
-        sender_address: ofwAddress,
-        amount_php: amountXlm * PHP_PER_XLM,
-        gcash_reference: `GC-REMIT-${Date.now()}`
-      }),
-    });
-    if (!triggerRes.ok) throw new Error('Padala failed (legacy)');
-    const data = await triggerRes.json();
-    return typeof data.tx_result === 'string' ? data.tx_result : (data.tx_result?.hash || 'ok');
+  // 1. Try backend — catches both network errors and 404s
+  try {
+    const res = await fetch(
+      `${API_URL}/api/prepare-padala?ofw_address=${encodeURIComponent(ofwAddress)}&beneficiary_address=${encodeURIComponent(beneficiaryAddress)}&amount_xlm=${amountXlm}`,
+      { method: 'POST' },
+    );
+
+    if (res.ok) {
+      const data = await res.json();
+      xdr = data.xdr ?? null;
+    } else if (res.status === 404) {
+      // Legacy route fallback
+      const triggerRes = await fetch(`${API_URL}/api/gcash/cash-in`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          beneficiary_address: beneficiaryAddress,
+          sender_address: ofwAddress,
+          amount_php: amountXlm * PHP_PER_XLM,
+          gcash_reference: `GC-REMIT-${Date.now()}`,
+        }),
+      });
+      if (triggerRes.ok) {
+        const data = await triggerRes.json();
+        return typeof data.tx_result === 'string' ? data.tx_result : (data.tx_result?.hash || 'ok');
+      }
+    }
+  } catch {
+    console.info('[sendPadala] Backend unreachable — building XDR locally');
   }
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.detail ?? 'Padala preparation failed');
+  // 2. SDK fallback: build XDR directly (works locally without backend)
+  if (!xdr) {
+    xdr = await buildPaymentXdr(ofwAddress, beneficiaryAddress, amountXlm);
+  }
 
-  // 2. Sign with Freighter + submit to Horizon
-  return await signAndSubmitXdr(ofwAddress, data.xdr);
+  return await signAndSubmitXdr(ofwAddress, xdr);
 }
 
 

@@ -76,6 +76,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
   const [forceMobile, setForceMobile] = useState(false);
   const [copied, setCopied] = useState(false);
   const [hasFreighter, setHasFreighter] = useState<boolean>(true);
+  const [freighterBannerDismissed, setFreighterBannerDismissed] = useState(false);
   const prevTab = useRef<Tab>('vault');
 
   const { t, language, setLanguage, hasChosenLanguage } = useTranslation();
@@ -266,16 +267,23 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
       </AnimatePresence>
 
       <div className={`h-dvh flex flex-col w-full overflow-hidden ${forceMobile ? 'bg-slate-50 max-w-lg mx-auto shadow-2xl relative' : 'md:flex-col bg-slate-50'}`}>
-        {!hasFreighter && (
-          <div className="w-full bg-blue-600 text-white text-xs font-semibold px-4 py-2.5 flex items-center justify-center gap-2 text-center z-[60]">
-            <Info size={14} /> 
-            Please install the Freighter app to use SaloMed. 
-            <a href="https://www.freighter.app/" target="_blank" rel="noopener noreferrer" className="underline decoration-blue-300 underline-offset-2 hover:text-blue-100 transition-colors">
+        {!hasFreighter && !freighterBannerDismissed && (
+          <div className="w-full bg-blue-600 text-white text-xs font-semibold px-4 py-2.5 flex items-center justify-center gap-2 text-center z-[60] shrink-0">
+            <Info size={14} className="shrink-0" />
+            Please install the Freighter wallet to use SaloMed.{' '}
+            <a href="https://www.freighter.app/" target="_blank" rel="noopener noreferrer" className="underline decoration-blue-300 underline-offset-2 hover:text-blue-100 transition-colors shrink-0">
               Install Freighter
             </a>
+            <button
+              onClick={() => setFreighterBannerDismissed(true)}
+              className="ml-2 shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors text-white font-bold leading-none"
+              aria-label="Dismiss"
+            >
+              ×
+            </button>
           </div>
         )}
-        <div className={`flex-1 flex overflow-hidden ${forceMobile ? 'flex-col' : 'flex-col md:flex-row'}`}>
+        <div className={`flex-1 flex overflow-hidden min-h-0 ${forceMobile ? 'flex-col' : 'flex-col md:flex-row'}`}>
 
           {/* Desktop Sidebar (hidden on mobile) */}
           <aside className={`${forceMobile ? 'hidden' : 'hidden md:flex'} flex-col w-72 bg-white border-r border-slate-200 shrink-0 h-full sticky top-0`}>
@@ -357,7 +365,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
 
           </aside>
 
-          <div className="flex-1 flex flex-col min-w-0">
+          <div className="flex-1 flex flex-col min-w-0 min-h-0">
             {/* Mobile Header */}
             <header className={`${forceMobile ? 'flex' : 'md:hidden flex'} bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between shadow-sm shrink-0`}>
               <div className="flex items-center gap-2.5">
@@ -412,7 +420,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
             )}
 
             {/* Content — rendered directly from state, no Next.js navigation */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 scroll-touch overscroll-y-contain">
               <AnimatePresence mode="wait" custom={dir}>
                 <motion.div
                   key={tab}
@@ -437,7 +445,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
                     <PaymentTab
                       address={address}
                       vault={vault}
-                      onSuccess={() => { refreshVault(); switchTab('vault'); }}
+                      onSuccess={() => { refreshVault(); switchTab('history'); }}
                       onSwitchTab={switchTab}
                     />
                   )}
@@ -448,7 +456,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
                     <RemittanceForm
                       ofwAddress={address}
                       vault={vault}
-                      onSuccess={() => { refreshVault(); switchTab('vault'); }}
+                      onSuccess={() => { refreshVault(); switchTab('history'); }}
                       onSwitchTab={switchTab}
                     />
                   )}
@@ -486,7 +494,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
           </div>
 
           {/* Floating UI on the right */}
-          <div className={`fixed right-4 flex flex-col gap-2 z-50 items-end transition-all duration-300 ${!hasFreighter ? 'top-14' : 'top-4'}`}>
+          <div className={`fixed right-4 flex flex-col gap-2 z-50 items-end transition-all duration-300 ${!hasFreighter && !freighterBannerDismissed ? 'top-14' : 'top-4'}`}>
             {/* View Toggle */}
             <button
               onClick={() => setForceMobile(!forceMobile)}

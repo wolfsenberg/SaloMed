@@ -1,5 +1,28 @@
 export type TxType = 'topup' | 'payment' | 'padala' | 'loan';
 
+// ── Local SaloPoints persistence ──────────────────────────────────────────────
+// The backend uses in-memory state that resets on restart, so we keep a local
+// running total of earned points in localStorage and use the higher value.
+const SALO_PTS_KEY = (addr: string) => `salomed_salopts_${addr.toUpperCase()}`;
+
+export function getLocalSaloPoints(address: string): number {
+  try {
+    return Math.max(0, parseInt(localStorage.getItem(SALO_PTS_KEY(address)) ?? '0', 10) || 0);
+  } catch { return 0; }
+}
+
+export function addLocalSaloPoints(address: string, points: number): void {
+  if (!points || points <= 0) return;
+  const addr = address.toUpperCase();
+  const next = getLocalSaloPoints(addr) + points;
+  try {
+    localStorage.setItem(SALO_PTS_KEY(addr), String(next));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('salomed_tx_update', { detail: { address: addr } }));
+    }
+  } catch {}
+}
+
 export interface Transaction {
   id:               string;
   type:             TxType;
