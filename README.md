@@ -147,20 +147,51 @@ SaloMed is a fully functional mini-dApp. The following primary tests have passed
 
 ---
 
+## Verified Testnet Users
+
+The wallets listed below were used for testing on the Stellar Testnet by actual test participants. Each address includes a direct link to its transaction history on Stellar Expert for transparency and verification purposes.
+
+For additional context, including feedback and responses from participants, you may refer to the **View User Responses Spreadsheet**:
+https://docs.google.com/spreadsheets/d/1cGYpwIF1pgURlQtQvbi-ag1oKH0ZTKydAowQtGC0uus/edit?usp=sharing
+
+| # | Wallet Address | Transaction History |
+|---|----------------|---------------------|
+| 1 | GAXXWLECCE644QVYLKRHCDWDH5V7KMYG3GZEDPEB7C7LIQFPQ43ZBFEK | https://stellar.expert/explorer/testnet/account/GAXXWLECCE644QVYLKRHCDWDH5V7KMYG3GZEDPEB7C7LIQFPQ43ZBFEK |
+| 2 | GCOHD2WKIEY4IP7AIWBIMAID2RFJ4E7ZXSM446EJWN46IBHFYTWQIGCJ | https://stellar.expert/explorer/testnet/account/GCOHD2WKIEY4IP7AIWBIMAID2RFJ4E7ZXSM446EJWN46IBHFYTWQIGCJ |
+| 3 | GCQB4OZ6JLHYH2NQ3FJPKVMJYEOHTY3QOPOECAQUSJRA4NXPM2UPZK45 | https://stellar.expert/explorer/testnet/account/GCQB4OZ6JLHYH2NQ3FJPKVMJYEOHTY3QOPOECAQUSJRA4NXPM2UPZK45 |
+| 4 | GA64LSYL4ZXZW2DK2IF3PNCLALBVMJXVZV564ZWZZ2HGHOAHLV2PID5I | https://stellar.expert/explorer/testnet/account/GA64LSYL4ZXZW2DK2IF3PNCLALBVMJXVZV564ZWZZ2HGHOAHLV2PID5I |
+| 5 | GAMRXQHGLNFRF56AZSVYMGOTVRR4ULHBLSMWDGZHA3LDAMMSAR7JVCMI | https://stellar.expert/explorer/testnet/account/GAMRXQHGLNFRF56AZSVYMGOTVRR4ULHBLSMWDGZHA3LDAMMSAR7JVCMI |
+| 6 | GDCRVS4UDJUP6SSPJRBIMSDBWP36FQ2FUZCHJNHEEF4VUGYXJVJTHMUV | https://stellar.expert/explorer/testnet/account/GDCRVS4UDJUP6SSPJRBIMSDBWP36FQ2FUZCHJNHEEF4VUGYXJVJTHMUV |
+| 7 | GB3QTR4K5ODWG3JZZEYCSUTUB6FQKX3HV4CN7RC56FQJ72URT6LLUG66 | https://stellar.expert/explorer/testnet/account/GB3QTR4K5ODWG3JZZEYCSUTUB6FQKX3HV4CN7RC56FQJ72URT6LLUG66 |
+| 8 | GDATP732EK2T67IYNUVY5WFSO2QFZGR52OVKE5CNXMQB55RVEHMUJKTB | https://stellar.expert/explorer/testnet/account/GDATP732EK2T67IYNUVY5WFSO2QFZGR52OVKE5CNXMQB55RVEHMUJKTB |
+
+---
+
 ## User Feedback and Improvement Phase
 
-We collected feedback from 8 initial test users to satisfy the Level 5 requirement. The overall impression was highly positive, with most users rating the concept 5/5.
+We collected feedback from 8 initial test users to satisfy the Level 5 requirement. Overall feedback was highly positive, with most users rating the concept **5/5**, highlighting strong usability and clear value in the system.
 
-**Feedback Data Analysis**: [View User Responses Spreadsheet](https://docs.google.com/spreadsheets/d/1cGYpwIF1pgURlQtQvbi-ag1oKH0ZTKydAowQtGC0uus/edit?usp=sharing)
+**Feedback Data Analysis**: https://docs.google.com/spreadsheets/d/1cGYpwIF1pgURlQtQvbi-ag1oKH0ZTKydAowQtGC0uus/edit?usp=sharing
 
 ### Improvements Based on Real User Feedback
-Based on the collected data, we have identified and prioritized the following improvements for the next development phase:
 
-1.  **Core Feature Bug Fixes**: One user reported issues with the Savings and SaloPoints synchronization. We are currently debugging the smart contract state retrieval for these specific modules.
-2.  **Mobile View Optimization**: Feedback indicated that the mobile view on desktop can be difficult to use and scrolling needs to be smoother. We plan to optimize the responsive layout and CSS transitions.
-3.  **Performance and Speed**: Some users requested faster site loading. We will implement server-side rendering (SSR) optimizations and asset compression to improve performance.
+Based on the collected responses, the following improvements have been identified and prioritized for the next development phase:
 
-**Latest Improvement Commit**: [Implemented Transaction Toasts and Currency Toggle](https://github.com/wolfsenberg/SaloMed/commit/b6636f6)
+1. **Core Feature Bug Fixes**  
+   One user reported synchronization issues between the Savings module and SaloPoints. We are currently debugging the smart contract state retrieval logic to ensure consistent data updates across modules.
+
+2. **Mobile View Optimization**  
+   Users noted that the mobile experience and responsive layout need improvement. We will refine CSS responsiveness and improve UI transitions for smoother navigation across devices.
+
+3. **Performance and Speed Optimization**  
+   Some users requested faster loading times. We plan to implement server-side rendering (SSR), asset optimization, and compression techniques to improve overall performance.
+
+---
+
+### Latest Improvement Commit
+
+Implemented Transaction Toast Notifications and Currency Toggle feature:
+https://github.com/wolfsenberg/SaloMed/commit/b6636f6
 
 ---
 
