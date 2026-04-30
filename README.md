@@ -29,6 +29,10 @@
 
 <img width="6400" height="2400" alt="salomed_banner" src="https://github.com/user-attachments/assets/aef0d074-76c7-4bd5-82eb-9bedeb4f9ac4" />
 
+**Desktop:** <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/fbe9fcbb-b6bb-489b-bd24-fe48efeb71ba" />
+
+**Mobile:** <img width="391" height="851" alt="image" src="https://github.com/user-attachments/assets/58b71aa2-e726-4df4-a780-c90721baf64b" />
+
 SaloMed is a purpose-built digital health alkansya (piggy bank). It functions just like the e-wallets we use every single day, but with one massive difference: the money you put in here is strictly locked and can only be spent on healthcare.
 
 Think of it as the ultimate discipline tool for your health savings. We give you a super familiar, frictionless e-wallet experience, but quietly empower it with an unbreakable layer of smart contracts running on the Stellar Network.
