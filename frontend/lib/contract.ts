@@ -91,73 +91,50 @@ export function calcPadala(amountXlm: number): PadalaBreakdown {
 
 export async function getVault(patientAddress: string): Promise<HealthVault> {
   if (!patientAddress) return EMPTY_VAULT;
-  try {
-    // Primary: get real XLM balance from Horizon via backend /api/balance
-    const res = await fetch(
-      `${API_URL}/api/balance?address=${encodeURIComponent(patientAddress)}`,
-    );
-    if (res.ok) {
-      const data = await res.json();
-      const tierRaw = data.credit_tier ?? 'Bronze';
-      const credit_tier = (['Bronze', 'Silver', 'Gold'].includes(tierRaw)
-        ? tierRaw
-        : 'Bronze') as HealthVault['credit_tier'];
-      return {
-        balance:     BigInt(data.balance_stroops ?? 0),
-        salo_points: Number(data.salo_points ?? 0),
-        credit_tier,
-      };
-    }
-  } catch {
-    // fall through to Soroban fallback
+
+  // Fetch from Horizon directly for fastest native balance
+  const horizonPromise = fetch(
+    `https://horizon-testnet.stellar.org/accounts/${encodeURIComponent(patientAddress)}`
+  ).then(r => (r.ok ? r.json() : Promise.reject('Horizon error')));
+
+  // Fetch from backend for salo_points and credit_tier (and fallback balance)
+  const backendPromise = fetch(
+    `${API_URL}/api/balance?address=${encodeURIComponent(patientAddress)}`
+  ).then(r => {
+    if (r.ok) return r.json();
+    // Fallback to legacy endpoint if /api/balance fails
+    return fetch(
+      `${API_URL}/api/vault/balance?patient_address=${encodeURIComponent(patientAddress)}`
+    ).then(r2 => (r2.ok ? r2.json() : Promise.reject('Backend error')));
+  });
+
+  const [horizonRes, backendRes] = await Promise.allSettled([horizonPromise, backendPromise]);
+
+  let balanceStroops = 0n;
+  let saloPoints = 0;
+  let creditTier: HealthVault['credit_tier'] = 'Bronze';
+
+  // Prefer backend for points/tier
+  if (backendRes.status === 'fulfilled' && backendRes.value) {
+    const data = backendRes.value;
+    saloPoints = Number(data.salo_points ?? 0);
+    const tierRaw = data.credit_tier ?? 'Bronze';
+    creditTier = (['Bronze', 'Silver', 'Gold'].includes(tierRaw) ? tierRaw : 'Bronze') as HealthVault['credit_tier'];
+    balanceStroops = BigInt(data.balance_stroops ?? 0);
   }
 
-  // Fallback 2: try the old Soroban get_vault endpoint
-  try {
-    const res = await fetch(
-      `${API_URL}/api/vault/balance?patient_address=${encodeURIComponent(patientAddress)}`,
-    );
-    if (res.ok) {
-      const data: BackendVaultResponse = await res.json();
-      const tierRaw = data.credit_tier ?? 'Bronze';
-      const credit_tier = (['Bronze', 'Silver', 'Gold'].includes(tierRaw)
-        ? tierRaw
-        : 'Bronze') as HealthVault['credit_tier'];
-      return {
-        balance:     BigInt(data.balance_stroops ?? 0),
-        salo_points: Number(data.salo_points ?? 0),
-        credit_tier,
-      };
-    }
-  } catch {
-    // fall through to direct Horizon fallback
+  // Override balance with Horizon if successful (fastest and most accurate)
+  if (horizonRes.status === 'fulfilled' && horizonRes.value?.balances) {
+    const nativeBal = horizonRes.value.balances.find((b: any) => b.asset_type === 'native');
+    const xlm = parseFloat(nativeBal?.balance ?? '0');
+    balanceStroops = BigInt(Math.floor(xlm * 10_000_000));
   }
 
-  // Fallback 3: Query Stellar Horizon directly (bypasses backend entirely)
-  // This ensures the wallet balance is always visible even if the backend
-  // is running an older version without /api/balance or /api/vault/balance.
-  try {
-    const horizonRes = await fetch(
-      `https://horizon-testnet.stellar.org/accounts/${encodeURIComponent(patientAddress)}`,
-    );
-    if (horizonRes.ok) {
-      const data = await horizonRes.json();
-      const balances: Array<{ asset_type: string; balance: string }> = data.balances ?? [];
-      const nativeBal = balances.find(b => b.asset_type === 'native');
-      const xlm = parseFloat(nativeBal?.balance ?? '0');
-      const stroops = BigInt(Math.floor(xlm * 10_000_000));
-      console.info('[getVault] Backend unavailable — loaded balance directly from Horizon.');
-      return {
-        balance:     stroops,
-        salo_points: 0,
-        credit_tier: 'Bronze',
-      };
-    }
-  } catch {
-    // Account not funded or Horizon unreachable
-  }
-
-  return EMPTY_VAULT;
+  return {
+    balance: balanceStroops,
+    salo_points: saloPoints,
+    credit_tier: creditTier,
+  };
 }
 
 

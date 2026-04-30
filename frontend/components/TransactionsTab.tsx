@@ -7,6 +7,7 @@ import {
   Star, Building2, FlaskConical, Clock, Loader2
 } from 'lucide-react';
 import { fetchHorizonTxs, loadTxs, Transaction, TxType } from '@/lib/transactions';
+import { useTranslation } from '@/lib/i18n/LanguageContext';
 
 interface Props {
   address: string | null;
@@ -159,6 +160,7 @@ function TxCard({ tx, address }: { tx: Transaction, address: string }) {
 }
 
 export default function TransactionsTab({ address, phpRate: _phpRate }: Props) {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<Filter>('all');
   const [txs, setTxs]       = useState<Transaction[]>([]);
   const [syncing, setSyncing] = useState(false);
@@ -220,9 +222,9 @@ export default function TransactionsTab({ address, phpRate: _phpRate }: Props) {
         <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center">
           <Receipt size={32} className="text-blue-400" />
         </div>
-        <h2 className="text-lg font-bold text-slate-800">Connect Wallet</h2>
+        <h2 className="text-lg font-bold text-slate-800">{t('connect_history_title')}</h2>
         <p className="text-sm text-slate-500 max-w-[280px]">
-          Connect your Freighter wallet to view your transaction history.
+          {t('connect_history_desc')}
         </p>
       </div>
     );

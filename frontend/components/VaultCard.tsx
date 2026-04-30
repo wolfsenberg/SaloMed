@@ -9,6 +9,7 @@ import {
 import { HealthVault, savingsXlm } from '@/lib/contract';
 import GCashModal from '@/components/GCashModal';
 import FreighterTopUpModal from '@/components/FreighterTopUpModal';
+import { useTranslation } from '@/lib/i18n/LanguageContext';
 
 interface Props {
   address: string | null;
@@ -42,6 +43,7 @@ function tierNextLabel(vault: HealthVault): string {
 const card = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } };
 
 export default function VaultCard({ address, vault, loading, connecting, onConnect, onRefresh }: Props) {
+  const { t } = useTranslation();
   const [showGCash, setShowGCash]         = useState(false);
   const [showFreighter, setShowFreighter] = useState(false);
   const [showPhp, setShowPhp]             = useState(false);
@@ -72,10 +74,10 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
         </div>
         <div className="text-center space-y-2">
           <h2 className="text-xl font-bold text-slate-900">
-            Welcome to SaloMed,<br/><span className="text-blue-600">Your Health Alkansya</span>
+            {t('connect_vault_title').split(', ')[0]},<br/><span className="text-blue-600">{t('connect_vault_title').split(', ')[1]}</span>
           </h2>
           <p className="text-sm text-slate-500 max-w-xs leading-relaxed">
-            Connect your Freighter wallet to unlock purpose-bound savings and seamlessly manage your health expenses.
+            {t('connect_vault_desc')}
           </p>
         </div>
         <div className="w-full max-w-xs space-y-3">
@@ -85,11 +87,11 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
             className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-semibold text-sm transition-all disabled:opacity-60 shadow-sm flex items-center justify-center gap-2"
           >
             <Link size={15} />
-            {connecting ? 'Connecting…' : 'Connect Freighter'}
+            {connecting ? t('common_connecting') : t('common_connect_wallet')}
           </button>
           
           <p className="text-[11px] text-slate-400 text-center pt-2">
-            Demo mode · Ensure Freighter is set to <strong>Testnet</strong>
+            {t('common_demo_testnet')}
           </p>
         </div>
       </div>
@@ -109,7 +111,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
     >
       {/* Balance hero */}
       <motion.div variants={card} className="gradient-brand rounded-2xl p-5 text-white shadow-card-md">
-        <p className="text-xs font-semibold uppercase tracking-widest text-blue-200 mb-1">Vault Balance</p>
+        <p className="text-xs font-semibold uppercase tracking-widest text-blue-200 mb-1">{t('pay_vault_balance')}</p>
 
         {loading ? (
           <div className="h-11 w-44 bg-white/20 rounded-lg animate-pulse my-1" />
@@ -165,7 +167,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
         <div className="mt-4 space-y-2">
           {/* Top-up label */}
           <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest text-center">
-            Top Up Vault
+            {t('vault_topup')}
           </p>
           <div className="flex gap-2">
             {/* GCash top-up */}
@@ -207,7 +209,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
         <div className="flex items-start justify-between mb-4">
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1 flex items-center gap-1.5">
-              <Star size={12} /> SaloPoints
+              <Star size={12} /> {t('vault_cashback')}
             </p>
             <p className="text-3xl font-bold text-slate-900 tabular-nums">
               {vault.salo_points.toLocaleString()}
@@ -253,7 +255,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
           </div>
         </div>
         <p className="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2">
-          Earned from payments — use as an alternative balance when paying providers.
+          {t('vault_cashback_desc')}
         </p>
       </motion.div>
 
@@ -263,7 +265,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
         {[
           { label: 'Loan Rate',    value: tier.rate,           sub: 'interest p.a.',      Icon: CreditCard  },
           { label: 'Cashback Rate', value: 'Up to 2%',           sub: '2% hospital · 1% pharmacy', Icon: Star },
-          { label: 'Vault Status', value: vault.balance > 0n ? 'Active' : 'Empty', sub: 'escrow balance', Icon: ShieldCheck },
+          { label: 'Vault Status', value: vault.balance > 0n ? t('vault_active') : t('vault_empty'), sub: t('vault_escrow'), Icon: ShieldCheck },
           { label: 'Credit Tier',  value: vault.credit_tier,   sub: tierNextLabel(vault), Icon: Award       },
         ].map(stat => (
           <div key={stat.label} className="bg-white rounded-2xl shadow-card border border-slate-100 p-4">
@@ -280,14 +282,14 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
       {/* How to earn */}
       <motion.div variants={card} className="bg-blue-50 border border-blue-100 rounded-2xl p-4 space-y-2">
         <p className="text-xs font-bold text-blue-700 uppercase tracking-wide flex items-center gap-1.5">
-          <TrendingUp size={13} /> How to Earn SaloPoints
+          <TrendingUp size={13} /> {t('vault_earn_title')}
         </p>
         {[
-          'Pay at a hospital — earn 2 SaloPoints per XLM',
-          'Pay at a pharmacy — earn 1 SaloPoint per XLM',
-          'Send Padala to family — earn 1 SaloPoint per XLM',
-          'Save up 50 points and convert to 1 XLM anytime',
-          'More points = better loan rates',
+          t('vault_earn_tip1'),
+          t('vault_earn_tip2'),
+          t('vault_earn_tip3'),
+          t('vault_earn_tip4'),
+          t('vault_earn_tip5'),
         ].map(tip => (
           <div key={tip} className="flex gap-2 text-xs text-blue-600">
             <span className="shrink-0 mt-0.5 font-bold">–</span>
