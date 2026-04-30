@@ -3,7 +3,7 @@
 [![SaloMed CI/CD Pipeline](https://github.com/wolfsenberg/SaloMed/actions/workflows/ci.yml/badge.svg)](https://github.com/wolfsenberg/SaloMed/actions/workflows/ci.yml)
 [![Stellar Network](https://img.shields.io/badge/Stellar-Testnet-blue)](https://stellar.expert/explorer/testnet)
 
-## Hackathon Roadmap and Requirements Checklist
+## Roadmap and Requirements Checklist
 
 | Level | Status | Features Implemented |
 | :--- | :---: | :--- |
@@ -53,7 +53,7 @@ Think of it as the ultimate discipline tool for your health savings. We give you
 *   [How Stellar Powers SaloMed](#how-stellar-powers-salomed)
 *   [Architecture and Structure](#architecture-and-structure)
 *   [CI/CD Pipeline](#cicd-pipeline)
-*   [Hackathon Requirements Detail](#hackathon-requirements-detail)
+*   [Requirements Detail](#requirements-detail)
 *   [User Feedback and Improvement Phase](#user-feedback-and-improvement-phase)
 *   [Demo Flow](#demo-flow)
 *   [Escrow Lifecycle](#escrow-lifecycle)
@@ -131,7 +131,7 @@ SaloMed uses a robust CI/CD Pipeline via GitHub Actions to maintain code quality
 
 ---
 
-## Hackathon Requirements Detail
+## Requirements Detail
 
 ### Level 3: Mini-dApp Evidence
 SaloMed is a fully functional mini-dApp. The following primary tests have passed in our smart contract:
