@@ -147,8 +147,8 @@ SaloMed is a fully functional mini-dApp. The following primary tests have passed
 
 ---
 
-###Level 5: 
-Verified Testnet Users
+### Level 5: 
+### Verified Testnet Users
 
 The wallets listed below were used for testing on the Stellar Testnet by actual test participants. Each address includes a direct link to its transaction history on Stellar Expert for transparency and verification purposes.
 
@@ -168,7 +168,7 @@ https://docs.google.com/spreadsheets/d/1cGYpwIF1pgURlQtQvbi-ag1oKH0ZTKydAowQtGC0
 
 ---
 
-User Feedback and Improvement Phase
+### User Feedback and Improvement Phase
 
 We collected feedback from 8 initial test users to satisfy the Level 5 requirement. Overall feedback was highly positive, with most users rating the concept **5/5**, highlighting strong usability and clear value in the system.
 
