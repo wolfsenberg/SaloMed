@@ -19,18 +19,20 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
-      - name: Install Soroban CLI
-        run: cargo install --locked soroban-cli
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "contracts/salomed -> target"
 
       - name: Run Contract Tests
         run: |
           cd contracts/salomed
           cargo test
 
-      - name: Build Contracts
+      - name: Build Contracts (WASM)
         run: |
           cd contracts/salomed
-          soroban contract build
+          cargo build --target wasm32-unknown-unknown --release
 
   # Job 2: Lint and Build Frontend
   frontend:
@@ -49,17 +51,18 @@ jobs:
       - name: Install Dependencies
         run: |
           cd frontend
-          npm ci
+          npm ci --legacy-peer-deps
 
       - name: Build Next.js
         run: |
           cd frontend
           npm run build
         env:
-          NEXT_PUBLIC_API_URL: https://mock-api.salomed.com
-          # Add other non-secret envs if needed
+          NEXT_PUBLIC_API_URL: https://salomed-backend.onrender.com
+          NEXT_PUBLIC_STELLAR_NETWORK: testnet
+          NEXT_PUBLIC_CONTRACT_ID: CAO3K6OYB5A3VNVV3HKCSVG3ZZ442DZCDKAXG4CTSLBTN7FOYCCBRZ34
 
-  # Job 3: Lint Backend
+  # Job 3: Backend Dependency Check
   backend:
     name: Backend CI
     runs-on: ubuntu-latest
