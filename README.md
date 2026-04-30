@@ -1,5 +1,7 @@
 # SaloMed: Your Health Alkansya
 
+[![Deployment Status](https://img.shields.io/github/actions/workflow/status/USERNAME/SaloMed/deploy.yml?label=CI%2FCD%20Pipeline)](https://github.com/)
+
 > **The Problem: Ang sakit na nga, mas masakit pa sa bulsa.**
 >
 > For many Filipinos, saving up for emergencies is a major goal. However, the reality of having an easily accessible emergency fund is that temptation is always just a few taps away. It's incredibly easy to justify a sudden online purchase, an impromptu dinner out, or a gadget upgrade.
@@ -10,7 +12,8 @@
 
 ## **The Solution: Enter SaloMed: Your Health Alkansya**
 
-<img width="6400" height="2400" alt="salomed_banner" src="https://github.com/user-attachments/assets/aef0d074-76c7-4bd5-82eb-9bedeb4f9ac4" />
+### Responsive Mobile View
+<img width="1920" height="1080" alt="SaloMed Mobile Responsive View" src="https://github.com/user-attachments/assets/23da38d7-d610-44d2-8c15-3df0dd72d566" />
 
 SaloMed is a purpose-built digital health alkansya (piggy bank). It functions just like the e-wallets we use every single day, but with one massive difference: the money you put in here is strictly locked and can only be spent on healthcare.
 
@@ -95,7 +98,9 @@ As the Philippines undergoes a digital payment revolution, the ease of spending 
 
 ## Smart Contract
 
-**Contract ID (Testnet):** `CAO3K6OYB5A3VNVV3HKCSVG3ZZ442DZCDKAXG4CTSLBTN7FOYCCBRZ34`
+**Contract ID (Testnet):** `CAO3K6OYB5A3VNVV3HKCSVG3ZZ442DZCDKAXG4CTSLBTN7FOYCCBRZ34`  
+**Token Used:** Native `XLM` (Stellar Lumens) on Testnet  
+**Sample Transaction Hash:** `66ad63d3cbe7fc2b2f69e6b6bb178ec63d002f23cfb8b705e4b6eb814f8263fb` (View on [Stellar Expert](https://stellar.expert/explorer/testnet/tx/66ad63d3cbe7fc2b2f69e6b6bb178ec63d002f23cfb8b705e4b6eb814f8263fb))
 
 <img width="1414" height="487" alt="salomed_testings" src="https://github.com/user-attachments/assets/35a38279-8d1b-4150-9500-383b917853ea" />
 <img width="1307" height="230" alt="salomed_deployment" src="https://github.com/user-attachments/assets/561fda96-fe7a-484e-acdb-3f902186b137" />
