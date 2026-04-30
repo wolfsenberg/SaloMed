@@ -26,7 +26,7 @@ import { API_URL, PHP_PER_XLM } from '@/lib/config';
 
 export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: Props) {
   const [step, setStep]               = useState<Step>('form');
-  const [gcashNumber, setGcashNumber] = useState('09171234567');
+  const [gcashNumber, setGcashNumber] = useState('');
   const [amountPhp, setAmountPhp]     = useState('');
   const [rate, setRate]               = useState(PHP_PER_XLM);
   const [result, setResult]           = useState<LocalQRResult | null>(null);
