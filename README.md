@@ -89,6 +89,11 @@ SaloMed acts as a self-funded, community-backed insurance layer for the millions
 ## Smart Contract
 
 **Contract ID (Testnet):** `CAO3K6OYB5A3VNVV3HKCSVG3ZZ442DZCDKAXG4CTSLBTN7FOYCCBRZ34`
+<img width="1414" height="487" alt="image" src="https://github.com/user-attachments/assets/7b5a8c23-655e-416c-bcdd-4257eb51e921" />
+<img width="1307" height="230" alt="image" src="https://github.com/user-attachments/assets/748ab0e7-009a-440a-a540-08217ce77323" />
+<img width="1908" height="965" alt="image" src="https://github.com/user-attachments/assets/33a14e08-06a7-466d-9e0d-b2ffa26d5305" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/f984403f-bcf8-4e7c-bfe3-377243f69e60" />
+
 
 | Function | Description |
 |---|---|
