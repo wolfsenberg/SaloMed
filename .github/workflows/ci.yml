@@ -1,0 +1,78 @@
+name: SaloMed CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  # Job 1: Test and Build Smart Contracts
+  contracts:
+    name: Smart Contract CI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install Soroban CLI
+        run: cargo install --locked soroban-cli
+
+      - name: Run Contract Tests
+        run: |
+          cd contracts/salomed
+          cargo test
+
+      - name: Build Contracts
+        run: |
+          cd contracts/salomed
+          soroban contract build
+
+  # Job 2: Lint and Build Frontend
+  frontend:
+    name: Frontend CI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build Next.js
+        run: |
+          cd frontend
+          npm run build
+        env:
+          NEXT_PUBLIC_API_URL: https://mock-api.salomed.com
+          # Add other non-secret envs if needed
+
+  # Job 3: Lint Backend
+  backend:
+    name: Backend CI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt

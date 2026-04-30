@@ -4,7 +4,6 @@
 [![Stellar Network](https://img.shields.io/badge/Stellar-Testnet-blue)](https://stellar.expert/explorer/testnet)
 
 ## Hackathon Roadmap and Requirements Checklist
-Para sa mga judges: Ito ang mabilisang silip sa aming Level 1 hanggang 5 compliance.
 
 | Level | Status | Features Implemented |
 | :--- | :---: | :--- |
@@ -49,6 +48,7 @@ Think of it as the ultimate discipline tool for your health savings. We give you
 *   [Smart Contract](#smart-contract)
 *   [How Stellar Powers SaloMed](#how-stellar-powers-salomed)
 *   [Architecture and Structure](#architecture-and-structure)
+*   [CI/CD Pipeline](#cicd-pipeline)
 *   [Hackathon Requirements Detail](#hackathon-requirements-detail)
 *   [User Feedback and Future Improvements](#user-feedback-and-future-improvements)
 *   [Demo Flow](#demo-flow)
@@ -94,9 +94,6 @@ In the Philippines, nearly half of healthcare spending is paid "out-of-pocket." 
 *   **The Unbanked and Under-HMO**: For millions who do not have access to private health insurance (HMOs), SaloMed acts as a self-funded, community-backed insurance layer.
 *   **Healthcare Providers**: Hospitals and pharmacies benefit from instant, atomic settlement with zero credit risk.
 
-### Why it Matters Today
-As the Philippines undergoes a digital payment revolution, the ease of spending has increased, but the discipline to save has not. SaloMed uses the Stellar blockchain to turn digital currency into **purposeful capital**. By preventing medical debt, we help Filipino families build generational wealth rather than generational debt.
-
 ---
 
 ## Tech Stack
@@ -117,16 +114,11 @@ As the Philippines undergoes a digital payment revolution, the ease of spending 
 
 **Contract ID (Testnet):** `CAO3K6OYB5A3VNVV3HKCSVG3ZZ442DZCDKAXG4CTSLBTN7FOYCCBRZ34`
 
-<img width="1414" height="487" alt="salomed_testings" src="https://github.com/user-attachments/assets/35a38279-8d1b-4150-9500-383b917853ea" />
-<img width="1307" height="230" alt="salomed_deployment" src="https://github.com/user-attachments/assets/561fda96-fe7a-484e-acdb-3f902186b137" />
-<img width="1908" height="965" alt="salomed_contract" src="https://github.com/user-attachments/assets/688fffd5-21f3-4aae-8048-6569bf03d8bc" />
-<img width="1920" height="1080" alt="Screenshot (6437)" src="https://github.com/user-attachments/assets/23da38d7-d610-44d2-8c15-3df0dd72d566" />
-
 | Function | Description |
 |---|---|
 | initialize | Setup admin and token addresses |
 | deposit_remittance | Remittance top-up for a beneficiary vault |
-| pay_hospital | Atomic payment from vault to whitelisted hospital |
+| pay_hospital | Inter-contract call to native XLM for atomic settlement |
 | get_vault | Fetch balance, SaloPoints, and credit tier |
 | whitelist_hospital | Admin: Add authorized medical providers |
 
@@ -162,19 +154,17 @@ SaloMed follows a high-resiliency **Hybrid Sync Architecture** to ensure the app
     *   **Event-Driven**: Instantly refreshes balance after any successful payment or padala.
     *   **Polling**: Directly queries the blockchain every 20 seconds to catch inbound deposits or external transfers.
 
-### Directory Structure
-```
-SaloMed/
-├── .github/            # GitHub Actions: CI/CD Pipeline logic
-├── backend/            # FastAPI server: Logic and GCash Bridge logic
-├── contracts/          # Soroban Smart Contracts (Rust): Security and Escrow logic
-│   └── salomed/        # Main SaloMed contract logic
-├── frontend/           # Next.js 14 Application: Professional mobile-first UI
-│   ├── app/            # App router, layouts, and pages
-│   ├── components/     # High-fidelity React components
-│   └── lib/            # Freighter and Contract interaction logic
-└── README.md           # Documentation
-```
+---
+
+## CI/CD Pipeline
+
+SaloMed uses a robust **CI/CD Pipeline** via GitHub Actions to maintain code quality and ensure continuous delivery:
+
+*   **Continuous Integration (CI)**: Awtomatikong pinapatakbo ang mga sumusunod sa bawat push:
+    *   **Smart Contract Tests**: Ginagamit ang `cargo test` para i-verify ang integridad ng Soroban contracts.
+    *   **Frontend Validation**: Sinisiguro na ang Next.js build ay walang errors bago ang deployment.
+    *   **Dependency Audit**: Sinusuri ang mga security vulnerabilities sa backend at frontend packages.
+*   **Continuous Deployment (CD)**: Kapag pumasa ang lahat ng tests, ang app ay awtomatikong dine-deploy sa **Vercel** (Frontend) at **Render** (Backend).
 
 ---
 
