@@ -183,3 +183,32 @@ fn test_double_initialize_rejected() {
     let fake_token = Address::generate(&t.env);
     t.client.initialize(&t.admin, &fake_token);
 }
+
+#[test]
+fn test_transfer_vault_keeps_remittance_locked() {
+    let t = setup();
+    let beneficiary = Address::generate(&t.env);
+
+    t.client.deposit_remittance(&t.ofw, &t.ofw, &100_000_000);
+    t.client.transfer_vault(&t.ofw, &beneficiary, &40_000_000);
+
+    assert_eq!(t.client.get_vault(&t.ofw).balance, 60_000_000);
+    assert_eq!(t.client.get_vault(&beneficiary).balance, 40_000_000);
+}
+
+#[test]
+#[should_panic(expected = "sender and beneficiary must differ")]
+fn test_transfer_vault_rejects_self_transfer() {
+    let t = setup();
+    t.client.deposit_remittance(&t.ofw, &t.ofw, &100_000_000);
+
+    t.client.transfer_vault(&t.ofw, &t.ofw, &40_000_000);
+}
+
+#[test]
+fn test_exposes_configured_token_for_deployment_verification() {
+    let t = setup();
+
+    assert_eq!(t.client.get_token_id(), t.token_id);
+    assert_eq!(t.client.get_admin(), t.admin);
+}

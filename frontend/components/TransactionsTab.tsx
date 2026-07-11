@@ -1,313 +1,139 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Receipt, ArrowDownToLine, QrCode, Globe, HandCoins,
-  Star, Building2, FlaskConical, Clock, Loader2
-} from 'lucide-react';
-import { fetchHorizonTxs, loadTxs, Transaction, TxType } from '@/lib/transactions';
-import { useTranslation } from '@/lib/i18n/LanguageContext';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowDownLeft, ArrowUpRight, Clock, Receipt, RefreshCw } from 'lucide-react';
+
+import { getRuntimeHistory, getRuntimeStatus, RuntimeTransaction } from '@/lib/runtime';
+
 
 interface Props {
   address: string | null;
   phpRate: number;
 }
 
-type Filter = 'all' | TxType;
-
-const TYPE_CFG: Record<TxType, {
-  label:   string;
-  Icon:    React.ElementType;
-  iconBg:  string;
-  iconTxt: string;
-  accent:  string;
-}> = {
-  topup:   { label: 'Top-up',  Icon: ArrowDownToLine, iconBg: 'bg-emerald-100', iconTxt: 'text-emerald-600', accent: 'bg-emerald-400' },
-  payment: { label: 'Payment', Icon: QrCode,          iconBg: 'bg-blue-100',    iconTxt: 'text-blue-600',    accent: 'bg-blue-400'    },
-  padala:  { label: 'Padala',  Icon: Globe,           iconBg: 'bg-violet-100',  iconTxt: 'text-violet-600',  accent: 'bg-violet-400'  },
-  loan:    { label: 'Loan',    Icon: HandCoins,       iconBg: 'bg-amber-100',   iconTxt: 'text-amber-600',   accent: 'bg-amber-400'   },
+type HistoryItem = {
+  id: string;
+  type: string;
+  direction: 'sent' | 'received';
+  amountAsset: number;
+  amountPhp: number;
+  status: string;
+  counterparty?: string | null;
+  createdAt: number;
+  simulated: boolean;
 };
 
-const FILTERS: { id: Filter; label: string }[] = [
-  { id: 'all',     label: 'All'     },
-  { id: 'topup',   label: 'Top-up'  },
-  { id: 'payment', label: 'Payment' },
-  { id: 'padala',  label: 'Padala'  },
-  { id: 'loan',    label: 'Loan'    },
-];
-
-function fmtDate(ts: number): string {
-  const d = new Date(ts);
-  return (
-    d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) +
-    ' · ' +
-    d.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })
-  );
-}
-
-function TxCard({ tx, address }: { tx: Transaction, address: string }) {
-  let cfg = { ...TYPE_CFG[tx.type] };
-  
-  // Differentiate Padala direction
-  if (tx.type === 'padala' && tx.direction === 'received') {
-    cfg.label = 'Received Padala';
-    cfg.Icon = ArrowDownToLine; // Use same icon as Top-up for incoming
-    cfg.iconBg = 'bg-emerald-100';
-    cfg.iconTxt = 'text-emerald-600';
-    cfg.accent = 'bg-emerald-400';
-  } else if (tx.type === 'padala') {
-    cfg.label = 'Sent Padala';
-  }
-
-  const Icon = cfg.Icon;
-
-  return (
-    <div className="bg-white rounded-2xl shadow-card border border-slate-100 overflow-hidden flex">
-      {/* left accent bar */}
-      <div className={`w-1 shrink-0 ${cfg.accent}`} />
-
-      <div className="flex-1 px-4 py-3.5 space-y-2 min-w-0">
-        {/* top row */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${cfg.iconBg}`}>
-              <Icon size={15} className={cfg.iconTxt} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-bold text-slate-800">{cfg.label}</p>
-              <p className="text-[10px] text-slate-400 truncate">{fmtDate(tx.timestamp)}</p>
-            </div>
-          </div>
-          <div className="text-right shrink-0">
-            <p className={`text-sm font-bold ${ (tx.type === 'topup' || (tx.type === 'padala' && tx.direction === 'received')) ? 'text-emerald-600' : 'text-slate-800'}`}>
-              {(tx.type === 'topup' || (tx.type === 'padala' && tx.direction === 'received')) ? '+' : ''}{tx.amountXlm.toFixed(2)} XLM
-            </p>
-            <p className="text-[10px] text-slate-400">≈ ₱{tx.amountPhp.toFixed(2)}</p>
-          </div>
-        </div>
-
-        {/* detail row */}
-        <div className="text-xs text-slate-500">
-          {tx.type === 'payment' && tx.providerName && (
-            <p className="flex items-center gap-1 truncate">
-              {tx.providerType === 'hospital'
-                ? <Building2 size={10} className="text-blue-400 shrink-0" />
-                : <FlaskConical size={10} className="text-blue-400 shrink-0" />}
-              {tx.providerName}
-              {tx.payFrom === 'savings' && <span className="ml-1 text-slate-400">(from Savings)</span>}
-            </p>
-          )}
-          {tx.type === 'padala' && (
-            <p className="flex items-center gap-1 truncate">
-              {tx.direction === 'received' ? (
-                <>
-                  <ArrowDownToLine size={10} className="text-emerald-400 shrink-0" />
-                  From {tx.senderLabel || 'Unknown Sender'}
-                </>
-              ) : (
-                <>
-                  <Globe size={10} className="text-violet-400 shrink-0" />
-                  To {tx.recipientMethod === 'gcash' ? 'GCash' : 'Stellar'} — {tx.recipientLabel}
-                </>
-              )}
-            </p>
-          )}
-          {tx.type === 'topup' && tx.gcashRef && (
-            <p className="font-mono text-slate-400">Ref: {tx.gcashRef}</p>
-          )}
-          {tx.type === 'loan' && tx.termMonths && (
-            <p>
-              {tx.interestRate}% p.a. · {tx.termMonths} months
-              {tx.monthlyPhp ? ` · ₱${tx.monthlyPhp.toFixed(2)}/mo` : ''}
-            </p>
-          )}
-        </div>
-
-        {/* pts earned */}
-        <div className="flex items-center justify-between gap-2">
-          {(tx.ptsEarned ?? 0) > 0 && (
-            <div className="flex items-center gap-1 bg-blue-50 rounded-lg px-2 py-1 w-fit">
-              <Star size={9} className="text-blue-500" />
-              <span className="text-[10px] font-bold text-blue-600">+{tx.ptsEarned} SaloPoints</span>
-            </div>
-          )}
-
-          {tx.txHash && tx.txHash.length > 20 && (
-            <a
-              href={`https://stellar.expert/explorer/testnet/account/${address}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[10px] text-blue-500 hover:text-blue-700 flex items-center gap-1 transition-colors ml-auto"
-            >
-              <Globe size={10} />
-              View on Explorer
-            </a>
-          )}
-        </div>
-
-        {/* pending badge for loan */}
-
-        {/* pending badge for loan */}
-        {tx.status === 'pending' && (
-          <span className="inline-block text-[10px] font-semibold bg-amber-100 text-amber-600 rounded-full px-2 py-0.5">
-            Pending review
-          </span>
-        )}
-      </div>
-    </div>
-  );
+function fromRuntime(transaction: RuntimeTransaction): HistoryItem {
+  return {
+    id: transaction.transaction_id,
+    type: transaction.type,
+    direction: transaction.direction,
+    amountAsset: Number(transaction.amount_asset),
+    amountPhp: Number(transaction.amount_php),
+    status: transaction.status,
+    counterparty: transaction.counterparty,
+    createdAt: transaction.created_at * 1000,
+    simulated: transaction.simulated,
+  };
 }
 
 export default function TransactionsTab({ address, phpRate: _phpRate }: Props) {
-  const { t } = useTranslation();
-  const [filter, setFilter] = useState<Filter>('all');
-  const [txs, setTxs]       = useState<Transaction[]>([]);
-  const [syncing, setSyncing] = useState(false);
+  const [transactions, setTransactions] = useState<HistoryItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [sourceLabel, setSourceLabel] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const refreshVersion = useRef(0);
+
+  async function refresh() {
+    if (!address) return;
+    const version = ++refreshVersion.current;
+    setLoading(true);
+    setError(null);
+    try {
+      const runtime = await getRuntimeStatus();
+      const nextTransactions = (await getRuntimeHistory(address)).map(fromRuntime);
+      if (version !== refreshVersion.current) return;
+      setTransactions(nextTransactions);
+      setSourceLabel(runtime.history_source === 'demo_ledger'
+        ? 'Authoritative simulated ledger — not submitted to Stellar'
+        : 'Recent confirmed Soroban events available from RPC');
+    } catch (cause) {
+      if (version !== refreshVersion.current) return;
+      setError(cause instanceof Error ? cause.message : 'Unable to load transaction history.');
+    } finally {
+      if (version === refreshVersion.current) setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    if (address) {
-      const addr = address.toUpperCase();
-      
-      const sync = async () => {
-        setSyncing(true);
-        // 1. Initial load from LocalStorage (Instant UI)
-        const local = loadTxs(addr);
-        setTxs(local);
-
-        // 2. Fetch from Blockchain (Horizon) to ensure persistence across devices/reloads
-        const remote = await fetchHorizonTxs(addr);
-
-        // 3. Merge & De-duplicate
-        setTxs(current => {
-          const combined = [...current];
-          remote.forEach(rtx => {
-            // Check if this blockchain record already exists in our local storage
-            // We prioritize local records because they contain extra metadata (like provider name)
-            const exists = combined.some(ctx => 
-              (ctx.txHash === rtx.txHash && rtx.txHash !== undefined) || 
-              (ctx.id === rtx.id)
-            );
-            if (!exists) combined.push(rtx);
-          });
-          return combined.sort((a,b) => b.timestamp - a.timestamp);
-        });
-        setSyncing(false);
-      };
-
-      sync();
-
-      // Listen for local transaction updates (Instant)
-      const onUpdate = (e: any) => {
-        if (e.detail?.address === addr || e.type === 'storage') {
-          sync();
-        }
-      };
-      window.addEventListener('salomed_tx_update', onUpdate);
-      window.addEventListener('storage', onUpdate);
-      return () => {
-        window.removeEventListener('salomed_tx_update', onUpdate);
-        window.removeEventListener('storage', onUpdate);
-      };
-    }
+    refreshVersion.current += 1;
+    setTransactions([]);
+    setSourceLabel('');
+    void refresh();
+    const listener = () => void refresh();
+    window.addEventListener('salomed_tx_update', listener);
+    return () => {
+      refreshVersion.current += 1;
+      window.removeEventListener('salomed_tx_update', listener);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address]);
 
-  const filtered = filter === 'all' ? txs : txs.filter(t => t.type === filter);
-
-  const countOf = (type: TxType) => txs.filter(t => t.type === type).length;
-
   if (!address) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 gap-4 text-center">
-        <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center">
-          <Receipt size={32} className="text-blue-400" />
-        </div>
-        <h2 className="text-lg font-bold text-slate-800">{t('connect_history_title')}</h2>
-        <p className="text-sm text-slate-500 max-w-[280px]">
-          {t('connect_history_desc')}
-        </p>
-      </div>
-    );
+    return <div className="min-h-[60vh] flex items-center justify-center text-sm text-slate-500">Connect your wallet to view history.</div>;
   }
 
   return (
-    <div className="px-4 py-6 space-y-4 max-w-lg mx-auto">
-
-      {/* Header */}
-      <div>
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-slate-900">Transaction History</h2>
-          {syncing && (
-            <div className="flex items-center gap-1.5 text-blue-500 animate-pulse">
-              <Loader2 size={12} className="animate-spin" />
-              <span className="text-[10px] font-bold uppercase tracking-wider">Syncing...</span>
-            </div>
-          )}
+    <div className="px-4 py-6 max-w-lg mx-auto space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Vault Activity</h2>
+          <p className="text-xs text-slate-400 mt-0.5">{sourceLabel}</p>
         </div>
-        <p className="text-xs text-slate-400 mt-0.5">
-          {address.slice(0, 6)}…{address.slice(-6)}
-          {' · '}{txs.length} transaction{txs.length !== 1 ? 's' : ''}
-        </p>
+        <button onClick={refresh} disabled={loading} className="p-2 rounded-xl bg-white border border-slate-200 text-slate-500">
+          <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+        </button>
       </div>
 
-      {/* Filter pills */}
-      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-        {FILTERS.map(f => {
-          const count = f.id !== 'all' ? countOf(f.id as TxType) : txs.length;
+      {error && <p className="text-xs text-red-600 bg-red-50 rounded-xl p-3">{error}</p>}
+      {!loading && transactions.length === 0 && (
+        <div className="bg-white border border-slate-100 rounded-2xl p-8 text-center">
+          <Receipt size={30} className="text-slate-300 mx-auto mb-2" />
+          <p className="text-sm text-slate-500">No vault transactions yet.</p>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {transactions.map(transaction => {
+          const received = transaction.direction === 'received';
+          const Icon = received ? ArrowDownLeft : ArrowUpRight;
           return (
-            <button
-              key={f.id}
-              onClick={() => setFilter(f.id)}
-              className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border ${
-                filter === f.id
-                  ? 'bg-blue-600 border-blue-600 text-white'
-                  : 'bg-white border-slate-200 text-slate-500 hover:border-blue-300'
-              }`}
-            >
-              {f.label}
-              {count > 0 && (
-                <span className={`text-[10px] font-bold ${filter === f.id ? 'text-blue-200' : 'text-slate-400'}`}>
-                  {count}
-                </span>
-              )}
-            </button>
+            <div key={transaction.id} className="bg-white border border-slate-100 rounded-2xl p-4 flex gap-3 items-center shadow-card">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${received ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+                <Icon size={18} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-bold text-slate-800 capitalize">{transaction.type}</p>
+                  <p className={`text-sm font-bold ${received ? 'text-emerald-600' : 'text-slate-800'}`}>
+                    {received ? '+' : '−'}{transaction.amountAsset.toFixed(7)} USDC
+                  </p>
+                </div>
+                <div className="flex items-center justify-between gap-2 mt-1 text-[11px] text-slate-400">
+                  <span className="truncate">{transaction.counterparty || transaction.status}</span>
+                  <span className="flex items-center gap-1 shrink-0"><Clock size={10} />{new Date(transaction.createdAt).toLocaleString()}</span>
+                </div>
+                {transaction.simulated && (
+                  <span className="inline-block mt-1 text-[10px] font-semibold text-amber-700 bg-amber-50 rounded-full px-2 py-0.5">
+                    SIMULATED — NO REAL MONEY · NOT ON STELLAR
+                  </span>
+                )}
+                <p className="text-[10px] text-slate-400 mt-0.5">≈ ₱{transaction.amountPhp.toFixed(2)}</p>
+              </div>
+            </div>
           );
         })}
       </div>
-
-      {/* List */}
-      {filtered.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex flex-col items-center justify-center py-20 gap-3 text-center"
-        >
-          <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center">
-            <Clock size={26} className="text-slate-300" />
-          </div>
-          <p className="text-sm font-semibold text-slate-400">No transactions yet</p>
-          <p className="text-xs text-slate-300 max-w-[200px]">
-            {filter !== 'all'
-              ? `No ${filter} transactions found.`
-              : 'Top up your vault, make a payment, or send Padala to get started.'}
-          </p>
-        </motion.div>
-      ) : (
-        <div className="space-y-3">
-          <AnimatePresence>
-            {filtered.map((tx, i) => (
-              <motion.div
-                key={tx.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.035 }}
-              >
-                <TxCard tx={tx} address={address} />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-      )}
     </div>
   );
 }

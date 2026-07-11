@@ -2,22 +2,9 @@
 const nextConfig = {
   output: "standalone",
   swcMinify: true,
-  eslint: {
-    // Warning: This allows production builds to successfully complete even if
-    // your project has ESLint errors.
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    // !! WARN !!
-    // Dangerously allow production builds to successfully complete even if
-    // your project has type errors.
-    // !! WARN !!
-    ignoreBuildErrors: true,
-  },
   productionBrowserSourceMaps: false,
   experimental: {
     webpackBuildWorker: true,
-    webpackMemoryOptimizations: true,
     optimizePackageImports: ['framer-motion', 'lucide-react'],
     serverSourceMaps: false,
     cpus: 1, 

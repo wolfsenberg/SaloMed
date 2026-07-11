@@ -4,27 +4,34 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, MapPin, CheckCircle2 } from 'lucide-react';
 import { getProviders, Provider, ProviderType } from '@/lib/whitelist';
+import { getRuntimeStatus, RuntimeMode } from '@/lib/runtime';
 
 interface Props {
   providerType: ProviderType;
   value: string;
-  onChange: (name: string, stellarAddress: string) => void;
+  onChange: (name: string, paymentTarget: string) => void;
 }
 
 export default function ProviderCombobox({ providerType, value, onChange }: Props) {
   const [query, setQuery]       = useState(value);
   const [open, setOpen]         = useState(false);
   const [selected, setSelected] = useState<Provider | null>(null);
+  const [runtimeMode, setRuntimeMode] = useState<RuntimeMode | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const boxRef   = useRef<HTMLDivElement>(null);
 
-  const providers = getProviders(providerType);
+  const providers = runtimeMode === 'demo' ? getProviders(providerType) : [];
   const filtered  = query.trim().length === 0
     ? providers
     : providers.filter(p =>
         p.name.toLowerCase().includes(query.toLowerCase()) ||
         p.location.toLowerCase().includes(query.toLowerCase()),
       );
+
+  // Close on outside click
+  useEffect(() => {
+    getRuntimeStatus().then(status => setRuntimeMode(status.mode)).catch(() => setRuntimeMode(null));
+  }, []);
 
   // Close on outside click
   useEffect(() => {
@@ -49,7 +56,7 @@ export default function ProviderCombobox({ providerType, value, onChange }: Prop
     setSelected(p);
     setQuery(p.name);
     setOpen(false);
-    onChange(p.name, p.stellarAddress);
+    onChange(p.name, p.paymentTarget);
   }
 
   function handleInput(v: string) {
@@ -87,12 +94,12 @@ export default function ProviderCombobox({ providerType, value, onChange }: Prop
             className="absolute z-50 w-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden max-h-56 overflow-y-auto"
           >
             {filtered.map(p => (
-              <li key={p.stellarAddress}>
+              <li key={p.paymentTarget}>
                 <button
                   type="button"
                   onMouseDown={e => { e.preventDefault(); select(p); }}
                   className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-blue-50 transition-colors border-b border-slate-100 last:border-0 ${
-                    selected?.stellarAddress === p.stellarAddress ? 'bg-blue-50' : ''
+                    selected?.paymentTarget === p.paymentTarget ? 'bg-blue-50' : ''
                   }`}
                 >
                   <div className="flex-1 min-w-0">
@@ -101,7 +108,7 @@ export default function ProviderCombobox({ providerType, value, onChange }: Prop
                       <MapPin size={10} /> {p.location}
                     </p>
                   </div>
-                  {selected?.stellarAddress === p.stellarAddress && (
+                  {selected?.paymentTarget === p.paymentTarget && (
                     <CheckCircle2 size={14} className="text-emerald-500 shrink-0 mt-0.5" />
                   )}
                 </button>
@@ -113,11 +120,16 @@ export default function ProviderCombobox({ providerType, value, onChange }: Prop
 
       {selected && (
         <p className="mt-1 text-xs text-emerald-600 font-medium flex items-center gap-1">
-          <CheckCircle2 size={11} /> Whitelisted partner — address auto-filled
+          <CheckCircle2 size={11} /> Simulated provider whitelist
         </p>
       )}
       {query.trim().length > 0 && !selected && filtered.length === 0 && (
         <p className="mt-1 text-xs text-slate-400">No matching {providerType} found in whitelist.</p>
+      )}
+      {runtimeMode && runtimeMode !== 'demo' && (
+        <p className="mt-1 text-xs text-amber-600">
+          Testnet mode requires a valid contract-whitelisted Stellar address in Manual Pay.
+        </p>
       )}
     </div>
   );

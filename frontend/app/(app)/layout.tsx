@@ -2,13 +2,12 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wallet, QrCode, Globe, HandCoins, Receipt, LogOut, Smartphone, Monitor, Info, Copy, Check, Languages } from 'lucide-react';
-import { Inter } from 'next/font/google';
+import { Wallet, QrCode, Globe, Receipt, LogOut, Smartphone, Monitor, Info, Copy, Check, Languages } from 'lucide-react';
 import Image from 'next/image';
+import localFont from 'next/font/local';
 import SplashScreen from '@/components/SplashScreen';
 import VaultCard from '@/components/VaultCard';
 import PaymentTab from '@/components/PaymentTab';
-import LoanTab from '@/components/LoanTab';
 import RemittanceForm from '@/components/RemittanceForm';
 import TransactionsTab from '@/components/TransactionsTab';
 import OnboardingSlides from '@/components/OnboardingSlides';
@@ -18,17 +17,25 @@ import { getVault, HealthVault, EMPTY_VAULT } from '@/lib/contract';
 import { API_URL } from '@/lib/config';
 import { LanguageProvider, useTranslation } from '@/lib/i18n/LanguageContext';
 import { Language } from '@/lib/i18n/translations';
+import { getRuntimeStatus, RuntimeStatus } from '@/lib/runtime';
 import '@/app/globals.css';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = localFont({
+  src: '../../public/fonts/Inter-Variable.woff2',
+  variable: '--font-inter',
+  display: 'swap',
+  weight: '100 900',
+  style: 'normal',
+  preload: true,
+  fallback: ['system-ui', 'Arial'],
+});
 
-type Tab = 'vault' | 'payment' | 'loan' | 'remittance' | 'history';
+type Tab = 'vault' | 'payment' | 'remittance' | 'history';
 
-const TAB_ORDER: Tab[] = ['vault', 'payment', 'loan', 'remittance', 'history'];
+const TAB_ORDER: Tab[] = ['vault', 'payment', 'remittance', 'history'];
 const TAB_META: Record<Tab, { Icon: React.ElementType; label: string; path: string }> = {
   vault: { Icon: Wallet, label: 'Vault', path: '/vault' },
   payment: { Icon: QrCode, label: 'Payment', path: '/payment' },
-  loan: { Icon: HandCoins, label: 'Loan', path: '/loan' },
   remittance: { Icon: Globe, label: 'Padala', path: '/remittance' },
   history: { Icon: Receipt, label: 'History', path: '/history' },
 };
@@ -51,7 +58,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <title>SaloMed: Your Health Alkansya</title>
         <link rel="icon" href="/SaloMed_logo.png" />
       </head>
-      <body className={`${inter.className} antialiased font-sans`}>
+      <body className={`${inter.variable} antialiased font-sans`}>
         <LanguageProvider>
           <AppContent>{children}</AppContent>
         </LanguageProvider>
@@ -77,6 +84,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
   const [copied, setCopied] = useState(false);
   const [hasFreighter, setHasFreighter] = useState<boolean>(true);
   const [freighterBannerDismissed, setFreighterBannerDismissed] = useState(false);
+  const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
   const prevTab = useRef<Tab>('vault');
 
   const { t, language, setLanguage, hasChosenLanguage } = useTranslation();
@@ -102,19 +110,6 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
     if (!a) return;
     
     if (!isBackground) setLoadingVault(true);
-
-    // Fast path: Update balance instantly from Horizon to mask Vercel cold starts
-    fetch(`https://horizon-testnet.stellar.org/accounts/${encodeURIComponent(a)}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.balances) {
-          const nativeBal = data.balances.find((b: any) => b.asset_type === 'native');
-          const xlm = parseFloat(nativeBal?.balance ?? '0');
-          setVault(prev => ({ ...prev, balance: BigInt(Math.floor(xlm * 10_000_000)) }));
-          if (!isBackground) setLoadingVault(false); // Stop loading spinner early
-        }
-      })
-      .catch(() => {});
 
     try { 
       const fullVault = await getVault(a);
@@ -159,6 +154,9 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
   }, [address, refreshVault]);
 
   useEffect(() => {
+    getRuntimeStatus().then(setRuntime).catch(error => {
+      setConnectError(error instanceof Error ? error.message : 'Runtime configuration unavailable.');
+    });
     fetch(`${API_URL}/api/gcash-rate`)
       .then(r => r.json())
       .then((d: { php_per_usdc: number }) => setPhpRate(d.php_per_usdc))
@@ -227,13 +225,6 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
     }
   }
 
-  function handleManualConnect(addr: string) {
-    setAddress(addr);
-    localStorage.setItem('salomed_address', addr);
-    localStorage.removeItem('salomed_manual_disconnect');
-    refreshVault(addr);
-  }
-
   function handleDisconnect() {
     localStorage.setItem('salomed_manual_disconnect', 'true');
     localStorage.removeItem('salomed_address');
@@ -274,6 +265,11 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
       </AnimatePresence>
 
       <div className={`h-dvh flex flex-col w-full overflow-hidden ${forceMobile ? 'bg-slate-50 max-w-lg mx-auto shadow-2xl relative' : 'md:flex-col bg-slate-50'}`}>
+        {runtime?.simulated && (
+          <div className="w-full bg-amber-500 text-amber-950 text-[11px] font-bold px-4 py-2 text-center z-[70] shrink-0">
+            SIMULATED DEMO — NO REAL MONEY · Balances and transactions use the SaloMed demo ledger
+          </div>
+        )}
         {!hasFreighter && !freighterBannerDismissed && (
           <div className="w-full bg-blue-600 text-white text-xs font-semibold px-4 py-2.5 flex items-center justify-center gap-2 text-center z-[60] shrink-0">
             <Info size={14} className="shrink-0" />
@@ -445,7 +441,6 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
                       loading={loadingVault}
                       connecting={connecting}
                       onConnect={handleConnect}
-                      onManualConnect={handleManualConnect}
                       onRefresh={() => refreshVault()}
                     />
                   )}
@@ -456,9 +451,6 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
                       onSuccess={() => { refreshVault(); switchTab('history'); }}
                       onSwitchTab={switchTab}
                     />
-                  )}
-                  {tab === 'loan' && (
-                    <LoanTab address={address} vault={vault} phpRate={phpRate} />
                   )}
                   {tab === 'remittance' && (
                     <RemittanceForm

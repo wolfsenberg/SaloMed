@@ -13,6 +13,17 @@
 | **Level 4** | Done | Inter-contract calls, Custom token mechanics, Advanced event streaming, CI/CD pipeline. |
 | **Level 5** | Done | MVP fully functional, User feedback collected, Improvement phase documented. |
 
+The table above records the hackathon submission milestones; it is not a production-readiness claim.
+
+## Current Runtime Truth
+
+- `SALOMED_MODE=demo` is the safe default. It uses a persistent SQLite ledger and every screen labels the flow as simulated; no real money or crypto moves.
+- The canonical vault accounting asset is USDC. Native XLM is used only for Stellar network fees and is never displayed as vault value.
+- `stellar_testnet` is blocked at startup until the deployed contract's `get_token_id` and `get_admin` match the intended USDC Stellar Asset Contract and administrator.
+- `pdax_uat` and `pdax_prod` are additionally blocked until the issued private PDAX API specification and production approval are explicitly confirmed.
+- PDAX deposit, quote, and webhook transaction endpoints return `501` until USDC conversion, withdrawal, and reconciliation are implemented from the issued specification.
+- Micro-loans, cash-equivalent cashback, arbitrary withdrawals, and point conversion are not implemented and are not exposed as live features.
+
 ---
 
 > ### The Problem: Ang sakit na nga, mas masakit pa sa bulsa (It is already painful, but it is even more painful for the wallet).
@@ -67,9 +78,9 @@ Think of it as the ultimate discipline tool for your health savings. We give you
 When you fund your SaloMed Vault, that money is secured and untouchable for casual spending. You cannot withdraw it to buy concert tickets or go shopping. It can exclusively be transacted at whitelisted partner hospitals, clinics, and pharmacies.
 
 ### 2. Familiarity and "Zero-Crypto Anxiety"
-*   **Recognizable Funding**: Top up via familiar e-wallet flows (GCash Bridge).
+*   **Recognizable Funding**: A clearly labelled GCash-style simulation in demo mode; PDAX modes fail closed until approved.
 *   **Scan-to-Pay**: Point-of-care QR payments just like your daily finance apps.
-*   **Local Currency Display**: Dynamic toggle between PHP and XLM for better accessibility.
+*   **Local Currency Display**: Dynamic PHP and USDC display using a clearly labelled indicative rate.
 
 ### 3. The Ultimate "Health Pasaload" (Global Padala)
 Remit funds directly to a loved one's SaloMed Vault. Because the remittance is Purpose-Bound, you are 100% certain it will only be spent at a hospital or pharmacy, providing guaranteed transparency for senders worldwide.
@@ -103,8 +114,9 @@ SaloMed acts as a self-funded, community-backed insurance layer for the millions
 |---|---|
 | initialize | Setup admin and token addresses |
 | deposit_remittance | Remittance top-up for a beneficiary vault |
-| pay_hospital | Inter-contract call to native XLM for atomic settlement |
+| pay_hospital | Inter-contract call to the configured token contract for atomic settlement |
 | get_vault | Fetch balance, SaloPoints, and credit tier |
+| get_token_id | Expose the configured token contract for deployment verification |
 | whitelist_hospital | Admin: Add authorized medical providers |
 
 ---
@@ -117,17 +129,18 @@ SaloMed acts as a self-funded, community-backed insurance layer for the millions
 ---
 
 ## Architecture and Structure
-SaloMed follows a high-resiliency Hybrid Sync Architecture:
-1. **Frontend**: Directly queries Horizon RPC for real-time accuracy.
-2. **Backend**: GCash Bridge logic using SALOMED_SIGNER_SECRET.
-3. **Auto-Sync Engine**: Dual-layer sync (Event-driven and 20s Polling).
+
+1. **Explicit runtime status**: The frontend reads `/api/runtime`; modes never silently fall back into each other.
+2. **Demo mode**: Versioned FastAPI endpoints use one persistent, idempotent SQLite ledger for top-up, vault payment, remittance, and history.
+3. **Stellar mode**: Vault mutations are user-signed Freighter/Soroban calls; vault state comes from `get_vault` and recent history comes from contract events through RPC.
+4. **PDAX modes**: Status and indicative configuration are visible, but every transactional endpoint is disabled. No fiat callback can create USDC value.
 
 ---
 
 ## CI/CD Pipeline
 SaloMed uses a robust CI/CD Pipeline via GitHub Actions to maintain code quality and ensure continuous delivery:
 *   **Continuous Integration (CI)**: Automatically runs Smart Contract tests (cargo test), Frontend validation (Next.js build), and Dependency audits on every push.
-*   **Continuous Deployment (CD)**: Upon passing all tests, the app is automatically deployed to Vercel (Frontend) and Render (Backend).
+*   **Deployment**: Deployment credentials and platform configuration are managed outside this repository; CI does not claim a deployment succeeded.
 
 ---
 
@@ -142,7 +155,7 @@ SaloMed is a fully functional mini-dApp. The following primary tests have passed
 ### Level 4: Advanced Features
 *   **Inter-contract Calls**: Our contract directly interacts with the Stellar Token Contract for atomic fund transfers.
 *   **Custom Token Mechanics**: The system is designed to accept custom Stellar Asset Contracts (SAC) for medical-specific tokens or liquidity pools in the future.
-*   **Advanced Event Streaming**: The frontend uses a real-time sync engine that updates balance and history whenever blockchain events or ledger closes are detected.
+*   **Contract Events**: The remediated contract emits typed deposit, payment, provider, points, and initialization events. The frontend reads recent confirmed events within RPC retention.
 *   **CI/CD Pipeline**: GitHub Actions are set up for automated testing and build validation on every push.
 
 ---
@@ -179,7 +192,7 @@ Improvements Based on Real User Feedback
 Based on the collected responses, the following improvements have been identified and prioritized for the next development phase:
 
 1. **Core Feature Bug Fixes**  
-   One user reported synchronization issues between the Savings module and SaloPoints. We are currently debugging the smart contract state retrieval logic to ensure consistent data updates across modules.
+   The unsupported points-as-savings conversion was removed. Vault balance and SaloPoints now come from one authoritative ledger or contract state.
 
 2. **Mobile View Optimization**  
    Users noted that the mobile experience and responsive layout need improvement. We will refine CSS responsiveness and improve UI transitions for smoother navigation across devices.
@@ -198,10 +211,10 @@ https://github.com/wolfsenberg/SaloMed/commit/b6636f6
 
 ## Demo Flow
 1.  **Onboarding and Connection**: Connect your Freighter Wallet and explore the "Health Alkansya" concept.
-2.  **The Top-Up**: Fund your vault via XLM/USDC or our GCash Bridge simulation.
+2.  **The Top-Up**: In demo mode, run a clearly simulated GCash-style USDC top-up; in verified Stellar mode, sign a USDC contract deposit with Freighter.
 3.  **Provider Verification**: Select a whitelisted hospital. SaloMed verifies the address before any transaction.
 4.  **Atomic Payment**: Confirm payment. The smart contract ensures funds are only released to whitelisted providers.
-5.  **Growth and History**: Earn SaloPoints with every payment and track your history on-chain.
+5.  **Growth and History**: Earn one SaloPoint per full USDC paid and view ledger-backed or confirmed contract-event history.
 
 ---
 
@@ -223,7 +236,7 @@ soroban contract build && cargo test
 cd frontend && npm run dev
 
 # Backend
-cd backend && uvicorn main:app --reload
+cd backend && cp .env.example .env && uvicorn main:app --reload
 ```
 
 ---

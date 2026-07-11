@@ -9,13 +9,14 @@ import QRPaymentConfirmModal, {
 } from '@/components/QRPaymentConfirmModal';
 
 interface Props {
+  patientAddress: string;
   onDetected: (value: string) => void;
   onClose: () => void;
   /** Called when a SALOMED: QR payment is successfully processed. */
   onPaymentSuccess?: () => void;
 }
 
-export default function QRScannerModal({ onDetected, onClose, onPaymentSuccess }: Props) {
+export default function QRScannerModal({ patientAddress, onDetected, onClose, onPaymentSuccess }: Props) {
   const scannerRef  = useRef<HTMLDivElement>(null);
   const fileRef     = useRef<HTMLInputElement>(null);
   const [status, setStatus]   = useState<'loading' | 'scanning' | 'error'>('loading');
@@ -200,7 +201,7 @@ export default function QRScannerModal({ onDetected, onClose, onPaymentSuccess }
       <AnimatePresence>
         {qrPayload && (
           <QRPaymentConfirmModal
-            payload={qrPayload}
+            payload={{ ...qrPayload, patient: patientAddress }}
             onClose={() => { setQrPayload(null); onClose(); }}
             onSuccess={() => {
               setQrPayload(null);

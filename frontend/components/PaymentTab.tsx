@@ -6,11 +6,11 @@ import { QRCodeSVG } from 'qrcode.react';
 import {
   QrCode, ScanLine, Keyboard, Coins, ArrowLeftRight,
   CheckCircle, Loader2, AlertCircle, ChevronLeft,
-  Copy, Check, Sparkles, Building2, FlaskConical, Star, Wallet,
+  Copy, Check, Sparkles, Building2, FlaskConical, Star, Wallet, ShieldCheck,
 } from 'lucide-react';
 import type { HealthVault } from '@/lib/contract';
-import { savingsXlm, POINTS_RATE, calcPayment, payHospital } from '@/lib/contract';
-import { saveTx, addLocalSaloPoints } from '@/lib/transactions';
+import { POINTS_RATE, calcPayment, payHospital } from '@/lib/contract';
+import { saveTx } from '@/lib/transactions';
 import QRScannerModal from '@/components/QRScannerModal';
 import ProviderCombobox from '@/components/ProviderCombobox';
 import { useTranslation } from '@/lib/i18n/LanguageContext';
@@ -24,7 +24,7 @@ interface Props {
 
 type View         = 'home' | 'generate' | 'manual';
 type ProviderType = 'hospital' | 'pharmacy';
-type PayFrom      = 'vault' | 'savings';
+type PayFrom      = 'vault';
 
 import { API_URL } from '@/lib/config';
 const QUICK_AMT = [1, 5, 10, 25, 50];
@@ -34,13 +34,14 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
   const [view, setView]                   = useState<View>('home');
   const [providerType, setProviderType]   = useState<ProviderType>('hospital');
   const [providerName, setProviderName]   = useState('');
-  const [payFrom, setPayFrom]             = useState<PayFrom>('vault');
+  const payFrom: PayFrom                  = 'vault';
   const [showScanner, setShowScanner]     = useState(false);
   const [scannerOrigin, setScannerOrigin] = useState<View>('home');
   const [genSubmitting, setGenSubmitting] = useState(false);
   const [amountXlm, setAmountXlm]         = useState('');
   const [showPhp, setShowPhp]             = useState(false);
   const [phpRate, setPhpRate]             = useState(56);
+  const [rateSource, setRateSource]       = useState<'fixed_demo' | 'configured_indicative'>('fixed_demo');
   const [copied, setCopied]               = useState(false);
 
   // Manual pay state
@@ -56,15 +57,17 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
   useEffect(() => {
     fetch(`${API_URL}/api/gcash-rate`)
       .then(r => r.json())
-      .then((d: { php_per_usdc: number }) => setPhpRate(d.php_per_usdc))
+      .then((d: { php_per_usdc: number; source?: string }) => {
+        setPhpRate(d.php_per_usdc);
+        setRateSource(d.source === 'configured_indicative' ? 'configured_indicative' : 'fixed_demo');
+      })
       .catch(() => {});
   }, []);
 
   const parsedXlm    = parseFloat(amountXlm) || 0;
   const parsedPhp    = parsedXlm * phpRate;
   const vaultXlm     = Number(vault.balance) / 10_000_000;
-  const savingsBalance = savingsXlm(vault);
-  const activeBalance  = payFrom === 'vault' ? vaultXlm : savingsBalance;
+  const activeBalance  = vaultXlm;
   const pointsRate     = POINTS_RATE[providerType];
 
   const manualParsed    = parseFloat(manualAmount) || 0;
@@ -103,7 +106,6 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
         providerName: providerName || undefined, providerType, payFrom,
         ptsEarned: genBreakdown.ptsEarned, txHash, status: 'success',
       });
-      addLocalSaloPoints(address, genBreakdown.ptsEarned);
       setDone(true);
       setTimeout(onSuccess, 2500);
     } catch (e: unknown) {
@@ -144,7 +146,6 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
         txHash,
         status:       'success',
       });
-      addLocalSaloPoints(address, manualBreakdown.ptsEarned);
       setDone(true);
       setTimeout(onSuccess, 2500);
     } catch (e: unknown) {
@@ -193,7 +194,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
         <div className="space-y-1">
           <h3 className="text-xl font-bold text-slate-900">Payment Sent!</h3>
           <p className="text-sm text-slate-500">
-            <span className="font-semibold text-slate-700">{lastPaidAmount.toFixed(2)} XLM</span>
+            <span className="font-semibold text-slate-700">{lastPaidAmount.toFixed(2)} USDC</span>
             {' '}(≈ ₱{lastPaidPhp.toFixed(2)}) sent successfully.
           </p>
         </div>
@@ -223,6 +224,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
       <AnimatePresence>
         {showScanner && (
           <QRScannerModal
+            patientAddress={address}
             onDetected={handleQRDetected}
             onClose={() => { setShowScanner(false); setView(scannerOrigin); }}
           />
@@ -244,17 +246,25 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
           >
             {/* Balance header */}
             <div className="gradient-brand rounded-2xl p-5 text-white">
-              <p className="text-xs font-semibold uppercase tracking-widest text-blue-200 mb-1 flex items-center gap-1.5">
-                <Sparkles size={11} /> {t('pay_available_balance')}
-              </p>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs font-semibold uppercase tracking-widest text-blue-200 flex items-center gap-1.5">
+                  <Sparkles size={11} /> {t('pay_available_balance')}
+                </p>
+                <span className="text-[10px] font-bold bg-white/20 text-white/90 border border-white/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <ShieldCheck size={9} /> Healthcare Only
+                </span>
+              </div>
               <div className="flex items-end justify-between">
                 <div>
                   <p className="text-3xl font-bold tabular-nums">
                     {vaultXlm.toFixed(2)}
-                    <span className="text-lg font-normal text-blue-200 ml-2">XLM</span>
+                    <span className="text-lg font-normal text-blue-200 ml-2">USDC</span>
                   </p>
                   <p className="text-xs text-blue-300 mt-0.5">
                     ≈ ₱{(vaultXlm * phpRate).toFixed(2)} PHP
+                    {rateSource === 'configured_indicative' && (
+                      <span className="ml-1.5 text-[10px] font-bold text-green-300">· Indicative PHP rate</span>
+                    )}
                   </p>
                 </div>
               </div>
@@ -362,8 +372,8 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
               {/* Provider type */}
               <div className="grid grid-cols-2 gap-2">
                 {([
-                  { t: 'hospital' as ProviderType, Icon: Building2, label: 'Hospital', pts: '2 pts/XLM' },
-                  { t: 'pharmacy' as ProviderType, Icon: FlaskConical, label: 'Pharmacy', pts: '1 pt/XLM' },
+                  { t: 'hospital' as ProviderType, Icon: Building2, label: 'Hospital', pts: '1 pt/USDC' },
+                  { t: 'pharmacy' as ProviderType, Icon: FlaskConical, label: 'Pharmacy', pts: '1 pt/USDC' },
                 ] as const).map(({ t, Icon, label, pts }) => (
                   <button key={t} onClick={() => setProviderType(t)}
                     className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all ${
@@ -401,39 +411,19 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     className="flex items-center gap-1 text-[10px] text-blue-500 hover:text-blue-700 font-bold uppercase tracking-wider"
                   >
                     <ArrowLeftRight size={10} />
-                    {showPhp ? 'Show XLM Bal' : 'Show PHP Bal'}
+                    {showPhp ? 'Show USDC Bal' : 'Show PHP Bal'}
                   </button>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {([
-                    {
-                      f: 'vault' as PayFrom,
-                      Icon: Wallet,
-                      label: 'Vault Balance',
-                      bal: showPhp
-                        ? `₱${(vaultXlm * phpRate).toFixed(2)}`
-                        : `${vaultXlm.toFixed(2)} XLM`
-                    },
-                    {
-                      f: 'savings' as PayFrom,
-                      Icon: Star,
-                      label: 'Vault Savings',
-                      bal: showPhp
-                        ? `₱${(savingsBalance * phpRate).toFixed(2)}`
-                        : `${savingsBalance.toFixed(2)} XLM`
-                    },
-                  ] as const).map(({ f, Icon, label, bal }) => (
-                    <button key={f} onClick={() => setPayFrom(f)}
-                      className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all ${payFrom === f ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300'
-                        }`}
-                    >
-                      <Icon size={15} />
-                      <div className="text-left">
-                        <p className="text-[10px] text-slate-400 leading-none">{label}</p>
-                        <p className="text-xs font-bold mt-0.5">{bal}</p>
-                      </div>
-                    </button>
-                  ))}
+                <div className="grid grid-cols-1 gap-2">
+                  <div className="flex items-center gap-2.5 p-3 rounded-xl border-2 border-blue-500 bg-blue-50 text-blue-700">
+                    <Wallet size={15} />
+                    <div className="text-left">
+                      <p className="text-[10px] text-slate-400 leading-none">Locked vault balance</p>
+                      <p className="text-xs font-bold mt-0.5">
+                        {showPhp ? `₱${(vaultXlm * phpRate).toFixed(2)}` : `${vaultXlm.toFixed(2)} USDC`}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -445,7 +435,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                   onClick={() => setShowPhp(v => !v)}
                   className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 font-semibold"
                 >
-                  <ArrowLeftRight size={11} /> {showPhp ? 'XLM' : 'PHP'}
+                  <ArrowLeftRight size={11} /> {showPhp ? 'USDC' : 'PHP'}
                 </button>
               </div>
 
@@ -465,7 +455,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">PHP</span>
                   </div>
                   {parsedXlm > 0 && (
-                    <p className="text-xs text-slate-400 text-right">= {parsedXlm.toFixed(2)} XLM</p>
+                    <p className="text-xs text-slate-400 text-right">= {parsedXlm.toFixed(2)} USDC</p>
                   )}
                 </div>
               ) : (
@@ -477,7 +467,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                       type="number" min="0" step="0.01" placeholder="0.00"
                       className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl px-4 pr-16 py-3.5 text-xl font-bold text-slate-800 placeholder-slate-300 outline-none transition-all"
                     />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">XLM</span>
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">USDC</span>
                   </div>
                   {parsedXlm > 0 && (
                     <p className="text-xs text-slate-400 text-right">≈ ₱{parsedPhp.toFixed(2)} PHP</p>
@@ -509,39 +499,39 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                   <div className="flex justify-between">
                     <span className="text-slate-500">You pay</span>
                     <div className="text-right">
-                      <p className="font-semibold text-slate-700">{showPhp ? `₱${parsedPhp.toFixed(2)}` : `${parsedXlm.toFixed(2)} XLM`}</p>
-                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${parsedXlm.toFixed(2)} XLM` : `₱${parsedPhp.toFixed(2)}`}</p>
+                      <p className="font-semibold text-slate-700">{showPhp ? `₱${parsedPhp.toFixed(2)}` : `${parsedXlm.toFixed(2)} USDC`}</p>
+                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${parsedXlm.toFixed(2)} USDC` : `₱${parsedPhp.toFixed(2)}`}</p>
                     </div>
                   </div>
                   <div className="flex justify-between text-slate-400">
                     <span>Platform fee ({(genBreakdown.feeRate * 100).toFixed(1)}%)</span>
-                    <span>{showPhp ? `₱${(genBreakdown.salomedFee * phpRate).toFixed(2)}` : `${genBreakdown.salomedFee.toFixed(2)} XLM`}</span>
+                    <span>{showPhp ? `₱${(genBreakdown.salomedFee * phpRate).toFixed(2)}` : `${genBreakdown.salomedFee.toFixed(2)} USDC`}</span>
                   </div>
                   <div className="flex justify-between text-slate-500">
                     <span>Merchant receives</span>
                     <div className="text-right">
-                      <p className="font-semibold text-slate-700">{showPhp ? `₱${(genBreakdown.merchantReceives * phpRate).toFixed(2)}` : `${genBreakdown.merchantReceives.toFixed(2)} XLM`}</p>
-                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${genBreakdown.merchantReceives.toFixed(2)} XLM` : `₱${(genBreakdown.merchantReceives * phpRate).toFixed(2)}`}</p>
+                      <p className="font-semibold text-slate-700">{showPhp ? `₱${(genBreakdown.merchantReceives * phpRate).toFixed(2)}` : `${genBreakdown.merchantReceives.toFixed(2)} USDC`}</p>
+                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${genBreakdown.merchantReceives.toFixed(2)} USDC` : `₱${(genBreakdown.merchantReceives * phpRate).toFixed(2)}`}</p>
                     </div>
                   </div>
                   <div className="border-t border-slate-200 pt-1.5 space-y-1">
                     <div className="flex justify-between text-blue-600 font-semibold">
-                      <span className="flex items-center gap-1"><Star size={10} /> Cashback earned</span>
-                      <span>+{genBreakdown.ptsEarned} pts ≈ {showPhp ? `₱${(genBreakdown.cashbackXlm * phpRate).toFixed(2)}` : `${genBreakdown.cashbackXlm.toFixed(2)} XLM`}</span>
+                      <span className="flex items-center gap-1"><Star size={10} /> SaloPoints earned</span>
+                      <span>+{genBreakdown.ptsEarned} pts</span>
                     </div>
-                    <div className="flex justify-between text-emerald-600 font-bold">
+                    <div className="flex justify-between text-blue-600 font-bold">
                       <span>Net cost to you</span>
                       <div className="text-right">
-                        <p>{showPhp ? `₱${(genBreakdown.effectiveCost * phpRate).toFixed(2)}` : `${genBreakdown.effectiveCost.toFixed(2)} XLM`}</p>
-                        <p className="text-[10px] font-medium opacity-80">≈ {showPhp ? `${genBreakdown.effectiveCost.toFixed(2)} XLM` : `₱${(genBreakdown.effectiveCost * phpRate).toFixed(2)}`}</p>
+                        <p>{showPhp ? `₱${(genBreakdown.effectiveCost * phpRate).toFixed(2)}` : `${genBreakdown.effectiveCost.toFixed(2)} USDC`}</p>
+                        <p className="text-[10px] font-medium opacity-80">≈ {showPhp ? `${genBreakdown.effectiveCost.toFixed(2)} USDC` : `₱${(genBreakdown.effectiveCost * phpRate).toFixed(2)}`}</p>
                       </div>
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
-                  <span className="text-xs text-slate-400">{payFrom === 'vault' ? 'Vault balance' : 'Savings balance'}</span>
-                  <span className="text-xs font-semibold text-slate-600">{activeBalance.toFixed(2)} XLM</span>
+                  <span className="text-xs text-slate-400">Locked vault balance</span>
+                  <span className="text-xs font-semibold text-slate-600">{activeBalance.toFixed(2)} USDC</span>
                 </div>
               )}
 
@@ -552,7 +542,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     <div className="space-y-1">
                       <p className="text-sm font-bold text-amber-900">Not enough balance</p>
                       <p className="text-xs text-amber-700 leading-relaxed">
-                        Your {payFrom === 'vault' ? 'vault' : 'savings'} balance ({activeBalance.toFixed(2)} XLM) is not enough to cover this payment.
+                        Your locked vault balance ({activeBalance.toFixed(2)} USDC) is not enough to cover this payment.
                       </p>
                     </div>
                   </div>
@@ -589,7 +579,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                         <p className="text-sm font-bold text-slate-800">Ready to Scan</p>
                       </div>
                       <p className="text-xs font-semibold text-slate-500">{providerName}</p>
-                      <p className="text-2xl font-bold text-blue-600">{parsedXlm.toFixed(2)} XLM</p>
+                      <p className="text-2xl font-bold text-blue-600">{parsedXlm.toFixed(2)} USDC</p>
                       <p className="text-xs text-slate-400">≈ ₱{parsedPhp.toFixed(2)} PHP</p>
                       <p className="text-xs text-slate-400 max-w-[240px] mx-auto mt-1">
                         Show this QR to the cashier, or tap Confirm below once the cashier has scanned it.
@@ -672,8 +662,8 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
               {/* Provider type */}
               <div className="grid grid-cols-2 gap-2">
                 {([
-                  { t: 'hospital' as ProviderType, Icon: Building2, label: 'Hospital', pts: '2 pts/XLM' },
-                  { t: 'pharmacy' as ProviderType, Icon: FlaskConical, label: 'Pharmacy', pts: '1 pt/XLM' },
+                  { t: 'hospital' as ProviderType, Icon: Building2, label: 'Hospital', pts: '1 pt/USDC' },
+                  { t: 'pharmacy' as ProviderType, Icon: FlaskConical, label: 'Pharmacy', pts: '1 pt/USDC' },
                 ] as const).map(({ t, Icon, label, pts }) => (
                   <button key={t} onClick={() => setProviderType(t)}
                     className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all ${
@@ -712,39 +702,19 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     className="flex items-center gap-1 text-[10px] text-blue-500 hover:text-blue-700 font-bold uppercase tracking-wider"
                   >
                     <ArrowLeftRight size={10} />
-                    {showPhp ? 'Show XLM Bal' : 'Show PHP Bal'}
+                    {showPhp ? 'Show USDC Bal' : 'Show PHP Bal'}
                   </button>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {([
-                    {
-                      f: 'vault' as PayFrom,
-                      Icon: Wallet,
-                      label: 'Vault Balance',
-                      bal: showPhp
-                        ? `₱${(vaultXlm * phpRate).toFixed(2)}`
-                        : `${vaultXlm.toFixed(2)} XLM`
-                    },
-                    {
-                      f: 'savings' as PayFrom,
-                      Icon: Star,
-                      label: 'Vault Savings',
-                      bal: showPhp
-                        ? `₱${(savingsBalance * phpRate).toFixed(2)}`
-                        : `${savingsBalance.toFixed(2)} XLM`
-                    },
-                  ] as const).map(({ f, Icon, label, bal }) => (
-                    <button key={f} onClick={() => setPayFrom(f)}
-                      className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all ${payFrom === f ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300'
-                        }`}
-                    >
-                      <Icon size={15} />
-                      <div className="text-left">
-                        <p className="text-[10px] text-slate-400 leading-none">{label}</p>
-                        <p className="text-xs font-bold mt-0.5">{bal}</p>
-                      </div>
-                    </button>
-                  ))}
+                <div className="grid grid-cols-1 gap-2">
+                  <div className="flex items-center gap-2.5 p-3 rounded-xl border-2 border-blue-500 bg-blue-50 text-blue-700">
+                    <Wallet size={15} />
+                    <div className="text-left">
+                      <p className="text-[10px] text-slate-400 leading-none">Locked vault balance</p>
+                      <p className="text-xs font-bold mt-0.5">
+                        {showPhp ? `₱${(vaultXlm * phpRate).toFixed(2)}` : `${vaultXlm.toFixed(2)} USDC`}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -778,7 +748,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     onClick={() => setShowPhp(v => !v)}
                     className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 font-semibold"
                   >
-                    <ArrowLeftRight size={11} /> {showPhp ? 'XLM' : 'PHP'}
+                    <ArrowLeftRight size={11} /> {showPhp ? 'USDC' : 'PHP'}
                   </button>
                 </div>
 
@@ -798,7 +768,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">PHP</span>
                     </div>
                     {manualParsed > 0 && (
-                      <p className="text-xs text-slate-400 text-right">= {manualParsed.toFixed(2)} XLM</p>
+                      <p className="text-xs text-slate-400 text-right">= {manualParsed.toFixed(2)} USDC</p>
                     )}
                   </div>
                 ) : (
@@ -810,7 +780,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                         type="number" min="0" step="0.01" placeholder="0.00"
                         className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl px-4 pr-16 py-3 text-lg font-bold text-slate-800 placeholder-slate-300 outline-none transition-all"
                       />
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">XLM</span>
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">USDC</span>
                     </div>
                     {manualParsed > 0 && (
                       <p className="text-xs text-slate-400 text-right">≈ ₱{manualParsedPhp.toFixed(2)} PHP</p>
@@ -843,39 +813,39 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                   <div className="flex justify-between">
                     <span className="text-slate-500">You pay</span>
                     <div className="text-right">
-                      <p className="font-semibold text-slate-700">{showPhp ? `₱${manualParsedPhp.toFixed(2)}` : `${manualParsed.toFixed(2)} XLM`}</p>
-                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${manualParsed.toFixed(2)} XLM` : `₱${manualParsedPhp.toFixed(2)}`}</p>
+                      <p className="font-semibold text-slate-700">{showPhp ? `₱${manualParsedPhp.toFixed(2)}` : `${manualParsed.toFixed(2)} USDC`}</p>
+                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${manualParsed.toFixed(2)} USDC` : `₱${manualParsedPhp.toFixed(2)}`}</p>
                     </div>
                   </div>
                   <div className="flex justify-between text-slate-400">
                     <span>Platform fee ({(manualBreakdown.feeRate * 100).toFixed(1)}%)</span>
-                    <span>{showPhp ? `₱${(manualBreakdown.salomedFee * phpRate).toFixed(2)}` : `${manualBreakdown.salomedFee.toFixed(2)} XLM`}</span>
+                    <span>{showPhp ? `₱${(manualBreakdown.salomedFee * phpRate).toFixed(2)}` : `${manualBreakdown.salomedFee.toFixed(2)} USDC`}</span>
                   </div>
                   <div className="flex justify-between text-slate-500">
                     <span>Merchant receives</span>
                     <div className="text-right">
-                      <p className="font-semibold text-slate-700">{showPhp ? `₱${(manualBreakdown.merchantReceives * phpRate).toFixed(2)}` : `${manualBreakdown.merchantReceives.toFixed(2)} XLM`}</p>
-                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${manualBreakdown.merchantReceives.toFixed(2)} XLM` : `₱${(manualBreakdown.merchantReceives * phpRate).toFixed(2)}`}</p>
+                      <p className="font-semibold text-slate-700">{showPhp ? `₱${(manualBreakdown.merchantReceives * phpRate).toFixed(2)}` : `${manualBreakdown.merchantReceives.toFixed(2)} USDC`}</p>
+                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${manualBreakdown.merchantReceives.toFixed(2)} USDC` : `₱${(manualBreakdown.merchantReceives * phpRate).toFixed(2)}`}</p>
                     </div>
                   </div>
                   <div className="border-t border-slate-200 pt-1.5 space-y-1">
                     <div className="flex justify-between text-blue-600 font-semibold">
-                      <span className="flex items-center gap-1"><Star size={10} /> Cashback earned</span>
-                      <span>+{manualBreakdown.ptsEarned} pts ≈ {showPhp ? `₱${(manualBreakdown.cashbackXlm * phpRate).toFixed(2)}` : `${manualBreakdown.cashbackXlm.toFixed(2)} XLM`}</span>
+                      <span className="flex items-center gap-1"><Star size={10} /> SaloPoints earned</span>
+                      <span>+{manualBreakdown.ptsEarned} pts</span>
                     </div>
-                    <div className="flex justify-between text-emerald-600 font-bold">
+                    <div className="flex justify-between text-blue-600 font-bold">
                       <span>Net cost to you</span>
                       <div className="text-right">
-                        <p>{showPhp ? `₱${(manualBreakdown.effectiveCost * phpRate).toFixed(2)}` : `${manualBreakdown.effectiveCost.toFixed(2)} XLM`}</p>
-                        <p className="text-[10px] font-medium opacity-80">≈ {showPhp ? `${manualBreakdown.effectiveCost.toFixed(2)} XLM` : `₱${(manualBreakdown.effectiveCost * phpRate).toFixed(2)}`}</p>
+                        <p>{showPhp ? `₱${(manualBreakdown.effectiveCost * phpRate).toFixed(2)}` : `${manualBreakdown.effectiveCost.toFixed(2)} USDC`}</p>
+                        <p className="text-[10px] font-medium opacity-80">≈ {showPhp ? `${manualBreakdown.effectiveCost.toFixed(2)} USDC` : `₱${(manualBreakdown.effectiveCost * phpRate).toFixed(2)}`}</p>
                       </div>
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
-                  <span className="text-xs text-slate-400">{payFrom === 'vault' ? 'Vault balance' : 'Savings balance'}</span>
-                  <span className="text-xs font-semibold text-slate-600">{activeBalance.toFixed(2)} XLM</span>
+                  <span className="text-xs text-slate-400">Locked vault balance</span>
+                  <span className="text-xs font-semibold text-slate-600">{activeBalance.toFixed(2)} USDC</span>
                 </div>
               )}
 
@@ -887,7 +857,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     <div className="space-y-1">
                       <p className="text-sm font-bold text-amber-900">Not enough balance</p>
                       <p className="text-xs text-amber-700 leading-relaxed">
-                        Your {payFrom === 'vault' ? 'vault' : 'savings'} balance ({activeBalance.toFixed(2)} XLM) is not enough for this transaction.
+                        Your locked vault balance ({activeBalance.toFixed(2)} USDC) is not enough for this transaction.
                       </p>
                     </div>
                   </div>
@@ -923,7 +893,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
               >
                 {submitting
                   ? <><Loader2 size={16} className="animate-spin" /> Sending…</>
-                  : <><Coins size={15} /> Send {manualParsed > 0 ? `${manualParsed.toFixed(4)} XLM` : 'Payment'}</>
+                  : <><Coins size={15} /> Send {manualParsed > 0 ? `${manualParsed.toFixed(4)} USDC` : 'Payment'}</>
                 }
               </button>
             </div>

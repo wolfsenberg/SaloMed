@@ -1,14 +1,17 @@
-import * as StellarSdk from '@stellar/stellar-sdk';
-import { signTransaction } from './freighter';
-import { getLocalSaloPoints } from './transactions';
+import {
+  contractDeposit,
+  contractPayment,
+  contractVaultTransfer,
+  demoPayment,
+  demoRemittance,
+  demoTopUp,
+  getRuntimeStatus,
+  getRuntimeVault,
+} from './runtime';
 
-import { API_URL, CONTRACT_ID, RPC_URL, NETWORK_PASSPHRASE, PHP_PER_XLM } from './config';
-
-const rpc = new StellarSdk.rpc.Server(RPC_URL);
-const horizon = new StellarSdk.Horizon.Server("https://horizon-testnet.stellar.org");
 
 export interface HealthVault {
-  balance: bigint;       // stroops (divide by 10_000_000 for XLM display)
+  balance: bigint;
   salo_points: number;
   credit_tier: 'Bronze' | 'Silver' | 'Gold';
 }
@@ -19,366 +22,102 @@ export const EMPTY_VAULT: HealthVault = {
   credit_tier: 'Bronze',
 };
 
-interface BackendVaultResponse {
-  balance_stroops: number;
-  salo_points: number;
-  credit_tier: string;
+/** Contract rule: one point for every full USDC paid. */
+export const POINTS_RATE = { hospital: 1, pharmacy: 1 } as const;
+
+export interface PaymentBreakdown {
+  feeRate: number;
+  salomedFee: number;
+  merchantReceives: number;
+  ptsEarned: number;
+  effectiveCost: number;
 }
 
 /**
- * Fetch vault state via the backend (which calls `get_vault` through the Stellar CLI).
- * This avoids browser CORS/SDK issues with direct Soroban RPC calls.
+ * The deployed contract sends the complete amount to the provider and does not
+ * implement a fee split or cash-equivalent cashback. Keep receipts truthful.
  */
-// 50 SaloPoints = 1 XLM  (savings vault conversion rate)
-export const POINTS_PER_XLM = 50;
-
-export function savingsXlm(vault: HealthVault): number {
-  return vault.salo_points / POINTS_PER_XLM;
-}
-
-// Points earned per XLM paid, by provider type
-export const POINTS_RATE = { hospital: 2, pharmacy: 1 } as const;
-
-// ── Fee / cashback structure ──────────────────────────────────────────────────
-// Merchant is charged a platform fee; user earns cashback via SaloPoints.
-// SaloMed keeps 0.5% margin on every transaction type.
-//
-//  Type       Merchant fee   User cashback   SaloMed keeps
-//  Hospital       2.5%           2%              0.5%
-//  Pharmacy       1.5%           1%              0.5%
-//  Padala         1.5%           1%              0.5%
-
-export const MERCHANT_FEE   = { hospital: 0.045, pharmacy: 0.025 } as const;
-export const PADALA_FEE     = 0.025;
-export const SALOMED_MARGIN = 0.005;
-
-export interface PaymentBreakdown {
-  feeRate:           number;
-  salomedFee:        number;
-  merchantReceives:  number;
-  ptsEarned:         number;
-  cashbackXlm:       number;
-  effectiveCost:     number;
-}
-
-export function calcPayment(amountXlm: number, type: 'hospital' | 'pharmacy'): PaymentBreakdown {
-  const feeRate          = MERCHANT_FEE[type];
-  const salomedFee       = amountXlm * feeRate;
-  const merchantReceives = amountXlm - salomedFee;
-  const ptsEarned        = Math.floor(amountXlm * POINTS_RATE[type]);
-  const cashbackXlm      = ptsEarned / POINTS_PER_XLM;
-  const effectiveCost    = amountXlm - cashbackXlm;
-  return { feeRate, salomedFee, merchantReceives, ptsEarned, cashbackXlm, effectiveCost };
+export function calcPayment(amountAsset: number, _type: 'hospital' | 'pharmacy'): PaymentBreakdown {
+  const ptsEarned = Math.floor(Math.max(0, amountAsset));
+  return {
+    feeRate: 0,
+    salomedFee: 0,
+    merchantReceives: amountAsset,
+    ptsEarned,
+    effectiveCost: amountAsset,
+  };
 }
 
 export interface PadalaBreakdown {
-  feeRate:            number;
-  salomedFee:         number;
-  recipientReceives:  number;
-  ptsEarned:          number;
-  cashbackXlm:        number;
-  effectiveCost:      number;
+  feeRate: number;
+  salomedFee: number;
+  recipientReceives: number;
+  ptsEarned: number;
+  effectiveCost: number;
 }
 
-export function calcPadala(amountXlm: number): PadalaBreakdown {
-  const feeRate           = PADALA_FEE;
-  const salomedFee        = amountXlm * feeRate;
-  const recipientReceives = amountXlm - salomedFee;
-  const ptsEarned         = Math.floor(amountXlm);   // 1 pt/XLM
-  const cashbackXlm       = ptsEarned / POINTS_PER_XLM;
-  const effectiveCost     = amountXlm - cashbackXlm;
-  return { feeRate, salomedFee, recipientReceives, ptsEarned, cashbackXlm, effectiveCost };
+/** Deposits lock the complete amount for the beneficiary; no fee exists yet. */
+export function calcPadala(amountAsset: number): PadalaBreakdown {
+  return {
+    feeRate: 0,
+    salomedFee: 0,
+    recipientReceives: amountAsset,
+    ptsEarned: 0,
+    effectiveCost: amountAsset,
+  };
 }
 
 export async function getVault(patientAddress: string): Promise<HealthVault> {
   if (!patientAddress) return EMPTY_VAULT;
-
-  // Fetch from Horizon directly for fastest native balance
-  const horizonPromise = fetch(
-    `https://horizon-testnet.stellar.org/accounts/${encodeURIComponent(patientAddress)}`
-  ).then(r => (r.ok ? r.json() : Promise.reject('Horizon error')));
-
-  // Fetch from backend for salo_points and credit_tier (and fallback balance)
-  const backendPromise = fetch(
-    `${API_URL}/api/balance?address=${encodeURIComponent(patientAddress)}`
-  ).then(r => {
-    if (r.ok) return r.json();
-    // Fallback to legacy endpoint if /api/balance fails
-    return fetch(
-      `${API_URL}/api/vault/balance?patient_address=${encodeURIComponent(patientAddress)}`
-    ).then(r2 => (r2.ok ? r2.json() : Promise.reject('Backend error')));
-  });
-
-  const [horizonRes, backendRes] = await Promise.allSettled([horizonPromise, backendPromise]);
-
-  let balanceStroops = 0n;
-  let saloPoints = 0;
-  let creditTier: HealthVault['credit_tier'] = 'Bronze';
-
-  // Prefer backend for points/tier
-  if (backendRes.status === 'fulfilled' && backendRes.value) {
-    const data = backendRes.value;
-    saloPoints = Number(data.salo_points ?? 0);
-    const tierRaw = data.credit_tier ?? 'Bronze';
-    creditTier = (['Bronze', 'Silver', 'Gold'].includes(tierRaw) ? tierRaw : 'Bronze') as HealthVault['credit_tier'];
-    balanceStroops = BigInt(data.balance_stroops ?? 0);
-  }
-
-  // Override balance with Horizon if successful (fastest and most accurate)
-  if (horizonRes.status === 'fulfilled' && horizonRes.value?.balances) {
-    const nativeBal = horizonRes.value.balances.find((b: any) => b.asset_type === 'native');
-    const xlm = parseFloat(nativeBal?.balance ?? '0');
-    balanceStroops = BigInt(Math.floor(xlm * 10_000_000));
-  }
-
-  // Use whichever is higher: backend or locally tracked points.
-  // Backend resets on restart; local storage accumulates earned points client-side.
-  const localPts = getLocalSaloPoints(patientAddress);
-  saloPoints = Math.max(saloPoints, localPts);
-
-  // Recompute tier from final saloPoints
-  if (saloPoints >= 500) creditTier = 'Gold';
-  else if (saloPoints >= 100) creditTier = 'Silver';
-  else creditTier = 'Bronze';
-
+  const vault = await getRuntimeVault(patientAddress);
   return {
-    balance: balanceStroops,
-    salo_points: saloPoints,
-    credit_tier: creditTier,
+    balance: BigInt(vault.balance_stroops),
+    salo_points: vault.salo_points,
+    credit_tier: vault.credit_tier,
   };
 }
 
-
 /**
- * Submit a signed XDR to Horizon (native XLM payments, NOT Soroban txs).
- * Soroban RPC only accepts Soroban smart contract invocations — native payments
- * must go through Horizon.
+ * Demo: credit the authoritative simulated ledger.
+ * Stellar modes: user signs deposit_remittance; the contract transfers its
+ * configured USDC token from the user into the locked vault.
  */
-export async function submitSignedXdrToHorizon(signedXdr: string): Promise<string> {
-  const response = await fetch('https://horizon-testnet.stellar.org/transactions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `tx=${encodeURIComponent(signedXdr)}`,
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    // Extract the most useful error message from Horizon's response
-    const extras = data?.extras;
-    const resultCodes = extras?.result_codes;
-    const opCodes = resultCodes?.operations?.join(', ');
-    const txCode  = resultCodes?.transaction;
-    const detail  = opCodes
-      ? `Transaction failed — op: ${opCodes}, tx: ${txCode}`
-      : (data?.title ?? data?.detail ?? `Horizon error ${response.status}`);
-    throw new Error(detail);
+export async function depositToVault(userAddress: string, amountAsset: number): Promise<string> {
+  const runtime = await getRuntimeStatus();
+  if (runtime.mode === 'demo') {
+    return demoTopUp(userAddress, amountAsset * Number(runtime.php_per_asset));
   }
-  return data.hash as string;
+  return contractDeposit(userAddress, userAddress, amountAsset);
 }
 
 /**
- * Sign an XDR with Freighter then submit to Horizon.
- * Used for: payments (user → merchant) and padala (ofw → beneficiary).
- */
-export async function signAndSubmitXdr(userAddress: string, xdr: string): Promise<string> {
-  console.log('[SaloMed] Prompting Freighter to sign transaction…');
-
-  // 1. Sign via Freighter
-  const signedXdr = await signTransaction(xdr);
-  if (!signedXdr) {
-    throw new Error('Transaction signing was rejected or Freighter is not connected.');
-  }
-  console.log('[SaloMed] Signed. Submitting to Horizon…');
-
-  // 2. Submit to Horizon (native XLM payment — NOT Soroban RPC)
-  const txHash = await submitSignedXdrToHorizon(signedXdr);
-  console.log('[SaloMed] SUCCESS! tx hash:', txHash);
-  return txHash;
-}
-
-/**
- * GCash Top-Up: Backend signs and submits a REAL XLM payment to the user's wallet.
- * Uses /api/topup-legacy which directly signs with SALOMED_SIGNER_SECRET — no CLI needed.
- * Falls back to /api/gcash/cash-in (contract-based) if legacy fails.
- */
-export async function depositToVault(userAddress: string, amountXlm: number): Promise<string> {
-  const amountPhp = amountXlm * PHP_PER_XLM;
-
-  // 1. PRIMARY: /api/topup-legacy — direct XLM transfer, no Stellar CLI dependency.
-  //    Uses query params as defined in the backend OpenAPI spec.
-  try {
-    const url = `${API_URL}/api/topup-legacy?patient_address=${encodeURIComponent(userAddress)}&amount_php=${amountPhp}`;
-    const res = await fetch(url, { method: 'POST' });
-
-    if (res.ok) {
-      const data = await res.json();
-      // Returns { tx_hash: "...", ... } or similar
-      return data.tx_hash || data.transaction_hash || data.hash || data.id || 'ok';
-    }
-
-    // If it fails for a non-404 reason (e.g. backend error), log and fall through
-    if (res.status !== 404) {
-      let errMsg = 'Top-up (legacy) failed';
-      try { const d = await res.json(); errMsg = d.detail || d.message || errMsg; } catch {}
-      console.warn('[depositToVault] topup-legacy non-200:', errMsg);
-      // Don't throw — fall through to next route
-    }
-  } catch (e: any) {
-    console.warn('[depositToVault] topup-legacy network error:', e.message);
-    // Fall through to next route
-  }
-
-  // 2. FALLBACK: /api/gcash/cash-in — contract-based, may need Stellar CLI on server.
-  try {
-    const res = await fetch(`${API_URL}/api/gcash/cash-in`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        beneficiary_address: userAddress,
-        amount_php: amountPhp,
-        gcash_reference: `GC-${Date.now()}`
-      }),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      return typeof data.tx_result === 'string'
-        ? data.tx_result
-        : (data.tx_result?.hash || data.tx_result?.id || 'gcash-ok');
-    }
-
-    let errMsg = 'All top-up routes failed';
-    try { const d = await res.json(); errMsg = d.detail || d.message || errMsg; } catch {}
-    throw new Error(errMsg);
-  } catch (e: any) {
-    throw new Error(e.message || 'Top-up failed: could not reach backend');
-  }
-}
-
-
-
-/**
- * Build a native XLM payment XDR directly via the Stellar SDK.
- * Used as a fallback when the backend is unreachable (e.g. local dev without backend).
- */
-async function buildPaymentXdr(
-  sourceAddress: string,
-  destinationAddress: string,
-  amountXlm: number,
-): Promise<string> {
-  const account = await horizon.loadAccount(sourceAddress);
-  const tx = new StellarSdk.TransactionBuilder(account, {
-    fee: StellarSdk.BASE_FEE,
-    networkPassphrase: StellarSdk.Networks.TESTNET,
-  })
-    .addOperation(
-      StellarSdk.Operation.payment({
-        destination: destinationAddress,
-        asset: StellarSdk.Asset.native(),
-        amount: amountXlm.toFixed(7),
-      }),
-    )
-    .setTimeout(30)
-    .build();
-  return tx.toXDR();
-}
-
-/**
- * Payment: user → merchant/hospital.
- * Backend prepares unsigned XDR → Freighter signs → frontend submits to Horizon.
- * Falls back to SDK-built XDR when backend is unreachable (local dev).
+ * Demo: providerId is checked against the demo whitelist and the SQLite vault
+ * is atomically debited. Stellar modes: providerAddress is enforced by Soroban.
  */
 export async function payHospital(
   patientAddress: string,
-  hospitalAddress: string,
-  amountXlm: number,
+  providerIdOrAddress: string,
+  amountAsset: number,
 ): Promise<string> {
-  let xdr: string | null = null;
-
-  // 1. Try backend — catches both network errors and 404s
-  try {
-    const res = await fetch(
-      `${API_URL}/api/prepare-payment?user_address=${encodeURIComponent(patientAddress)}&recipient_address=${encodeURIComponent(hospitalAddress)}&amount_xlm=${amountXlm}`,
-      { method: 'POST' },
-    );
-
-    if (res.ok) {
-      const data = await res.json();
-      xdr = data.xdr ?? null;
-    } else if (res.status === 404) {
-      // Legacy route fallback
-      const triggerRes = await fetch(`${API_URL}/api/qrph/pay`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patient_address: patientAddress, hospital_id: hospitalAddress, amount_usdc: amountXlm }),
-      });
-      if (triggerRes.ok) {
-        const data = await triggerRes.json();
-        return typeof data.tx_result === 'string' ? data.tx_result : (data.tx_result?.hash || 'ok');
-      }
-    }
-  } catch {
-    console.info('[payHospital] Backend unreachable — building XDR locally');
+  const runtime = await getRuntimeStatus();
+  if (runtime.mode === 'demo') {
+    return demoPayment(patientAddress, providerIdOrAddress, amountAsset);
   }
-
-  // 2. SDK fallback: build XDR directly (works locally without backend)
-  if (!xdr) {
-    xdr = await buildPaymentXdr(patientAddress, hospitalAddress, amountXlm);
-  }
-
-  return await signAndSubmitXdr(patientAddress, xdr);
+  return contractPayment(patientAddress, providerIdOrAddress, amountAsset);
 }
 
 /**
- * Padala (remittance): OFW → family member on Stellar.
- * Backend prepares unsigned XDR → Freighter signs → frontend submits to Horizon.
- * Falls back to SDK-built XDR when backend is unreachable (local dev).
+ * Demo: moves locked value between demo vaults.
+ * Stellar modes: sender signs deposit_remittance directly into beneficiary vault.
  */
 export async function sendPadala(
-  ofwAddress: string,
+  senderAddress: string,
   beneficiaryAddress: string,
-  amountXlm: number,
+  amountAsset: number,
 ): Promise<string> {
-  let xdr: string | null = null;
-
-  // 1. Try backend — catches both network errors and 404s
-  try {
-    const res = await fetch(
-      `${API_URL}/api/prepare-padala?ofw_address=${encodeURIComponent(ofwAddress)}&beneficiary_address=${encodeURIComponent(beneficiaryAddress)}&amount_xlm=${amountXlm}`,
-      { method: 'POST' },
-    );
-
-    if (res.ok) {
-      const data = await res.json();
-      xdr = data.xdr ?? null;
-    } else if (res.status === 404) {
-      // Legacy route fallback
-      const triggerRes = await fetch(`${API_URL}/api/gcash/cash-in`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          beneficiary_address: beneficiaryAddress,
-          sender_address: ofwAddress,
-          amount_php: amountXlm * PHP_PER_XLM,
-          gcash_reference: `GC-REMIT-${Date.now()}`,
-        }),
-      });
-      if (triggerRes.ok) {
-        const data = await triggerRes.json();
-        return typeof data.tx_result === 'string' ? data.tx_result : (data.tx_result?.hash || 'ok');
-      }
-    }
-  } catch {
-    console.info('[sendPadala] Backend unreachable — building XDR locally');
+  const runtime = await getRuntimeStatus();
+  if (runtime.mode === 'demo') {
+    return demoRemittance(senderAddress, beneficiaryAddress, amountAsset);
   }
-
-  // 2. SDK fallback: build XDR directly (works locally without backend)
-  if (!xdr) {
-    xdr = await buildPaymentXdr(ofwAddress, beneficiaryAddress, amountXlm);
-  }
-
-  return await signAndSubmitXdr(ofwAddress, xdr);
+  return contractVaultTransfer(senderAddress, beneficiaryAddress, amountAsset);
 }
-
-
-// PHP per XLM rate (used for depositToVault conversion)
-// Moved to config.ts

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-SaloMed FastAPI Backend  ·  "Mock Fiat, Real Crypto" Bridge
+SaloMed FastAPI Backend  Â·  "Mock Fiat, Real Crypto" Bridge
 ===========================================================
 
 Architecture
 ------------
-Web2 simulation layer  →  This API  →  Stellar CLI  →  Soroban (Testnet)
+Web2 simulation layer  â†’  This API  â†’  Stellar CLI  â†’  Soroban (Testnet)
 
 The frontend calls /api/gcash/cash-in or /api/qrph/pay as if talking to a
 real payment processor.  This backend adds a realistic delay, then shells out
@@ -15,7 +15,7 @@ CONTRACT_ID : CAO3K6OYB5A3VNVV3HKCSVG3ZZ442DZCDKAXG4CTSLBTN7FOYCCBRZ34
 Network  : testnet
 Source   : salomed-admin  (must be configured in ~/.config/stellar/identity/)
 
-─────────────────────────────────────────────────────────────────────────────
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 HOW TO RUN
   pip install fastapi uvicorn python-dotenv
   uvicorn backend:app --reload --port 8000
@@ -24,13 +24,13 @@ SWAGGER UI (interactive docs)
   http://localhost:8000/docs
 
 ENVIRONMENT VARIABLES  (optional overrides via .env or shell)
-  CONTRACT_ID          — Soroban contract address  (C…)
-  STELLAR_NETWORK      — testnet | mainnet          (default: testnet)
-  STELLAR_SOURCE       — CLI identity name          (default: salomed-admin)
-  ADMIN_ADDRESS        — Public key of salomed-admin (G…)  used as ofw arg
-  PHP_PER_USDC         — PHP→USDC exchange rate     (default: 56.0)
-  FRONTEND_ORIGIN      — CORS origin for the Next.js app
-─────────────────────────────────────────────────────────────────────────────
+  CONTRACT_ID          â€” Soroban contract address  (Câ€¦)
+  STELLAR_NETWORK      â€” testnet | mainnet          (default: testnet)
+  STELLAR_SOURCE       â€” CLI identity name          (default: salomed-admin)
+  ADMIN_ADDRESS        â€” Public key of salomed-admin (Gâ€¦)  used as ofw arg
+  PHP_PER_USDC         â€” PHPâ†’USDC exchange rate     (default: 56.0)
+  FRONTEND_ORIGIN      â€” CORS origin for the Next.js app
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 """
 
 import asyncio
@@ -42,11 +42,11 @@ import subprocess
 import uuid
 from typing import Any, Optional
 
-from fastapi import FastAPI, HTTPException, Query, File, UploadFile
+from fastapi import FastAPI, HTTPException, Query, File, UploadFile, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-# ── Stellar SDK (Python) ─────────────────────────────────────────────────────
+# â”€â”€ Stellar SDK (Python) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 try:
     from stellar_sdk import (
         Server, Keypair, TransactionBuilder, Network, Asset, SorobanServer
@@ -59,16 +59,35 @@ except ImportError:
 
 # USDC Testnet (Placeholder Issuer - using ADMIN_ADDRESS to ensure valid checksum)
 
-# ── dotenv (optional — fine to skip if vars are already exported) ──────────────
+# â”€â”€ dotenv (optional â€” fine to skip if vars are already exported) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
     pass
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€ PDAX Institutional API service â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Loaded after dotenv so env vars are already set.
+# All public functions return dicts â€” never raises, always falls back gracefully.
+from pdax_service import (
+    get_xlm_php_rate,
+    initiate_instapay_deposit,
+    initiate_instapay_withdrawal,
+    get_firm_quote,
+    get_pdax_balances,
+    process_webhook_event,
+    health_check as pdax_health_check,
+    verify_webhook_signature,
+    _PDAX_CONFIGURED,
+)
+from pdax_api import create_pdax_router
+from legacy_api import create_legacy_compatibility_router
+from runtime_api import create_runtime_router
+from salomed_runtime import DemoLedger, RuntimeSettings
+
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # CONFIG
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CONTRACT_ID   = os.getenv("CONTRACT_ID",     "CAO3K6OYB5A3VNVV3HKCSVG3ZZ442DZCDKAXG4CTSLBTN7FOYCCBRZ34")
 NETWORK       = os.getenv("STELLAR_NETWORK", "testnet")
@@ -84,8 +103,8 @@ PHP_PER_USDC  = PHP_PER_XLM # Alias for backward compatibility
 # Stellar node or configured identity.
 DEMO_FALLBACK = os.getenv("DEMO_FALLBACK", "true").lower() == "true"
 
-# ── In-memory demo vault state ────────────────────────────────────────────────
-# Keyed by Stellar address. Resets on server restart — acceptable for demo.
+# â”€â”€ In-memory demo vault state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Keyed by Stellar address. Resets on server restart â€” acceptable for demo.
 
 # RPC and Horizon Setup
 HORIZON_URL = os.getenv("HORIZON_URL", "https://horizon-testnet.stellar.org")
@@ -138,9 +157,9 @@ def _record_padala_deduction(address: str, stroops: int) -> None:
     _padala_deductions[address] = _padala_deductions.get(address, 0) + stroops
     _demo_pay(address, stroops)
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # APP
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 app = FastAPI(
     title="SaloMed API",
@@ -173,9 +192,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ─────────────────────────────────────────────────────────────────────────────
+# Install the explicit runtime routes before the legacy route declarations
+# below. Starlette resolves duplicate paths in registration order, so the
+# mode-aware, fail-closed interfaces remain authoritative while the legacy
+# implementation is retired incrementally.
+runtime_settings = RuntimeSettings.from_env()
+demo_ledger = DemoLedger(
+    runtime_settings.database_path,
+    runtime_settings.php_per_asset_decimal,
+)
+app.state.runtime_settings = runtime_settings
+app.state.demo_ledger = demo_ledger
+app.include_router(create_runtime_router(runtime_settings, demo_ledger))
+app.include_router(create_pdax_router(runtime_settings))
+app.include_router(create_legacy_compatibility_router(runtime_settings))
+
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # STELLAR CLI HELPER
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def invoke_contract(*fn_and_args: str, read_only: bool = False) -> Any:
     """
@@ -248,18 +282,18 @@ def invoke_contract(*fn_and_args: str, read_only: bool = False) -> Any:
         )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # UNIT HELPERS
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def php_to_stroops(amount_php: float) -> int:
-    """PHP  →  USDC  →  stroops   (1 USDC = 10 000 000 stroops)."""
+    """PHP  â†’  USDC  â†’  stroops   (1 USDC = 10 000 000 stroops)."""
     usdc = amount_php / PHP_PER_USDC
     return int(usdc * 10_000_000)
 
 
 def usdc_to_stroops(amount_usdc: float) -> int:
-    """USDC  →  stroops."""
+    """USDC  â†’  stroops."""
     return int(round(amount_usdc * 10_000_000))
 
 
@@ -278,7 +312,7 @@ def _parse_credit_tier(raw: Any) -> str:
     return "Bronze"
 
 
-# ─── OCR helpers ──────────────────────────────────────────────────────────────
+# â”€â”€â”€ OCR helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 # Regex patterns tuned for common Philippine hospital bill layouts.
 # Each pattern looks for the label then captures the first peso amount that follows.
@@ -325,7 +359,7 @@ def _run_tesseract(image_bytes: bytes) -> str:
 
 def _mock_ocr_text() -> str:
     """
-    Simulated bill text — mirrors what Tesseract would return from a real
+    Simulated bill text â€” mirrors what Tesseract would return from a real
     Philippine hospital statement of account.
     """
     return (
@@ -337,24 +371,24 @@ def _mock_ocr_text() -> str:
         "  Professional Fee      3,200.00\n"
         "  Medicines             2,800.00\n"
         "  Laboratory            1,000.00\n"
-        "  ─────────────────────────────\n"
+        "  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€\n"
         "  TOTAL HOSPITAL BILL  15,500.00\n\n"
         "DEDUCTIONS\n"
         "  PhilHealth Benefit    3,200.00\n"
         "  HMO Coverage          2,500.00\n"
-        "  ─────────────────────────────\n"
+        "  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€\n"
         "  AMOUNT DUE            9,800.00\n"
     )
 
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # PYDANTIC MODELS
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class GCashCashInRequest(BaseModel):
     beneficiary_address: str = Field(
-        description="Stellar address (G…) of the patient's SaloMed Vault",
+        description="Stellar address (Gâ€¦) of the patient's SaloMed Vault",
         examples=["GABC...XYZ"],
     )
     amount_php: float = Field(
@@ -423,23 +457,23 @@ class VaultResponse(BaseModel):
     raw: Any
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ENDPOINTS  ·  GCash (Mock Fiat)
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ENDPOINTS  Â·  GCash (Mock Fiat)
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @app.post(
     "/api/gcash/cash-in",
     response_model=TxResponse,
-    summary="Mock GCash Cash-In  →  deposit_remittance on-chain",
+    summary="Mock GCash Cash-In  â†’  deposit_remittance on-chain",
     tags=["GCash (Mock Fiat)"],
 )
 async def gcash_cash_in(body: GCashCashInRequest):
     """
-    **Mock Fiat → Real Crypto flow:**
+    **Mock Fiat â†’ Real Crypto flow:**
 
     1. Validates request.
     2. Waits **2 s** to simulate GCash processing latency.
-    3. Converts PHP → USDC → stroops using the configured exchange rate.
+    3. Converts PHP â†’ USDC â†’ stroops using the configured exchange rate.
     4. Runs:
        ```
        stellar contract invoke --id <CONTRACT> --source salomed-admin --network testnet
@@ -450,22 +484,22 @@ async def gcash_cash_in(body: GCashCashInRequest):
     > **Note:** `salomed-admin` acts as the OFW/funder for the demo.
     > In production this would be the OFW's own keypair.
     """
-    # Step 1 — derive amounts
+    # Step 1 â€” derive amounts
     amount_stroops = php_to_stroops(body.amount_php)
     amount_usdc    = round(body.amount_php / PHP_PER_USDC, 6)
 
-    # Step 2 — simulate GCash processing
+    # Step 2 â€” simulate GCash processing
     await asyncio.sleep(2)
 
-    # Step 3 — fire the real on-chain transaction (with demo fallback)
+    # Step 3 â€” fire the real on-chain transaction (with demo fallback)
     # deposit_remittance credits the BENEFICIARY's vault from the admin's token
     # balance. It does NOT touch the sender's vault (contract design limitation).
     # We handle the sender deduction separately below via the demo state so the
     # OFW's balance display reflects the padala correctly.
-    # ── What's real vs simulated ────────────────────────────────────────────
+    # â”€â”€ What's real vs simulated â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # SIMULATED : GCash payment processing, exchange rate, QR payload
     # REAL (attempted) : deposit_remittance on-chain via Stellar CLI
-    # SOURCE OF TRUTH : _demo_vaults — always kept in sync so the UI is
+    # SOURCE OF TRUTH : _demo_vaults â€” always kept in sync so the UI is
     #   consistent regardless of whether the CLI call succeeds or fails.
     ofw = ADMIN_ADDRESS if ADMIN_ADDRESS else SOURCE
     try:
@@ -495,7 +529,7 @@ async def gcash_cash_in(body: GCashCashInRequest):
         message=(
             f"{'Padala' if body.sender_address else 'Top-up'} confirmed "
             f"({'simulated' if is_demo else 'on-chain'}). "
-            f"₱{body.amount_php:.2f} → {amount_usdc:.4f} USDC."
+            f"â‚±{body.amount_php:.2f} â†’ {amount_usdc:.4f} USDC."
         ),
         tx_result=tx_result,
         details={
@@ -505,26 +539,26 @@ async def gcash_cash_in(body: GCashCashInRequest):
             "amount_php":          body.amount_php,
             "amount_usdc":         amount_usdc,
             "amount_stroops":      amount_stroops,
-            "exchange_rate":       f"₱{PHP_PER_USDC} / USDC",
+            "exchange_rate":       f"â‚±{PHP_PER_USDC} / USDC",
             "ofw_used":            ofw,
             "demo_mode":           is_demo,
         },
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ENDPOINTS  ·  QRPh (Mock Fiat)
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ENDPOINTS  Â·  QRPh (Mock Fiat)
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @app.post(
     "/api/qrph/pay",
     response_model=TxResponse,
-    summary="Mock QRPh Hospital Payment  →  pay_hospital on-chain",
+    summary="Mock QRPh Hospital Payment  â†’  pay_hospital on-chain",
     tags=["QRPh (Mock Fiat)"],
 )
 async def qrph_pay(body: QRPhPayRequest):
     """
-    **Mock QRPh → Real Crypto flow:**
+    **Mock QRPh â†’ Real Crypto flow:**
 
     1. Waits **1.5 s** to simulate QRPh processing.
     2. Runs:
@@ -578,14 +612,14 @@ async def qrph_pay(body: QRPhPayRequest):
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ENDPOINTS  ·  Payment  (3-step verified QRPh → Soroban deduction)
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ENDPOINTS  Â·  Payment  (3-step verified QRPh â†’ Soroban deduction)
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-# ── Models ────────────────────────────────────────────────────────────────────
+# â”€â”€ Models â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class PayHospitalRequest(BaseModel):
-    patient_address: str   = Field(..., description="Stellar address of the patient (G…)")
+    patient_address: str   = Field(..., description="Stellar address of the patient (Gâ€¦)")
     hospital_id:     str   = Field(..., description="Stellar address of the hospital/pharmacy")
     amount_usdc:     float = Field(..., gt=0, description="Amount in USDC to deduct from vault")
     provider_type:   str   = Field("hospital", description="'hospital' or 'pharmacy'")
@@ -595,25 +629,25 @@ class PayHospitalRequest(BaseModel):
 class PayHospitalResponse(BaseModel):
     success:                 bool
     message:                 str
-    # ── Simulated fiat settlement ──────────────────────────────────────────
+    # â”€â”€ Simulated fiat settlement â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     qrph_reference:          str
     amount_usdc:             float
     amount_php:              float
-    # ── Real blockchain proof ──────────────────────────────────────────────
+    # â”€â”€ Real blockchain proof â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     stellar_tx_hash:         str
-    # ── Updated vault state (proof of deduction) ──────────────────────────
+    # â”€â”€ Updated vault state (proof of deduction) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     updated_balance_stroops: int
     updated_balance_usdc:    float
     updated_salo_points:     int
     updated_credit_tier:     str
-    # ── Metadata ──────────────────────────────────────────────────────────
+    # â”€â”€ Metadata â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     patient_address:         str
     hospital_id:             str
     provider_type:           str
     is_demo:                 bool
 
 
-# ── Error translation ─────────────────────────────────────────────────────────
+# â”€â”€ Error translation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _clean_stellar_error(raw: str) -> str:
     """
@@ -626,7 +660,7 @@ def _clean_stellar_error(raw: str) -> str:
     if any(k in low for k in ("not whitelisted", "unauthorized", "require_auth")):
         return "This provider is not authorized to receive SaloMed payments."
     if any(k in low for k in ("contract trapped", "wasm trap", "vm trap")):
-        return "Smart contract execution failed — transaction rejected by the contract."
+        return "Smart contract execution failed â€” transaction rejected by the contract."
     if "hostError" in raw or "host error" in low:
         snippet = raw.strip()[:140]
         return f"Soroban host error: {snippet}"
@@ -634,32 +668,32 @@ def _clean_stellar_error(raw: str) -> str:
         return "Stellar network timeout. Please retry in a moment."
     if "already" in low:
         return "This transaction has already been processed."
-    # Last resort — truncate raw output
+    # Last resort â€” truncate raw output
     return (raw.strip()[:200] or "Unrecognised blockchain error.")
 
 
-# ── Endpoint ──────────────────────────────────────────────────────────────────
+# â”€â”€ Endpoint â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @app.post(
     "/api/payment/pay-hospital",
     response_model=PayHospitalResponse,
-    summary="QRPh Payment → 3-step verified Soroban deduction",
+    summary="QRPh Payment â†’ 3-step verified Soroban deduction",
     tags=["Payment"],
 )
 async def pay_hospital_verified(body: PayHospitalRequest):
     """
     Executes a healthcare payment in **three strict sequential steps**:
 
-    **Step 1 — Verify** `is_whitelisted(hospital_id)`
+    **Step 1 â€” Verify** `is_whitelisted(hospital_id)`
     Aborts immediately with HTTP 403 if the provider is not a SaloMed partner.
-    This check is *not* bypassed by demo mode — an explicit `false` from the
+    This check is *not* bypassed by demo mode â€” an explicit `false` from the
     contract is always treated as a hard rejection.
 
-    **Step 2 — Deduct** `pay_hospital(patient, hospital, amount)`
+    **Step 2 â€” Deduct** `pay_hospital(patient, hospital, amount)`
     Real on-chain transfer.  Captures the Stellar transaction hash from CLI
     output.  Falls back to demo state if `DEMO_FALLBACK=true` and the CLI fails.
 
-    **Step 3 — Confirm** `get_vault(patient)`
+    **Step 3 â€” Confirm** `get_vault(patient)`
     Reads the updated vault immediately after the deduction so the caller
     receives cryptographic proof that the balance changed.
 
@@ -674,9 +708,9 @@ async def pay_hospital_verified(body: PayHospitalRequest):
     # Simulate QRPh processing latency
     await asyncio.sleep(1.5)
 
-    # ═══════════════════════════════════════════════════════════════════════
-    # STEP 1  ·  VERIFY — is this provider whitelisted on-chain?
-    # ═══════════════════════════════════════════════════════════════════════
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # STEP 1  Â·  VERIFY â€” is this provider whitelisted on-chain?
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     try:
         whitelist_result = invoke_contract(
             "is_whitelisted",
@@ -691,7 +725,7 @@ async def pay_hospital_verified(body: PayHospitalRequest):
                 detail={
                     "error":       "PROVIDER_NOT_WHITELISTED",
                     "message":     (
-                        f"Provider {body.hospital_id[:8]}… is not an authorised "
+                        f"Provider {body.hospital_id[:8]}â€¦ is not an authorised "
                         "SaloMed partner. Payment blocked."
                     ),
                     "hospital_id": body.hospital_id,
@@ -700,8 +734,8 @@ async def pay_hospital_verified(body: PayHospitalRequest):
 
     except HTTPException as exc:
         if exc.status_code == 403:
-            raise  # hard security rejection — never demo-bypass
-        # CLI failure on whitelist check → demo fallback
+            raise  # hard security rejection â€” never demo-bypass
+        # CLI failure on whitelist check â†’ demo fallback
         if not DEMO_FALLBACK:
             raise HTTPException(
                 status_code=502,
@@ -712,9 +746,9 @@ async def pay_hospital_verified(body: PayHospitalRequest):
             )
         is_demo = True
 
-    # ═══════════════════════════════════════════════════════════════════════
-    # STEP 2  ·  DEDUCT — execute pay_hospital on-chain
-    # ═══════════════════════════════════════════════════════════════════════
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # STEP 2  Â·  DEDUCT â€” execute pay_hospital on-chain
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     stellar_tx_hash: str
 
     try:
@@ -751,27 +785,27 @@ async def pay_hospital_verified(body: PayHospitalRequest):
     else:
         await asyncio.sleep(5)
 
-    # Always deduct in demo state — source of truth for UI
+    # Always deduct in demo state â€” source of truth for UI
     _demo_pay(body.patient_address, amount_stroops)
 
-    # ═══════════════════════════════════════════════════════════════════════
-    # STEP 3  ·  CONFIRM — read updated vault from demo state
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # STEP 3  Â·  CONFIRM â€” read updated vault from demo state
     # Demo state was just updated above; on-chain may still be settling.
-    # ═══════════════════════════════════════════════════════════════════════
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     demo            = _vault(body.patient_address)
     balance_stroops = demo["balance"]
     salo_points     = demo["salo_points"]
     credit_tier     = demo["credit_tier"]
 
-    # ═══════════════════════════════════════════════════════════════════════
-    # STEP 4  ·  RESPOND — fiat settlement receipt + blockchain proof
-    # ═══════════════════════════════════════════════════════════════════════
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # STEP 4  Â·  RESPOND â€” fiat settlement receipt + blockchain proof
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     chain_label = "demo" if is_demo else "on-chain"
 
     return PayHospitalResponse(
         success=True,
         message=(
-            f"₱{amount_php:,.2f} QRPh payment settled ({chain_label}). "
+            f"â‚±{amount_php:,.2f} QRPh payment settled ({chain_label}). "
             f"{body.amount_usdc:.4f} USDC deducted from vault."
         ),
         qrph_reference=qrph_ref,
@@ -789,14 +823,14 @@ async def pay_hospital_verified(body: PayHospitalRequest):
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ENDPOINTS  ·  Vault
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ENDPOINTS  Â·  Vault
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @app.get(
     "/api/vault/balance",
     response_model=VaultResponse,
-    summary="Get live vault state  →  get_vault on-chain",
+    summary="Get live vault state  â†’  get_vault on-chain",
     tags=["Vault"],
 )
 async def get_vault_balance(
@@ -840,9 +874,9 @@ async def get_vault_balance(
         )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ENDPOINTS  ·  Legit Simulation Logic
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ENDPOINTS  Â·  Legit Simulation Logic
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @app.post(
     "/api/topup",
@@ -856,20 +890,20 @@ async def topup_alias(body: GCashCashInRequest):
 
 @app.post(
     "/api/topup-legacy",
-    summary="GCash Top-Up → REAL XLM sent by backend (Auto-Activation)",
+    summary="GCash Top-Up â†’ REAL XLM sent by backend (Auto-Activation)",
     tags=["Legacy"],
 )
 async def topup_legacy(
-    patient_address: str = Query(..., description="User's Stellar address (G…)"),
+    patient_address: str = Query(..., description="User's Stellar address (Gâ€¦)"),
     amount_php: float  = Query(..., description="PHP amount to convert to XLM"),
 ):
     """
-    Architecture: Fake GCash Success → Backend signs REAL tx → user wallet gets XLM on testnet.
+    Architecture: Fake GCash Success â†’ Backend signs REAL tx â†’ user wallet gets XLM on testnet.
 
-    1. Convert PHP → XLM using PHP_PER_XLM rate.
+    1. Convert PHP â†’ XLM using PHP_PER_XLM rate.
     2. Check if recipient account exists on Horizon.
-       - If NOT exists → CreateAccount (activates wallet + funds it).
-       - If exists     → Payment (sends XLM).
+       - If NOT exists â†’ CreateAccount (activates wallet + funds it).
+       - If exists     â†’ Payment (sends XLM).
     3. Backend signs the tx using SALOMED_SIGNER_SECRET.
     4. Submits directly to Horizon.
     5. Returns the real tx hash.
@@ -903,7 +937,7 @@ async def topup_legacy(
         ).set_timeout(30)
 
         if not exists:
-            # Account needs to be created — minimum 1 XLM reserve + send amount
+            # Account needs to be created â€” minimum 1 XLM reserve + send amount
             starting_bal = str(max(2.0, xlm_amount))
             builder.append_create_account_op(
                 destination=patient_address,
@@ -927,16 +961,16 @@ async def topup_legacy(
         response = horizon_server.submit_transaction(tx)
 
         tx_hash = response.get("hash", response.get("id", "unknown"))
-        print(f"[TOPUP OK] {patient_address[:8]}… ← {xlm_funded} XLM | tx: {tx_hash}")
+        print(f"[TOPUP OK] {patient_address[:8]}â€¦ â† {xlm_funded} XLM | tx: {tx_hash}")
 
         # Keep demo state in sync
         _demo_deposit(patient_address, usdc_to_stroops(xlm_funded))
 
-        # ═══════════════════════════════════════════════════════════════════════
+        # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         # ON-CHAIN REGISTRATION
         # To fulfill the 'Global Activity Ledger' requirement, we call award_points(1)
         # on the contract. This creates an on-chain record of the user's joining.
-        # ═══════════════════════════════════════════════════════════════════════
+        # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         try:
             invoke_contract(
                 "award_points",
@@ -973,7 +1007,7 @@ async def topup_legacy(
 
 @app.post(
     "/api/prepare-payment",
-    summary="Prepare Payment XDR — Unsigned (User → Merchant, for Freighter to sign)",
+    summary="Prepare Payment XDR â€” Unsigned (User â†’ Merchant, for Freighter to sign)",
     tags=["Demo"],
 )
 async def prepare_payment(
@@ -982,10 +1016,10 @@ async def prepare_payment(
     amount_xlm:        float = Query(..., description="Amount in XLM to send"),
 ):
     """
-    Architecture: User clicks Pay → Backend builds unsigned XDR → Freighter signs → Frontend submits to Horizon.
+    Architecture: User clicks Pay â†’ Backend builds unsigned XDR â†’ Freighter signs â†’ Frontend submits to Horizon.
 
     Returns unsigned transaction XDR for the frontend to pass to Freighter.
-    The tx is a simple native XLM payment: user_address → recipient_address.
+    The tx is a simple native XLM payment: user_address â†’ recipient_address.
     """
     if not STELLAR_SDK_OK:
         raise HTTPException(status_code=500, detail="stellar-sdk not installed on backend.")
@@ -1014,7 +1048,7 @@ async def prepare_payment(
         except Exception:
             from stellar_sdk import Keypair
             actual_destination = Keypair.from_secret(SIGNER_SECRET).public_key
-            print(f"[INTERCEPT] Redirected mock payment to system wallet: {recipient_address[:8]}… -> Admin")
+            print(f"[INTERCEPT] Redirected mock payment to system wallet: {recipient_address[:8]}â€¦ -> Admin")
 
         tx = (
             TransactionBuilder(
@@ -1032,7 +1066,7 @@ async def prepare_payment(
             .build()
         )
         xdr = tx.to_xdr()
-        print(f"[PREPARE PAYMENT] {user_address[:8]}… → {recipient_address[:8]}… | {amount_xlm} XLM")
+        print(f"[PREPARE PAYMENT] {user_address[:8]}â€¦ â†’ {recipient_address[:8]}â€¦ | {amount_xlm} XLM")
         return {"success": True, "xdr": xdr, "amount_xlm": amount_xlm}
 
     except HTTPException:
@@ -1044,7 +1078,7 @@ async def prepare_payment(
 
 @app.post(
     "/api/prepare-padala",
-    summary="Prepare Padala XDR — Unsigned (OFW → Beneficiary, for Freighter to sign)",
+    summary="Prepare Padala XDR â€” Unsigned (OFW â†’ Beneficiary, for Freighter to sign)",
     tags=["Demo"],
 )
 async def prepare_padala(
@@ -1053,9 +1087,9 @@ async def prepare_padala(
     amount_xlm:           float = Query(..., description="Amount in XLM to send"),
 ):
     """
-    Architecture: OFW clicks Send → Backend builds unsigned XDR → Freighter signs → Frontend submits to Horizon.
+    Architecture: OFW clicks Send â†’ Backend builds unsigned XDR â†’ Freighter signs â†’ Frontend submits to Horizon.
 
-    Returns unsigned transaction XDR: ofw_address → beneficiary_address, native XLM.
+    Returns unsigned transaction XDR: ofw_address â†’ beneficiary_address, native XLM.
     """
     if not STELLAR_SDK_OK:
         raise HTTPException(status_code=500, detail="stellar-sdk not installed on backend.")
@@ -1084,7 +1118,7 @@ async def prepare_padala(
         except Exception:
             from stellar_sdk import Keypair
             actual_destination = Keypair.from_secret(SIGNER_SECRET).public_key
-            print(f"[INTERCEPT] Redirected mock padala to system wallet: {beneficiary_address[:8]}… -> Admin")
+            print(f"[INTERCEPT] Redirected mock padala to system wallet: {beneficiary_address[:8]}â€¦ -> Admin")
 
         tx = (
             TransactionBuilder(
@@ -1102,7 +1136,7 @@ async def prepare_padala(
             .build()
         )
         xdr = tx.to_xdr()
-        print(f"[PREPARE PADALA] {ofw_address[:8]}… → {beneficiary_address[:8]}… | {amount_xlm} XLM")
+        print(f"[PREPARE PADALA] {ofw_address[:8]}â€¦ â†’ {beneficiary_address[:8]}â€¦ | {amount_xlm} XLM")
         return {"success": True, "xdr": xdr, "amount_xlm": amount_xlm}
 
     except HTTPException:
@@ -1184,9 +1218,9 @@ async def fund_fees(address: str = Query(...)):
         return {"success": False, "detail": str(e)}
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ENDPOINTS  ·  Admin
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ENDPOINTS  Â·  Admin
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @app.post(
     "/api/admin/whitelist-hospital",
@@ -1234,7 +1268,7 @@ async def award_points(body: AwardPointsRequest):
         tx_result = invoke_contract(
             "award_points",
             "--patient", body.patient_address,
-            # u32 type annotation required — plain integer strings are misencoded.
+            # u32 type annotation required â€” plain integer strings are misencoded.
             "--points",  f"u32:{body.points}",
         )
     except HTTPException:
@@ -1265,21 +1299,32 @@ async def remove_hospital(admin_address: str, hospital_address: str):
     return {"success": True, "hospital_address": hospital_address, "tx_result": tx_result}
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ENDPOINTS  ·  Utility
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ENDPOINTS  Â·  Utility
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @app.get("/api/gcash-rate", tags=["Utility"])
-def gcash_rate():
-    """Exchange rate used for PHP → USDC conversions."""
+async def gcash_rate():
+    """
+    Exchange rate used for PHP â†” XLM/USDC conversions.
+
+    When PDAX credentials are configured, returns a **live rate** fetched from
+    the PDAX indicative price endpoint (cached for 30 s to avoid hammering).
+    Falls back to the PHP_PER_USDC env var / default (56.0) when PDAX is
+    unavailable or not yet configured.
+    """
+    live_rate = await get_xlm_php_rate(fallback_rate=PHP_PER_USDC)
+    source = "pdax_live" if _PDAX_CONFIGURED else "fixed_fallback"
     return {
-        "php_per_usdc": PHP_PER_USDC,
-        "source":       "fixed (override with PHP_PER_USDC env var)",
+        "php_per_usdc": live_rate,
+        "php_per_xlm":  live_rate,
+        "source":       source,
+        "pdax_enabled": _PDAX_CONFIGURED,
     }
 
 
 @app.get("/api/balance", tags=["Utility"])
-async def get_native_balance(address: str = Query(..., description="Stellar address (G…)")):
+async def get_native_balance(address: str = Query(..., description="Stellar address (Gâ€¦)")):
     """
     Returns the real native XLM balance for any address by querying Horizon directly.
     This is the source of truth for the vault balance display.
@@ -1318,7 +1363,7 @@ async def get_native_balance(address: str = Query(..., description="Stellar addr
             "salo_points":    0,
             "credit_tier":    "Bronze",
             "source":         "unfunded",
-            "note":           "Account not found on Testnet — fund it via GCash top-up first.",
+            "note":           "Account not found on Testnet â€” fund it via GCash top-up first.",
         }
 
 
@@ -1333,10 +1378,10 @@ def health():
     }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ══════════════════════════════════════════════════════════════════════════════
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  HOW TO RUN & TEST
-# ══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #
 #  1. Install dependencies:
 #       pip install fastapi uvicorn python-dotenv
@@ -1372,12 +1417,12 @@ def health():
 #        POST /api/qrph/pay
 #        { "patient_address": "G...", "hospital_id": "G...", "amount_usdc": 5.0 }
 #
-#  ── Stellar CLI reference ─────────────────────────────────────────────────
+#  â”€â”€ Stellar CLI reference â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 #  stellar contract invoke \
 #    --id  CA4CHLSYNVJHTCXIDJO4B732YZQTA4BKWUGI5OHZASLICFQOENSI7CLB \
 #    --source  salomed-admin  --network testnet \
 #    -- get_vault --patient G...
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 @app.post("/api/scan-bill", response_model=BillScanResult)
@@ -1397,7 +1442,7 @@ async def scan_bill(file: UploadFile = File(...)):
     try:
         raw_text = _run_tesseract(image_bytes)
     except Exception:
-        # Tesseract not installed → fall back to mock so the API stays usable
+        # Tesseract not installed â†’ fall back to mock so the API stays usable
         raw_text = _mock_ocr_text()
         ocr_mode = "mock"
 
@@ -1425,3 +1470,303 @@ async def scan_bill(file: UploadFile = File(...)):
     )
 
 
+
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ENDPOINTS  Â·  PDAX Integration
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# These endpoints replace/upgrade the simulated GCash bridge with real PDAX
+# InstaPay flows when PDAX credentials are configured in .env.
+# All original endpoints remain fully functional â€” PDAX is additive only.
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+
+# â”€â”€ PDAX status / health â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@app.get("/api/pdax/status", tags=["PDAX"])
+async def pdax_status():
+    """
+    Check PDAX API connectivity and return the current XLM/PHP live rate.
+    Returns `configured: false` when PDAX credentials are not set (demo mode).
+    """
+    return await pdax_health_check()
+
+
+# â”€â”€ Live exchange rate (also exposed via /api/gcash-rate) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@app.get("/api/pdax/rate", tags=["PDAX"])
+async def pdax_rate(
+    base:  str = Query("XLM", description="Base currency (XLM or USDCXLM)"),
+    quote: str = Query("PHP", description="Quote currency (PHP)"),
+):
+    """
+    Fetch live indicative exchange rate from PDAX.
+    Cached for 30 seconds. Falls back to PHP_PER_USDC env var when PDAX is unavailable.
+    """
+    rate = await get_xlm_php_rate(fallback_rate=PHP_PER_USDC)
+    return {
+        "base":       base,
+        "quote":      quote,
+        "rate":       rate,
+        "source":     "pdax_live" if _PDAX_CONFIGURED else "fixed_fallback",
+        "pdax_enabled": _PDAX_CONFIGURED,
+    }
+
+
+# â”€â”€ InstaPay deposit initiation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+class PdaxDepositRequest(BaseModel):
+    beneficiary_address: str   = Field(..., description="Stellar address of the vault to credit")
+    amount_php:          float = Field(..., gt=0, description="PHP amount to deposit via InstaPay")
+    gcash_reference:     str   = Field("", description="Your own reference ID (auto-generated if blank)")
+
+
+@app.post("/api/pdax/deposit", tags=["PDAX"])
+async def pdax_initiate_deposit(body: PdaxDepositRequest):
+    """
+    **Real PHP â†’ XLM on-ramp via PDAX InstaPay.**
+
+    When PDAX is configured:
+    1. Calls PDAX fiat deposit API to get a real InstaPay checkout URL.
+    2. Returns the URL for the frontend to redirect/open for the user.
+    3. When the user completes payment, PDAX sends a webhook to /api/pdax/webhook.
+    4. The webhook handler credits the Stellar vault automatically.
+
+    When PDAX is NOT configured (demo mode):
+    - Falls through to the existing `/api/gcash/cash-in` demo flow seamlessly.
+
+    Frontend usage: treat this exactly like the existing GCash flow â€”
+    same request shape, same response shape.
+    """
+    ref = body.gcash_reference or f"SALOMED-{uuid.uuid4().hex[:12].upper()}"
+
+    # â”€â”€ Try PDAX real flow first â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    pdax_result = await initiate_instapay_deposit(
+        amount_php=body.amount_php,
+        reference_id=ref,
+        metadata={"beneficiary_address": body.beneficiary_address},
+    )
+
+    if pdax_result["success"]:
+        # Real PDAX deposit initiated â€” return checkout URL to frontend.
+        # Vault will be credited by the webhook handler once payment is confirmed.
+        amount_usdc = round(body.amount_php / PHP_PER_USDC, 6)
+        return {
+            "success":          True,
+            "mode":             "pdax_real",
+            "checkout_url":     pdax_result["checkout_url"],
+            "reference_id":     ref,
+            "pdax_reference":   pdax_result.get("pdax_reference", ref),
+            "amount_php":       body.amount_php,
+            "amount_usdc":      amount_usdc,
+            "beneficiary":      body.beneficiary_address,
+            "message":          (
+                f"InstaPay deposit initiated. â‚±{body.amount_php:,.2f} â†’ "
+                f"{amount_usdc:.4f} USDC. Complete payment via the checkout URL."
+            ),
+            "status":           "pending_payment",
+        }
+
+    # â”€â”€ PDAX unavailable â†’ fall back to existing demo flow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    amount_stroops = php_to_stroops(body.amount_php)
+    amount_usdc    = round(body.amount_php / PHP_PER_USDC, 6)
+
+    await asyncio.sleep(2)  # simulate processing delay
+
+    ofw = ADMIN_ADDRESS if ADMIN_ADDRESS else SOURCE
+    try:
+        tx_result = invoke_contract(
+            "deposit_remittance",
+            "--ofw",         ofw,
+            "--beneficiary", body.beneficiary_address,
+            "--amount",      f"i128:{amount_stroops}",
+        )
+    except HTTPException:
+        if not DEMO_FALLBACK:
+            raise
+        tx_result = _demo_tx()
+    else:
+        await asyncio.sleep(5)
+
+    _demo_deposit(body.beneficiary_address, amount_stroops)
+    is_demo = isinstance(tx_result, str) and tx_result.startswith("DEMO_TX_")
+
+    return {
+        "success":      True,
+        "mode":         "demo_fallback",
+        "tx_result":    tx_result,
+        "reference_id": ref,
+        "amount_php":   body.amount_php,
+        "amount_usdc":  amount_usdc,
+        "beneficiary":  body.beneficiary_address,
+        "message":      (
+            f"Top-up confirmed ({'simulated' if is_demo else 'on-chain'}). "
+            f"â‚±{body.amount_php:.2f} â†’ {amount_usdc:.4f} USDC."
+        ),
+        "status":       "completed",
+        "details": {
+            "gcash_reference":     ref,
+            "beneficiary_address": body.beneficiary_address,
+            "amount_php":          body.amount_php,
+            "amount_usdc":         amount_usdc,
+            "amount_stroops":      amount_stroops,
+            "exchange_rate":       f"â‚±{PHP_PER_USDC} / USDC",
+            "demo_mode":           is_demo,
+        },
+    }
+
+
+# â”€â”€ Webhook receiver â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@app.post("/api/pdax/webhook", tags=["PDAX"])
+async def pdax_webhook(
+    request: Request,
+    x_pdax_signature: str = Header(default="", alias="X-PDAX-Signature"),
+    x_signature: str = Header(default="", alias="X-Signature"),
+):
+    """
+    Receive real-time event notifications from PDAX.
+
+    PDAX sends webhooks for: deposit, withdrawal, trade, transaction_update.
+
+    Security: The raw request body is verified against PDAX_WEBHOOK_SECRET using
+    HMAC-SHA256 before any processing. Requests with an invalid or missing
+    signature are rejected with HTTP 401.
+
+    On a **completed deposit** event:
+    1. Verifies the PDAX signature.
+    2. Parses the beneficiary_address from the metadata we passed at deposit time.
+    3. Credits the Stellar vault via deposit_remittance on-chain.
+
+    Configure this URL in your PDAX dashboard webhook settings:
+        https://<your-backend-domain>/api/pdax/webhook
+    """
+    # Read raw body for signature verification BEFORE parsing JSON
+    body_bytes = await request.body()
+
+    # Use whichever signature header PDAX sends
+    sig = x_pdax_signature or x_signature
+
+    if not verify_webhook_signature(body_bytes, sig):
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "error": "WEBHOOK_SIGNATURE_INVALID",
+                "message": (
+                    "Webhook signature verification failed. "
+                    "Ensure PDAX_WEBHOOK_SECRET in .env matches the secret in your PDAX dashboard."
+                ),
+            },
+        )
+
+    # Safe to parse after verification
+    try:
+        payload = json.loads(body_bytes)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+    event = process_webhook_event(payload)
+
+    # Only act on completed deposits
+    if event["event_type"] != "deposit" or event["status"] != "completed":
+        return {"received": True, "action": "none", "event_type": event["event_type"], "status": event["status"]}
+
+    # Extract metadata â€” PDAX passes back what we sent in the deposit request
+    raw = event.get("raw", {})
+    metadata = raw.get("metadata") or {}
+    beneficiary_address = (
+        metadata.get("beneficiary_address")
+        or raw.get("beneficiary_address")
+        or ""
+    )
+    amount_php = float(event.get("amount") or raw.get("amount") or 0)
+
+    if not beneficiary_address or amount_php <= 0:
+        return {
+            "received": True,
+            "action":   "skipped",
+            "reason":   "Missing beneficiary_address or amount in webhook payload",
+            "event":    event,
+        }
+
+    # Credit the vault on-chain
+    amount_stroops = php_to_stroops(amount_php)
+    ofw = ADMIN_ADDRESS if ADMIN_ADDRESS else SOURCE
+
+    try:
+        tx_result = invoke_contract(
+            "deposit_remittance",
+            "--ofw",         ofw,
+            "--beneficiary", beneficiary_address,
+            "--amount",      f"i128:{amount_stroops}",
+        )
+    except HTTPException:
+        tx_result = _demo_tx()
+
+    _demo_deposit(beneficiary_address, amount_stroops)
+
+    print(
+        f"[PDAX WEBHOOK] âœ“ Verified. Credited {beneficiary_address[:8]}â€¦ "
+        f"â† â‚±{amount_php} ({amount_stroops} stroops) | ref={event['reference']}"
+    )
+
+    return {
+        "received":    True,
+        "action":      "vault_credited",
+        "reference":   event["reference"],
+        "beneficiary": beneficiary_address,
+        "amount_php":  amount_php,
+        "tx_result":   tx_result,
+    }
+
+
+# â”€â”€ Firm quote â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@app.get("/api/pdax/quote", tags=["PDAX"])
+async def pdax_quote(
+    amount_xlm: float = Query(..., gt=0, description="XLM amount to convert to PHP"),
+):
+    """
+    Get an executable firm quote for XLM â†’ PHP conversion from PDAX.
+    The quote_id returned here can be used to execute the actual trade.
+    Returns fallback static rate when PDAX is unavailable.
+    """
+    quote = await get_firm_quote(amount_xlm=amount_xlm, side="sell")
+    return quote
+
+
+def _remove_retired_route_duplicates() -> None:
+    """Remove only known legacy duplicates while retaining the safe first route."""
+    authoritative_keys = {
+        ("/api/gcash-rate", ("GET",)),
+        ("/api/pdax/status", ("GET",)),
+        ("/api/pdax/rate", ("GET",)),
+        ("/api/pdax/quote", ("GET",)),
+        ("/api/pdax/deposit", ("POST",)),
+        ("/api/pdax/webhook", ("POST",)),
+        *((path, ("POST",)) for path in (
+            "/api/gcash/cash-in",
+            "/api/qrph/pay",
+            "/api/payment/pay-hospital",
+            "/api/topup",
+            "/api/topup-legacy",
+            "/api/simulate-topup",
+            "/api/prepare-payment",
+            "/api/prepare-padala",
+            "/api/prepare-spend",
+        )),
+    }
+    seen: set[tuple[str, tuple[str, ...]]] = set()
+    active_routes = []
+    for route in app.router.routes:
+        path = getattr(route, "path", "")
+        methods = tuple(sorted(getattr(route, "methods", set())))
+        key = (path, methods)
+        if key in authoritative_keys and key in seen:
+            continue
+        if key in authoritative_keys:
+            seen.add(key)
+        active_routes.append(route)
+    app.router.routes[:] = active_routes
+
+
+_remove_retired_route_duplicates()
