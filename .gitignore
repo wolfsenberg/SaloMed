@@ -32,6 +32,8 @@ backend/.pytest_cache/
 backend/venv/
 backend/env/
 backend/.venv/
+backend/data/
+backend/*.sqlite3*
 
 # Smart Contracts (Rust / Soroban)
 contracts/**/target/

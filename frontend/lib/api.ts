@@ -1,4 +1,5 @@
 import { API_URL } from './config';
+import { demoTopUp, getRuntimeStatus } from './runtime';
 
 export interface BillScanResult {
   total_bill: number;
@@ -8,16 +9,14 @@ export interface BillScanResult {
   ocr_mode: string;
 }
 
-export interface TriggerResult {
-  status: string;
-  message: string;
-  transaction_hash: string | null;
-}
-
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error((body as { detail?: string }).detail ?? res.statusText);
+    const detail = (body as { detail?: string | { message?: string }; message?: string }).detail;
+    const message = typeof detail === 'string'
+      ? detail
+      : detail?.message ?? (body as { message?: string }).message ?? res.statusText;
+    throw new Error(message);
   }
   return res.json() as Promise<T>;
 }
@@ -29,125 +28,113 @@ export async function scanBill(file: File): Promise<BillScanResult> {
   return handleResponse<BillScanResult>(res);
 }
 
-export async function payHospital(
-  patientAddress: string,
-  hospitalAddress: string,
-  amountUsdc: number,
-): Promise<TriggerResult> {
-  const res = await fetch(`${API_URL}/api/trigger-contract`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      function_name: 'pay_hospital',
-      patient_address: patientAddress,
-      hospital_address: hospitalAddress,
-      amount_usdc: amountUsdc,
-    }),
-  });
-  return handleResponse<TriggerResult>(res);
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// PDAX Integration
+// ─────────────────────────────────────────────────────────────────────────────
 
-export interface GCashTopUpResult {
-  reference_id: string;
-  qr_payload: string;
-  amount_php: number;
-  amount_usdc: number;
-  exchange_rate: number;
+export interface PdaxStatusResult {
+  configured: boolean;
   status: string;
-  message: string;
+  live_rate: number | null;
+  token_valid?: boolean;
 }
 
-export async function gcashTopUp(
-  gcashNumber: string,
+export interface PdaxRateResult {
+  base: string;
+  quote: string;
+  rate: number;
+  source: 'fixed_demo' | 'configured_indicative';
+  pdax_enabled: boolean;
+}
+
+export interface PdaxDepositResult {
+  success: boolean;
+  mode: 'demo' | 'pdax_uat' | 'pdax_prod';
+  // Present only in explicitly enabled PDAX UAT/production modes.
+  checkout_url?: string;
+  // Demo transaction ID; it is never a Stellar hash.
+  tx_result?: string;
+  reference_id: string;
+  pdax_reference?: string;
+  amount_php: number;
+  amount_usdc?: number;
+  estimated_amount_usdc?: number;
+  beneficiary: string;
+  message?: string;
+  status: string;
+}
+
+export interface PdaxQuoteResult {
+  success: boolean;
+  quote_id?: string;
+  base_amount?: number;
+  quote_amount?: number;
+  rate?: number;
+  expires_at?: number;
+  error?: string;
+  fallback_rate?: number;
+}
+
+/**
+ * Check whether the explicitly selected PDAX runtime is available.
+ */
+export async function getPdaxStatus(): Promise<PdaxStatusResult> {
+  const res = await fetch(`${API_URL}/api/pdax/status`);
+  return handleResponse<PdaxStatusResult>(res);
+}
+
+/**
+ * Get the configured indicative USDC/PHP display rate.
+ */
+export async function getPdaxRate(): Promise<PdaxRateResult> {
+  const res = await fetch(`${API_URL}/api/pdax/rate`);
+  return handleResponse<PdaxRateResult>(res);
+}
+
+/**
+ * Demo mode uses the explicit v2 simulation. PDAX transaction endpoints are
+ * blocked until verified USDC settlement exists; modes never fall back.
+ */
+export async function pdaxInitiateDeposit(
+  beneficiaryAddress: string,
   amountPhp: number,
-  beneficiaryAddress: string,
-): Promise<GCashTopUpResult> {
-  // 1. Try standardized route (/api/gcash/cash-in)
-  try {
-    const res = await fetch(`${API_URL}/api/gcash/cash-in`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        beneficiary_address: beneficiaryAddress,
-        amount_php: amountPhp,
-        gcash_reference: `GC-${Date.now()}`
-      }),
-    });
-
-    if (res.status !== 404) {
-      return handleResponse<GCashTopUpResult>(res);
-    }
-  } catch (e) {
-    // If network error, maybe attempt fallback if it looks like a 404-ish case
-  }
-
-  // 2. Fallback to legacy route (/api/gcash-topup)
-  // This is for the currently deployed Render backend which is on an older version.
-  const legacyRes = await fetch(`${API_URL}/api/gcash-topup`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      gcash_number: gcashNumber,
+  gcashReference?: string,
+): Promise<PdaxDepositResult> {
+  const runtime = await getRuntimeStatus();
+  if (runtime.mode === 'demo') {
+    const transactionId = await demoTopUp(beneficiaryAddress, amountPhp);
+    return {
+      success: true,
+      mode: 'demo',
+      tx_result: transactionId,
+      reference_id: gcashReference || transactionId,
       amount_php: amountPhp,
-      beneficiary_address: beneficiaryAddress,
-    }),
-  });
-
-  return handleResponse<GCashTopUpResult>(legacyRes);
-}
-
-
-export async function gcashConfirm(
-  referenceId: string,
-  beneficiaryAddress: string,
-): Promise<{ status: string; message: string }> {
-  // Deprecated confirm endpoint — now handled within cash-in for demo simplicity
-  return { status: 'success', message: 'Confirmed via auto-settle' };
-}
-
-export async function getGCashRate(): Promise<{ php_per_usdc: number }> {
-  const res = await fetch(`${API_URL}/api/gcash-rate`);
-  return handleResponse(res);
-}
-
-export async function depositRemittance(
-  ofwAddress: string,
-  beneficiaryAddress: string,
-  amountUsdc: number,
-): Promise<TriggerResult> {
-  // 1. Try new route (/api/gcash/cash-in)
-  try {
-    const res = await fetch(`${API_URL}/api/gcash/cash-in`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        function_name: 'deposit_remittance',
-        beneficiary_address: beneficiaryAddress,
-        sender_address: ofwAddress,
-        amount_php: amountUsdc * 56,
-        gcash_reference: `REMIT-${Date.now()}`
-      }),
-    });
-
-    if (res.status !== 404) {
-      return handleResponse<TriggerResult>(res);
-    }
-  } catch (e) {
-    // network error
+      amount_usdc: amountPhp / Number(runtime.php_per_asset),
+      beneficiary: beneficiaryAddress,
+      message: 'SIMULATED top-up completed in the demo vault. No real money moved.',
+      status: 'completed',
+    };
+  }
+  if (runtime.mode === 'stellar_testnet') {
+    throw new Error('GCash/InstaPay is disabled in Stellar Testnet mode. Use a Freighter USDC deposit.');
   }
 
-  // 2. Fallback to old route (/api/trigger-contract)
-  const legacyRes = await fetch(`${API_URL}/api/trigger-contract`, {
+  const res = await fetch(`${API_URL}/api/pdax/deposit`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      function_name: 'deposit_remittance',
-      patient_address: beneficiaryAddress,
-      ofw_address: ofwAddress,
-      amount_usdc: amountUsdc,
+      beneficiary_address: beneficiaryAddress,
+      amount_php: amountPhp,
+      gcash_reference: gcashReference || `SALOMED-${Date.now()}`,
     }),
   });
-
-  return handleResponse<TriggerResult>(legacyRes);
+  return handleResponse<PdaxDepositResult>(res);
 }
 
+/**
+ * Firm quotes stay blocked until the private PDAX contract is implemented.
+ */
+export async function getPdaxQuote(amountUsdc: number): Promise<PdaxQuoteResult> {
+  const res = await fetch(`${API_URL}/api/pdax/quote?amount_usdc=${amountUsdc}`);
+  return handleResponse<PdaxQuoteResult>(res);
+}

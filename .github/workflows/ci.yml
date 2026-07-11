@@ -2,46 +2,129 @@ name: SaloMed CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
 
 jobs:
-  # Job 1: Smart Contract Validation
+  # ── Job 1: Smart Contract ─────────────────────────────────────────────────
   contracts:
     name: Smart Contract CI
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate Contracts
-        run: |
-          echo "Verifying Smart Contract integrity..."
-          echo "All contracts verified locally via cargo test."
-          echo "Validation successful."
-          exit 0
 
-  # Job 2: Frontend Validation
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            contracts/salomed/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('contracts/salomed/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Run contract tests
+        working-directory: contracts/salomed
+        run: cargo test --release 2>&1
+
+      - name: Build WASM artifact
+        working-directory: contracts/salomed
+        run: cargo build --target wasm32-unknown-unknown --release 2>&1
+
+      - name: Verify WASM size
+        working-directory: contracts/salomed
+        run: |
+          WASM=target/wasm32-unknown-unknown/release/salomed.wasm
+          SIZE=$(wc -c < "$WASM")
+          echo "WASM size: ${SIZE} bytes"
+          if [ "$SIZE" -gt 65536 ]; then
+            echo "WARNING: WASM exceeds 64 KB — consider optimizing"
+          else
+            echo "WASM size is within Soroban limits"
+          fi
+
+  # ── Job 2: Frontend ───────────────────────────────────────────────────────
   frontend:
     name: Frontend CI
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate Frontend
-        run: |
-          echo "Checking frontend build stability..."
-          echo "Next.js build validated for deployment."
-          echo "Validation successful."
-          exit 0
 
-  # Job 3: Backend Validation
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Type-check
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+      - name: Build Next.js app
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+          NEXT_PUBLIC_CONTRACT_ID: CAO3K6OYB5A3VNVV3HKCSVG3ZZ442DZCDKAXG4CTSLBTN7FOYCCBRZ34
+          NEXT_PUBLIC_RPC_URL: https://soroban-testnet.stellar.org
+          NEXT_PUBLIC_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
+        run: npm run build
+
+  # ── Job 3: Backend ────────────────────────────────────────────────────────
   backend:
     name: Backend CI
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate Backend
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: Syntax-check main.py
+        working-directory: backend
+        run: python -m py_compile main.py && echo "main.py OK"
+
+      - name: Verify FastAPI app loads
+        working-directory: backend
+        env:
+          CONTRACT_ID: CAO3K6OYB5A3VNVV3HKCSVG3ZZ442DZCDKAXG4CTSLBTN7FOYCCBRZ34
+          STELLAR_NETWORK: testnet
+          STELLAR_SOURCE: salomed-admin
+          ADMIN_ADDRESS: GBSXYPN2XWTJEZPLAMRIYQQVQTCJ2MEQOVOA3G73USGCMEXJ5YXPU2G7
+          PHP_PER_USDC: "56.0"
+          FRONTEND_ORIGIN: http://localhost:3000
+          SALOMED_SIGNER_SECRET: ""
+          PDAX_BASE_URL: https://uat.services.sandbox.pdax.ph/api/pdax-api
+          PDAX_USERNAME: ""
+          PDAX_PASSWORD: ""
+        run: python -c "from main import app; print(f'FastAPI app loaded — {len(app.routes)} routes registered')"
+
+      - name: Run backend tests
+        working-directory: backend
+        env:
+          SALOMED_MODE: demo
+        run: python -m pytest -q
+
+      - name: Dependency audit
+        working-directory: backend
         run: |
-          echo "Checking backend API dependencies..."
-          echo "FastAPI environment ready for production."
-          echo "Validation successful."
-          exit 0
+          pip install pip-audit
+          pip-audit -r requirements.txt

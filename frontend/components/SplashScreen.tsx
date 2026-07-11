@@ -49,12 +49,18 @@ export default function SplashScreen({ onDone }: Props) {
             {/* App name */}
             <div className="text-center space-y-2">
               <p className="text-3xl font-bold text-slate-900 tracking-tight">SaloMed</p>
+              <p className="text-sm text-slate-500 font-medium">Your Health Alkansya</p>
 
               {/* Tagline */}
-              <p className="text-sm text-slate-500 leading-snug max-w-[260px] text-center italic">
+              <p className="text-sm text-slate-400 leading-snug max-w-[260px] text-center inter-slanted">
                 &ldquo;Pondong protektado, kalusugan mo&apos;y salo.&rdquo;
               </p>
             </div>
+
+            {/* Powered by */}
+            <p className="text-[11px] text-slate-300 font-medium">
+              Powered by Stellar Soroban · Explicit runtime modes
+            </p>
 
             {/* Pulse loader */}
             <div className="flex gap-2 mt-1">

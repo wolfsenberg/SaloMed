@@ -190,7 +190,6 @@ export default function BillScanner({ address, vault, onPaySuccess }: Props) {
             amountXlm={result.out_of_pocket_balance}
             onClose={() => setModal(null)}
             onSuccess={() => { setModal(null); setResult(null); onPaySuccess(); }}
-            onSwitchTab={onSwitchTab}
           />
         )}
         {modal === 'loan' && result && address && (

@@ -10,7 +10,7 @@ import {
 import { payHospital, calcPayment } from '@/lib/contract';
 import { saveTx } from '@/lib/transactions';
 
-/** Shape encoded inside a SALOMED: QR code. */
+/** Shape decoded from a QR. `patient` is always overwritten by the connected wallet. */
 export interface SaloMedQRPayload {
   patient: string;
   hospital: string;
@@ -139,7 +139,7 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
                   <h4 className="font-bold text-slate-900">Payment Processed!</h4>
                   <p className="text-sm text-slate-500">
                     <span className="font-semibold text-slate-700">
-                      {payload.amount_usdc.toFixed(4)} XLM
+                      {payload.amount_usdc.toFixed(4)} USDC
                     </span>{' '}
                     deducted from vault
                   </p>
@@ -180,7 +180,7 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
                   </p>
                   <p className="text-3xl font-bold text-blue-700">
                     {payload.amount_usdc.toFixed(4)}{' '}
-                    <span className="text-lg font-normal text-blue-400">XLM</span>
+                    <span className="text-lg font-normal text-blue-400">USDC</span>
                   </p>
                   <p className="text-xs text-blue-400 mt-1">
                     ≈ ₱{phpValue.toFixed(2)} PHP

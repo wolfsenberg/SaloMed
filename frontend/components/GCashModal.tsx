@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
-import { X, Loader2, CheckCircle, Zap, ArrowDownToLine } from 'lucide-react';
+import { X, Loader2, CheckCircle, Zap, ArrowDownToLine, ExternalLink } from 'lucide-react';
 import { saveTx } from '@/lib/transactions';
+import { pdaxInitiateDeposit } from '@/lib/api';
+import { API_URL, PHP_PER_USDC } from '@/lib/config';
 
 interface LocalQRResult {
   reference_id: string;
@@ -22,31 +24,32 @@ interface Props {
 type Step = 'form' | 'qr' | 'processing' | 'done';
 
 const QUICK_AMOUNTS = [100, 500, 1000, 5000];
-import { API_URL, PHP_PER_XLM } from '@/lib/config';
 
 export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: Props) {
   const [step, setStep]               = useState<Step>('form');
   const [gcashNumber, setGcashNumber] = useState('');
   const [amountPhp, setAmountPhp]     = useState('');
-  const [rate, setRate]               = useState(PHP_PER_XLM);
+  const [rate, setRate]               = useState(PHP_PER_USDC);
+  const [rateSource, setRateSource]   = useState<'fixed_demo' | 'configured_indicative'>('fixed_demo');
   const [result, setResult]           = useState<LocalQRResult | null>(null);
   const [txHash, setTxHash]           = useState<string | null>(null);
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [error, setError]             = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`${API_URL}/api/gcash-rate`)
       .then(r => r.json())
-      .then((d: { php_per_usdc: number }) => {
-          if (d.php_per_usdc > 0) setRate(d.php_per_usdc);
+      .then((d: { php_per_usdc: number; source?: string }) => {
+        if (d.php_per_usdc > 0) setRate(d.php_per_usdc);
+        setRateSource(d.source === 'configured_indicative' ? 'configured_indicative' : 'fixed_demo');
       })
       .catch(() => {
-          console.warn('[GCashModal] Failed to fetch live rate, using default:', PHP_PER_XLM);
+        console.warn('[GCashModal] Failed to fetch display rate, using default:', PHP_PER_USDC);
       });
   }, []);
 
   const parsedPhp = parseFloat(amountPhp) || 0;
   const xlmAmount = parsedPhp > 0 ? (parsedPhp / (rate || 56)).toFixed(2) : '—';
-
 
   function buildQRResult(): LocalQRResult {
     const refId  = 'SM' + Math.random().toString(36).slice(2, 10).toUpperCase();
@@ -74,26 +77,33 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
     if (!result) return;
     setStep('processing');
 
-    // Save transaction IMMEDIATELY as pending — this ensures it always shows
-    // in history even if the backend has a transient error.
-    saveTx(beneficiaryAddress, {
-      type:      'topup',
-      amountXlm: result.amount_xlm,
-      amountPhp: result.amount_php,
-      gcashRef:  result.reference_id,
-      txHash:    undefined,
-      status:    'pending',
-    });
-
     try {
-      const { depositToVault } = await import('@/lib/contract');
-      // The backend signs and submits the top-up using the admin keypair.
-      // No Freighter signing required — backend wallet (SALOMED_SIGNER_SECRET) sends XLM to the user.
-      const hash = await depositToVault(beneficiaryAddress, result.amount_xlm);
-      
-      setTxHash(hash);
+      // ── PDAX real flow (when credentials are configured) ──────────────────
+      const pdaxResult = await pdaxInitiateDeposit(
+        beneficiaryAddress,
+        result.amount_php,
+        result.reference_id,
+      );
 
-      // Update the saved transaction from 'pending' → 'success' with the real tx hash
+      if ((pdaxResult.mode === 'pdax_uat' || pdaxResult.mode === 'pdax_prod') && pdaxResult.checkout_url) {
+        // Kept fail-closed: even a future checkout does not imply vault credit.
+        setCheckoutUrl(pdaxResult.checkout_url);
+        saveTx(beneficiaryAddress, {
+          type:      'topup',
+          amountXlm: result.amount_xlm,
+          amountPhp: result.amount_php,
+          gcashRef:  pdaxResult.reference_id,
+          txHash:    pdaxResult.pdax_reference,
+          status:    'pending',
+        });
+        setStep('done');
+        return;
+      }
+
+      // ── Demo / fallback flow ──────────────────────────────────────────────
+      const hash = pdaxResult.tx_result || pdaxResult.reference_id || 'ok';
+
+      setTxHash(hash);
       saveTx(beneficiaryAddress, {
         type:      'topup',
         amountXlm: result.amount_xlm,
@@ -103,26 +113,16 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
         status:    'success',
       });
 
-      // Dispatch a storage event to force TransactionsTab to refresh immediately
-      window.dispatchEvent(new CustomEvent('salomed_tx_update', { detail: { address: beneficiaryAddress.toUpperCase() } }));
+      window.dispatchEvent(new CustomEvent('salomed_tx_update', {
+        detail: { address: beneficiaryAddress.toUpperCase() },
+      }));
 
       setStep('done');
-      // Call onSuccess after 1.5 seconds to let user see the success screen, then it
-      // triggers refreshVault in the parent to update the balance on the dashboard.
-      setTimeout(() => {
-        onSuccess();
-      }, 1500);
+      setTimeout(() => { onSuccess(); }, 1500);
 
     } catch (e: unknown) {
-      console.error('GCash top-up failed:', e);
-      // Even on backend error, the pending tx is already saved — user can see it
-      // in history and try again.
-      setError(
-        e instanceof Error
-          ? e.message
-          : 'Top-up failed. Check that the backend is running and SALOMED_SIGNER_SECRET is funded on testnet.'
-      );
-
+      console.error('GCash demo top-up failed:', e);
+      setError(e instanceof Error ? e.message : 'Simulated top-up failed. Please retry.');
       setStep('qr');
     }
   }
@@ -140,7 +140,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
         onClick={e => e.stopPropagation()}
         className="w-full max-w-lg bg-white rounded-t-3xl shadow-2xl overflow-hidden"
       >
-        {/* GCash header */}
+        {/* Header */}
         <div className="bg-[#007DFF] px-6 pt-5 pb-5 text-white">
           <div className="w-10 h-1 bg-white/30 rounded-full mx-auto mb-4" />
           <div className="flex items-center justify-between">
@@ -171,7 +171,9 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                 className="space-y-4"
               >
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block">GCash Number</label>
+                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block">
+                    GCash Number
+                  </label>
                   <input
                     value={gcashNumber}
                     onChange={e => { setGcashNumber(e.target.value); setError(null); }}
@@ -183,7 +185,9 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block">Amount</label>
+                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block">
+                    Amount
+                  </label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">₱</span>
                     <input
@@ -214,18 +218,25 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                 <AnimatePresence>
                   {parsedPhp > 0 && (
                     <motion.div
-                      initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
                       className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-center justify-between"
                     >
                       <div className="space-y-0.5">
                         <p className="text-xs font-semibold text-blue-700">
                           ₱{parsedPhp.toLocaleString('en-PH', { minimumFractionDigits: 2 })} PHP
                         </p>
-                        <p className="text-xs text-blue-400">₱{rate} = 1 XLM (demo rate)</p>
+                        <p className="text-xs text-blue-400">
+                          ₱{rate.toFixed(2)} = 1 USDC
+                          {rateSource === 'configured_indicative' && (
+                            <span className="ml-1 text-amber-600 font-semibold">· indicative</span>
+                          )}
+                        </p>
                       </div>
                       <div className="text-right">
                         <p className="text-lg font-bold text-[#007DFF]">{xlmAmount}</p>
-                        <p className="text-xs text-blue-400">XLM to vault</p>
+                        <p className="text-xs text-blue-400">USDC to demo vault</p>
                       </div>
                     </motion.div>
                   )}
@@ -257,8 +268,8 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                 className="space-y-4"
               >
                 <div className="text-center">
-                  <p className="font-bold text-slate-900 text-base">Scan with GCash</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Open GCash → Pay QR → Scan below</p>
+                  <p className="font-bold text-slate-900 text-base">Simulated GCash QR</p>
+                  <p className="text-xs text-amber-600 mt-0.5 font-semibold">DEMO ONLY — do not send real money to this QR</p>
                 </div>
 
                 <div className="flex justify-center">
@@ -283,7 +294,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { label: 'You send',   value: `₱${result.amount_php.toLocaleString('en-PH', { minimumFractionDigits: 2 })}` },
-                    { label: 'Vault gets', value: `${result.amount_xlm} XLM` },
+                    { label: 'Demo vault gets', value: `${result.amount_xlm} USDC` },
                   ].map(pill => (
                     <div key={pill.label} className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-center">
                       <p className="text-xs text-slate-400">{pill.label}</p>
@@ -292,17 +303,12 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                   ))}
                 </div>
 
-                <div className="space-y-2">
-                  <button
-                    onClick={handleSimulatePayment}
-                    className="w-full py-3.5 rounded-xl bg-[#007DFF] hover:bg-blue-600 active:scale-[0.98] text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
-                  >
-                    <Zap size={15} /> Confirm GCash Payment
-                  </button>
-                  <p className="text-center text-xs text-slate-400">
-                    Backend sends XLM to your wallet on Testnet — no Freighter needed
-                  </p>
-                </div>
+                <button
+                  onClick={handleSimulatePayment}
+                  className="w-full py-3.5 rounded-xl bg-[#007DFF] hover:bg-blue-600 active:scale-[0.98] text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
+                >
+                  <Zap size={15} /> Simulate GCash Payment
+                </button>
               </motion.div>
             )}
 
@@ -310,56 +316,65 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
             {step === 'processing' && (
               <motion.div key="processing"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="py-10 flex flex-col items-center gap-5"
+                className="py-10 flex flex-col items-center gap-4"
               >
-                <Loader2 size={48} className="text-[#007DFF] animate-spin" />
-                <div className="text-center space-y-1">
-                  <p className="font-bold text-slate-900">Processing GCash Payment</p>
-                  <p className="text-xs text-slate-500 mt-1">Backend is signing and submitting to Stellar Testnet…</p>
-                  <p className="text-xs text-slate-400">This takes 3–5 seconds</p>
+                <Loader2 size={40} className="text-[#007DFF] animate-spin" />
+                <div className="text-center">
+                  <p className="font-semibold text-slate-800">Processing payment…</p>
+                  <p className="text-xs text-slate-400 mt-1">Crediting your vault on Stellar</p>
                 </div>
               </motion.div>
             )}
 
             {/* STEP 4 — Done */}
-            {step === 'done' && result && (
+            {step === 'done' && (
               <motion.div key="done"
-                initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
                 className="py-8 flex flex-col items-center gap-4 text-center"
               >
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.1 }}
-                >
-                  <CheckCircle size={56} className="text-emerald-500" />
-                </motion.div>
+                <CheckCircle size={48} className="text-green-500" />
                 <div>
-                  <p className="text-lg font-bold text-slate-900">Payment Confirmed!</p>
-                  <p className="text-sm text-slate-500 mt-1">
-                    <span className="font-semibold text-slate-700">{result.amount_xlm.toFixed(2)} XLM</span> credited to your SaloMed Vault.
+                  <p className="font-bold text-slate-900 text-lg">
+                    {checkoutUrl ? 'Payment Initiated!' : 'Top-up Successful!'}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {checkoutUrl
+                      ? 'Checkout created. Vault credit remains blocked until verified USDC settlement.'
+                      : `SIMULATED: ₱${result?.amount_php.toLocaleString('en-PH', { minimumFractionDigits: 2 })} → ${result?.amount_xlm} USDC added to the demo vault`
+                    }
                   </p>
                 </div>
-                {txHash && (
-                  <div className="space-y-2">
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[10px] font-mono text-slate-400 break-all max-w-xs">
-                      TX: {txHash.slice(0, 64)}
-                    </div>
-                    <a
-                      href={`https://stellar.expert/explorer/testnet/account/${beneficiaryAddress}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-1.5 text-xs text-blue-600 font-semibold hover:text-blue-700 transition-colors"
-                    >
-                      <Zap size={13} className="text-blue-400" />
-                      View on Explorer
-                    </a>
-                  </div>
+
+                {/* PDAX real flow: open InstaPay checkout */}
+                {checkoutUrl && (
+                  <a
+                    href={checkoutUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 w-full py-3.5 rounded-xl bg-green-500 hover:bg-green-600 text-white font-semibold text-sm justify-center transition-all"
+                  >
+                    <ExternalLink size={15} /> Open InstaPay Checkout
+                  </a>
                 )}
-                <div className="bg-slate-50 border border-slate-100 rounded-lg px-3 py-1.5 text-[10px] font-mono text-slate-400">
-                  Ref: {result.reference_id}
-                </div>
-                <p className="text-xs text-slate-400">Returning to dashboard…</p>
+
+                {/* Demo / Stellar flow: show tx hash link */}
+                {txHash && !checkoutUrl && (
+                  <a
+                    href={`https://stellar.expert/explorer/testnet/tx/${txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-500 underline font-mono truncate max-w-full"
+                  >
+                    {txHash.length > 28 ? `${txHash.slice(0, 20)}…${txHash.slice(-8)}` : txHash}
+                  </a>
+                )}
+
+                <button
+                  onClick={onClose}
+                  className="w-full py-3 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-all"
+                >
+                  Close
+                </button>
               </motion.div>
             )}
 

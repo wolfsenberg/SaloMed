@@ -1,1 +1,5 @@
-export default function LoanPage() { return null; }
+import { redirect } from 'next/navigation';
+
+export default function LoanPage() {
+  redirect('/vault');
+}

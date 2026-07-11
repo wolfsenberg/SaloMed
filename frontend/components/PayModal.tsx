@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Building2, Coins, X, CheckCircle, Loader2, AlertCircle, Globe } from 'lucide-react';
+import { Building2, Coins, X, CheckCircle, Loader2, AlertCircle, Globe, ArrowLeftRight } from 'lucide-react';
 
 import { payHospital, calcPayment } from '@/lib/contract';
 import { saveTx } from '@/lib/transactions';

@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Award, CreditCard, Star, Lock, RefreshCw, Globe,
-  TrendingUp, ShieldCheck, Link, ArrowLeftRight, Smartphone, ChevronRight, X,
+  TrendingUp, ShieldCheck, Link, ArrowLeftRight,
 } from 'lucide-react';
-import { HealthVault, savingsXlm } from '@/lib/contract';
+import { HealthVault } from '@/lib/contract';
 import GCashModal from '@/components/GCashModal';
 import FreighterTopUpModal from '@/components/FreighterTopUpModal';
 import { useTranslation } from '@/lib/i18n/LanguageContext';
+import { getRuntimeStatus, RuntimeStatus } from '@/lib/runtime';
 
 interface Props {
   address: string | null;
@@ -17,7 +18,6 @@ interface Props {
   loading: boolean;
   connecting: boolean;
   onConnect: () => void;
-  onManualConnect: (address: string) => void;
   onRefresh: () => void;
 }
 
@@ -43,47 +43,34 @@ function tierNextLabel(vault: HealthVault): string {
 
 const card = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } };
 
-export default function VaultCard({ address, vault, loading, connecting, onConnect, onManualConnect, onRefresh }: Props) {
+export default function VaultCard({ address, vault, loading, connecting, onConnect, onRefresh }: Props) {
   const { t } = useTranslation();
   const [showGCash, setShowGCash]         = useState(false);
   const [showFreighter, setShowFreighter] = useState(false);
   const [showPhp, setShowPhp]             = useState(false);
-  const [phpRate, setPhpRate]             = useState(6);
-  const [isMobile, setIsMobile]           = useState(false);
-  const [showManual, setShowManual]       = useState(false);
-  const [manualAddr, setManualAddr]       = useState('');
-  const [manualErr, setManualErr]         = useState('');
+  const [phpRate, setPhpRate]             = useState(56);
+  const [rateSource, setRateSource]       = useState<'fixed_demo' | 'configured_indicative'>('fixed_demo');
+  const [runtime, setRuntime]             = useState<RuntimeStatus | null>(null);
 
   useEffect(() => {
     fetch(`${API_URL}/api/gcash-rate`)
       .then(r => r.json())
-      .then((d: { php_per_usdc: number }) => setPhpRate(d.php_per_usdc))
+      .then((d: { php_per_usdc: number; source?: string }) => {
+        setPhpRate(d.php_per_usdc);
+        setRateSource(d.source === 'configured_indicative' ? 'configured_indicative' : 'fixed_demo');
+      })
       .catch(() => {});
 
-    setIsMobile(/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+    getRuntimeStatus().then(setRuntime).catch(() => setRuntime(null));
   }, []);
 
   const xlmValue  = Number(vault.balance) / 10_000_000;
   const phpValue  = xlmValue * phpRate;
 
-  function fmtXlm(v: number) {
-    return v.toFixed(2);
-  }
-  function fmtPhp(v: number) {
-    return v.toFixed(2);
-  }
+  function fmtXlm(v: number) { return v.toFixed(2); }
+  function fmtPhp(v: number)  { return v.toFixed(2); }
 
   if (!address) {
-    function handleManualSubmit() {
-      const addr = manualAddr.trim();
-      if (!addr.startsWith('G') || addr.length !== 56) {
-        setManualErr('Invalid Stellar address. Must start with G and be 56 characters.');
-        return;
-      }
-      setManualErr('');
-      onManualConnect(addr);
-    }
-
     return (
       <div className="flex flex-col items-center justify-center min-h-[65vh] px-6 gap-6">
         <div className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center shadow-sm">
@@ -101,72 +88,17 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
         </div>
 
         <div className="w-full max-w-xs space-y-3">
-          {/* Freighter — desktop only */}
-          {!isMobile && (
-            <button
-              onClick={onConnect}
-              disabled={connecting}
-              className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-semibold text-sm transition-all disabled:opacity-60 shadow-sm flex items-center justify-center gap-2"
-            >
-              <Link size={15} />
-              {connecting ? t('common_connecting') : t('common_connect_wallet')}
-            </button>
-          )}
-
-          {/* Mobile notice */}
-          {isMobile && (
-            <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl p-3">
-              <Smartphone size={15} className="text-amber-500 shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-700 leading-relaxed">
-                Ang Freighter extension ay para sa desktop browser lamang. Sa mobile, i-paste ang iyong Stellar address para makita ang iyong vault.
-              </p>
-            </div>
-          )}
-
-          {/* Manual address — always visible, expands on tap */}
-          <AnimatePresence mode="wait">
-            {!showManual ? (
-              <motion.button
-                key="show-btn"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                onClick={() => setShowManual(true)}
-                className="w-full py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 text-sm font-medium transition-all flex items-center justify-center gap-2"
-              >
-                <ChevronRight size={14} />
-                {isMobile ? 'Enter your Stellar address' : 'Or enter address manually'}
-              </motion.button>
-            ) : (
-              <motion.div
-                key="manual-form"
-                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-                className="space-y-2"
-              >
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Stellar Address</p>
-                  <button onClick={() => { setShowManual(false); setManualAddr(''); setManualErr(''); }} className="text-slate-400 hover:text-slate-600">
-                    <X size={14} />
-                  </button>
-                </div>
-                <input
-                  value={manualAddr}
-                  onChange={e => { setManualAddr(e.target.value); setManualErr(''); }}
-                  placeholder="GABC…XYZ"
-                  spellCheck={false}
-                  className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl px-4 py-3 text-sm font-mono text-slate-800 placeholder-slate-400 outline-none transition-all"
-                />
-                {manualErr && <p className="text-xs text-red-500">{manualErr}</p>}
-                <button
-                  onClick={handleManualSubmit}
-                  className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
-                >
-                  <Link size={14} /> View Vault
-                </button>
-                <p className="text-[10px] text-slate-400 text-center">
-                  View-only on mobile. Use desktop Freighter to send transactions.
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <button
+            onClick={onConnect}
+            disabled={connecting}
+            className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-semibold text-sm transition-all disabled:opacity-60 shadow-sm flex items-center justify-center gap-2"
+          >
+            <Link size={15} />
+            {connecting ? t('common_connecting') : t('common_connect_wallet')}
+          </button>
+          <p className="text-[11px] text-amber-600 text-center">
+            Connect the wallet that will sign transactions. Manual address-only sessions are disabled.
+          </p>
 
           <p className="text-[11px] text-slate-400 text-center pt-1">
             {t('common_demo_testnet')}
@@ -194,36 +126,44 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
         {loading ? (
           <div className="h-11 w-44 bg-white/20 rounded-lg animate-pulse my-1" />
         ) : (
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={showPhp ? 'php' : 'xlm'}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.18 }}
-            >
-              {showPhp ? (
-                <p className="text-4xl font-bold tabular-nums">
-                  ₱{fmtPhp(phpValue)}
-                  <span className="text-xl font-normal text-blue-200 ml-2">PHP</span>
-                </p>
-              ) : (
-                <p className="text-4xl font-bold tabular-nums">
-                  {fmtXlm(xlmValue)}
-                  <span className="text-xl font-normal text-blue-200 ml-2">XLM</span>
-                </p>
+          <button
+            onClick={() => setShowPhp(v => !v)}
+            className="text-left w-full active:scale-[0.99] transition-transform"
+          >
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={showPhp ? 'php' : 'xlm'}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.18 }}
+              >
+                {showPhp ? (
+                  <p className="text-4xl font-bold tabular-nums">
+                    ₱{fmtPhp(phpValue)}
+                    <span className="text-xl font-normal text-blue-200 ml-2">PHP</span>
+                  </p>
+                ) : (
+                  <p className="text-4xl font-bold tabular-nums">
+                    {fmtXlm(xlmValue)}
+                    <span className="text-xl font-normal text-blue-200 ml-2">USDC</span>
+                  </p>
+                )}
+              </motion.div>
+            </AnimatePresence>
+            {/* Tap hint */}
+            <p className="text-xs text-blue-300 mt-1 flex items-center gap-1">
+              {showPhp
+                ? `≈ ${fmtXlm(xlmValue)} USDC`
+                : `≈ ₱${fmtPhp(phpValue)} PHP`}
+              <ArrowLeftRight size={10} className="text-blue-400" />
+              {rateSource === 'configured_indicative' && (
+                <span className="text-[10px] font-bold text-white/70 bg-white/15 px-1.5 py-0.5 rounded-full">
+                  Indicative PHP rate
+                </span>
               )}
-            </motion.div>
-          </AnimatePresence>
-        )}
-
-        {/* Conversion sub-label */}
-        {!loading && (
-          <p className="text-xs text-blue-300 mt-1">
-            {showPhp
-              ? `≈ ${fmtXlm(xlmValue)} XLM`
-              : `≈ ₱${fmtPhp(phpValue)} PHP`}
-          </p>
+            </p>
+          </button>
         )}
 
         <div className="flex items-center justify-between mt-1">
@@ -247,47 +187,38 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
           <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest text-center">
             {t('vault_topup')}
           </p>
-          <div className="flex gap-2">
-            {/* GCash top-up */}
-            <button
-              onClick={() => setShowGCash(true)}
-              className="flex-1 flex items-center gap-1.5 bg-white/20 hover:bg-white/30 active:scale-[0.97] transition-all rounded-xl px-3 py-2.5 text-xs font-semibold justify-center"
-            >
-              <span className="w-4 h-4 bg-white rounded flex items-center justify-center text-[#007DFF] text-[10px] font-black leading-none shrink-0">G</span>
-              GCash
-            </button>
-
-            {/* Freighter top-up */}
-            <button
-              onClick={() => setShowFreighter(true)}
-              className="flex-1 flex items-center gap-1.5 bg-white/20 hover:bg-white/30 active:scale-[0.97] transition-all rounded-xl px-3 py-2.5 text-xs font-semibold justify-center"
-            >
-              <svg width="14" height="14" viewBox="0 0 32 32" fill="none" className="shrink-0">
-                <circle cx="16" cy="16" r="16" fill="white" fillOpacity="0.9"/>
-                <path d="M16 6L26 12V20L16 26L6 20V12L16 6Z" fill="#007DFF"/>
-              </svg>
-              Freighter
-            </button>
-
-            {/* Currency toggle */}
-            <button
-              onClick={() => setShowPhp(v => !v)}
-              className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 active:scale-[0.97] transition-all rounded-xl px-3 py-2.5 text-xs font-semibold"
-              title={showPhp ? 'Show XLM' : 'Show PHP'}
-            >
-              <ArrowLeftRight size={13} />
-              {showPhp ? 'XLM' : 'PHP'}
-            </button>
+          <div className="grid grid-cols-1 gap-2">
+            {runtime?.mode === 'demo' && (
+              <button
+                onClick={() => setShowGCash(true)}
+                className="flex items-center gap-2 bg-white/20 hover:bg-white/30 active:scale-[0.97] transition-all rounded-xl px-3 py-3 text-xs font-semibold justify-center"
+              >
+                <span className="w-5 h-5 bg-white rounded-md flex items-center justify-center text-[#007DFF] text-[11px] font-black">G</span>
+                Simulate GCash top-up
+              </button>
+            )}
+            {(runtime?.mode === 'pdax_uat' || runtime?.mode === 'pdax_prod') && (
+              <div className="rounded-xl px-3 py-3 text-xs text-center bg-amber-300/20 border border-amber-200/30 text-amber-100">
+                PDAX top-up disabled until USDC settlement is implemented and verified.
+              </div>
+            )}
+            {runtime?.mode === 'stellar_testnet' && (
+              <button
+                onClick={() => setShowFreighter(true)}
+                className="flex items-center gap-2 bg-white/20 hover:bg-white/30 active:scale-[0.97] transition-all rounded-xl px-3 py-3 text-xs font-semibold justify-center"
+              >
+                Deposit USDC with Freighter
+              </button>
+            )}
           </div>
-        </div>
-      </motion.div>
+        </div>      </motion.div>
 
       {/* SaloPoints + tier */}
       <motion.div variants={card} className="bg-white rounded-2xl shadow-card border border-slate-100 p-5">
         <div className="flex items-start justify-between mb-4">
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1 flex items-center gap-1.5">
-              <Star size={12} /> {t('vault_cashback')}
+              <Star size={12} /> SaloPoints
             </p>
             <p className="text-3xl font-bold text-slate-900 tabular-nums">
               {vault.salo_points.toLocaleString()}
@@ -312,28 +243,14 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
         </div>
       </motion.div>
 
-      {/* Vault Savings */}
+      {/* SaloPoints are non-monetary until a funded redemption mechanism exists. */}
       <motion.div variants={card} className="bg-white rounded-2xl shadow-card border border-slate-100 p-5">
-        <div className="flex items-start justify-between mb-3">
-          <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1 flex items-center gap-1.5">
-              <TrendingUp size={12} /> Vault Savings
-            </p>
-            <p className="text-2xl font-bold text-slate-900 tabular-nums">
-              {savingsXlm(vault).toFixed(2)}
-              <span className="text-base font-normal text-slate-400 ml-1.5">XLM</span>
-            </p>
-            <p className="text-xs text-slate-400 mt-0.5">
-              ≈ ₱{(savingsXlm(vault) * phpRate).toFixed(2)} PHP
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-slate-400 mb-0.5">50 pts = 1 XLM</p>
-            <p className="text-xs font-semibold text-slate-500">{vault.salo_points.toLocaleString()} pts</p>
-          </div>
-        </div>
-        <p className="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2">
-          {t('vault_cashback_desc')}
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+          <TrendingUp size={12} /> SaloPoints policy
+        </p>
+        <p className="text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2 leading-relaxed">
+          Earn 1 SaloPoint for every full 1 USDC paid through the vault. Points determine your credit tier only;
+          they are not money, cashback, or a spendable savings balance.
         </p>
       </motion.div>
 
@@ -341,8 +258,8 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
       {/* Stats */}
       <motion.div variants={card} className="grid grid-cols-2 gap-3">
         {[
-          { label: 'Loan Rate',    value: tier.rate,           sub: 'interest p.a.',      Icon: CreditCard  },
-          { label: 'Cashback Rate', value: 'Up to 2%',           sub: '2% hospital · 1% pharmacy', Icon: Star },
+          { label: 'Vault Asset', value: 'USDC', sub: '7 decimal units', Icon: CreditCard },
+          { label: 'Points Rule', value: '1 / USDC', sub: 'per full USDC paid', Icon: Star },
           { label: 'Vault Status', value: vault.balance > 0n ? t('vault_active') : t('vault_empty'), sub: t('vault_escrow'), Icon: ShieldCheck },
           { label: 'Credit Tier',  value: vault.credit_tier,   sub: tierNextLabel(vault), Icon: Award       },
         ].map(stat => (
@@ -357,17 +274,16 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
         ))}
       </motion.div>
 
-      {/* How to earn */}
+      {/* Points rules */}
       <motion.div variants={card} className="bg-blue-50 border border-blue-100 rounded-2xl p-4 space-y-2">
         <p className="text-xs font-bold text-blue-700 uppercase tracking-wide flex items-center gap-1.5">
-          <TrendingUp size={13} /> {t('vault_earn_title')}
+          <TrendingUp size={13} /> Points and tiers
         </p>
         {[
-          t('vault_earn_tip1'),
-          t('vault_earn_tip2'),
-          t('vault_earn_tip3'),
-          t('vault_earn_tip4'),
-          t('vault_earn_tip5'),
+          'Earn 1 point for each full USDC paid to a whitelisted provider.',
+          'Bronze: below 100 points; Silver: 100–499; Gold: 500 or more.',
+          'Points cannot be converted, withdrawn, transferred, or spent.',
+          `PHP display uses a ${rateSource === 'fixed_demo' ? 'fixed demo' : 'configured indicative'} rate.`,
         ].map(tip => (
           <div key={tip} className="flex gap-2 text-xs text-blue-600">
             <span className="shrink-0 mt-0.5 font-bold">–</span>
@@ -383,6 +299,33 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
         >
           <RefreshCw size={12} /> Refresh vault
         </button>
+      </motion.div>
+
+      {/* Purpose lock notice — always visible, reinforces the core value */}
+      <motion.div variants={card} className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+        <div className="flex items-start gap-3">
+          <ShieldCheck size={18} className="text-blue-500 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-xs font-bold text-blue-800 uppercase tracking-wide">
+              Purpose-Locked Health Fund
+            </p>
+            <p className="text-xs text-blue-700 leading-relaxed">
+              {runtime?.simulated
+                ? 'This simulated balance is enforced by the demo ledger and can only move through demo-whitelisted healthcare flows. No real money is involved.'
+                : 'Funds in this vault are enforced by the configured Soroban contract and can only be paid to contract-whitelisted healthcare providers.'}
+            </p>
+            {!runtime?.simulated && (
+              <a
+                href="https://stellar.expert/explorer/testnet/contract/CAO3K6OYB5A3VNVV3HKCSVG3ZZ442DZCDKAXG4CTSLBTN7FOYCCBRZ34"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[10px] text-blue-500 hover:text-blue-700 font-semibold mt-1"
+              >
+                <Globe size={10} /> View smart contract on Stellar Expert
+              </a>
+            )}
+          </div>
+        </div>
       </motion.div>
     </motion.div>
 
