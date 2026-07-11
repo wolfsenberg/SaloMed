@@ -46,7 +46,7 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
 
   const rate       = TIER_RATE[vault.credit_tier];
   const parsedPhp  = parseFloat(amountPhp) || 0;
-  const parsedXlm  = parsedPhp / phpRate;
+  const parsedUsdc = parsedPhp / phpRate;
   const monthly    = parsedPhp > 0 ? monthlyPayment(parsedPhp, rate, selectedTerm) : 0;
   const totalPay   = monthly * selectedTerm;
   const totalInt   = totalPay - parsedPhp;
@@ -64,7 +64,7 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
     if (address) {
       saveTx(address, {
         type:         'loan',
-        amountXlm:    parsedXlm,
+        amountXlm:    parsedUsdc,
         amountPhp:    parsedPhp,
         termMonths:   selectedTerm,
         monthlyPhp:   monthly,
@@ -128,9 +128,9 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
                       {pendingLoans.length === 1 ? 'Loan Pending Review' : 'Multiple Loans Pending Review'}
                     </p>
                     <p className="text-xs text-amber-700 leading-relaxed">
-                      {pendingLoans.length === 1 
-                        ? `Your ${php(pendingLoans[0].amountPhp)} loan application is being verified by our team.`
-                        : `You have ${pendingLoans.length} applications (Total: ${php(pendingLoans.reduce((sum, l) => sum + l.amountPhp, 0))}) being verified.`}
+                      {pendingLoans.length === 1
+                        ? `Your ${php(pendingLoans[0].amountPhp)} pilot application is recorded as pending in this preview.`
+                        : `You have ${pendingLoans.length} pilot applications (Total: ${php(pendingLoans.reduce((sum, l) => sum + l.amountPhp, 0))}) recorded as pending.`}
                     </p>
                   </div>
                 </div>
@@ -209,12 +209,12 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
 
             {/* How it works */}
             <div className="bg-white rounded-2xl shadow-card border border-slate-100 p-5 space-y-3">
-              <h3 className="text-sm font-bold text-slate-700">How It Works</h3>
+              <h3 className="text-sm font-bold text-slate-700">How the Pilot Flow Is Modeled</h3>
               {[
-                'Apply for a micro-loan to cover your medical bill gap',
-                'Loan is credited to your vault instantly (demo)',
-                'Repay in equal monthly installments',
-                'Earn SaloPoints to improve your tier and lower your rate',
+                'Preview a health-credit request for a medical bill gap',
+                'Approved proceeds would be reflected in the purpose-bound vault',
+                'Illustrative repayment terms are shown in equal installments',
+                'SaloPoints illustrate how a future tier could affect terms',
               ].map((s, i) => (
                 <div key={s} className="flex gap-3 items-start">
                   <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
@@ -297,7 +297,7 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
 
               {parsedPhp > 0 && (
                 <p className="text-xs text-slate-400 text-right">
-                  {showXlm ? `= ${php(parsedPhp)}` : `≈ ${parsedXlm.toFixed(4)} XLM`}
+                  {showXlm ? `= ${php(parsedPhp)}` : `≈ ${parsedUsdc.toFixed(4)} USDC`}
                 </p>
               )}
 
@@ -397,17 +397,17 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
               <Clock size={36} className="text-amber-500" />
             </div>
             <div className="space-y-1">
-              <h3 className="text-xl font-bold text-slate-900">Application For Approval</h3>
+              <h3 className="text-xl font-bold text-slate-900">Pilot Application Recorded</h3>
               <p className="text-sm text-slate-500">
-                Your loan request for <span className="font-bold text-slate-900">{php(parsedPhp)}</span> (≈ {parsedXlm.toFixed(4)} XLM) is now being reviewed.
+                Your preview request for <span className="font-bold text-slate-900">{php(parsedPhp)}</span> (≈ {parsedUsdc.toFixed(4)} USDC) was saved locally for this pilot.
               </p>
               <p className="text-xs text-slate-400 mt-2">
                 Term: {selectedTerm} months · Rate: {rate}% p.a.
               </p>
             </div>
             <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-xs text-amber-700 max-w-xs leading-relaxed">
-              <p className="font-bold mb-1">Status: Pending Verification</p>
-              A SaloMed representative will contact you shortly to complete the verification process.
+              <p className="font-bold mb-1">Status: Preview only</p>
+              No real credit application was submitted, and no representative will contact you from this pilot flow.
             </div>
             <button
               onClick={() => { setStep('overview'); setAmountPhp(''); }}

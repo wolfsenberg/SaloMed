@@ -32,7 +32,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
   const [rate, setRate]               = useState(PHP_PER_USDC);
   const [rateSource, setRateSource]   = useState<'fixed_demo' | 'configured_indicative'>('fixed_demo');
   const [result, setResult]           = useState<LocalQRResult | null>(null);
-  const [txHash, setTxHash]           = useState<string | null>(null);
+  const [ledgerReference, setLedgerReference] = useState<string | null>(null);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [error, setError]             = useState<string | null>(null);
 
@@ -103,13 +103,12 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
       // ── Demo / fallback flow ──────────────────────────────────────────────
       const hash = pdaxResult.tx_result || pdaxResult.reference_id || 'ok';
 
-      setTxHash(hash);
+      setLedgerReference(hash);
       saveTx(beneficiaryAddress, {
         type:      'topup',
         amountXlm: result.amount_xlm,
         amountPhp: result.amount_php,
         gcashRef:  result.reference_id,
-        txHash:    hash,
         status:    'success',
       });
 
@@ -122,7 +121,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
 
     } catch (e: unknown) {
       console.error('GCash demo top-up failed:', e);
-      setError(e instanceof Error ? e.message : 'Simulated top-up failed. Please retry.');
+      setError(e instanceof Error ? e.message : 'Pilot top-up failed. Please retry.');
       setStep('qr');
     }
   }
@@ -236,7 +235,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                       </div>
                       <div className="text-right">
                         <p className="text-lg font-bold text-[#007DFF]">{xlmAmount}</p>
-                        <p className="text-xs text-blue-400">USDC to demo vault</p>
+                        <p className="text-xs text-blue-400">Test USDC to pilot vault</p>
                       </div>
                     </motion.div>
                   )}
@@ -268,8 +267,8 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                 className="space-y-4"
               >
                 <div className="text-center">
-                  <p className="font-bold text-slate-900 text-base">Simulated GCash QR</p>
-                  <p className="text-xs text-amber-600 mt-0.5 font-semibold">DEMO ONLY — do not send real money to this QR</p>
+                  <p className="font-bold text-slate-900 text-base">Pilot GCash QR</p>
+                  <p className="text-xs text-slate-500 mt-0.5 font-medium">Interface testing only · Do not transfer funds to this QR</p>
                 </div>
 
                 <div className="flex justify-center">
@@ -294,7 +293,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { label: 'You send',   value: `₱${result.amount_php.toLocaleString('en-PH', { minimumFractionDigits: 2 })}` },
-                    { label: 'Demo vault gets', value: `${result.amount_xlm} USDC` },
+                    { label: 'Pilot vault gets', value: `${result.amount_xlm} test USDC` },
                   ].map(pill => (
                     <div key={pill.label} className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-center">
                       <p className="text-xs text-slate-400">{pill.label}</p>
@@ -307,7 +306,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                   onClick={handleSimulatePayment}
                   className="w-full py-3.5 rounded-xl bg-[#007DFF] hover:bg-blue-600 active:scale-[0.98] text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
                 >
-                  <Zap size={15} /> Simulate GCash Payment
+                  <Zap size={15} /> Confirm Test Payment
                 </button>
               </motion.div>
             )}
@@ -321,7 +320,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                 <Loader2 size={40} className="text-[#007DFF] animate-spin" />
                 <div className="text-center">
                   <p className="font-semibold text-slate-800">Processing payment…</p>
-                  <p className="text-xs text-slate-400 mt-1">Crediting your vault on Stellar</p>
+                  <p className="text-xs text-slate-400 mt-1">Recording test funds in your pilot vault</p>
                 </div>
               </motion.div>
             )}
@@ -340,7 +339,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                   <p className="text-xs text-slate-500 mt-1">
                     {checkoutUrl
                       ? 'Checkout created. Vault credit remains blocked until verified USDC settlement.'
-                      : `SIMULATED: ₱${result?.amount_php.toLocaleString('en-PH', { minimumFractionDigits: 2 })} → ${result?.amount_xlm} USDC added to the demo vault`
+                      : `Pilot top-up recorded: ₱${result?.amount_php.toLocaleString('en-PH', { minimumFractionDigits: 2 })} → ${result?.amount_xlm} test USDC`
                     }
                   </p>
                 </div>
@@ -357,16 +356,15 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                   </a>
                 )}
 
-                {/* Demo / Stellar flow: show tx hash link */}
-                {txHash && !checkoutUrl && (
-                  <a
-                    href={`https://stellar.expert/explorer/testnet/tx/${txHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-blue-500 underline font-mono truncate max-w-full"
-                  >
-                    {txHash.length > 28 ? `${txHash.slice(0, 20)}…${txHash.slice(-8)}` : txHash}
-                  </a>
+                {ledgerReference && !checkoutUrl && (
+                  <div className="max-w-full text-center">
+                    <p className="text-[10px] uppercase tracking-wide text-slate-400">Pilot ledger reference</p>
+                    <p className="text-xs text-slate-500 font-mono truncate mt-0.5">
+                      {ledgerReference.length > 28
+                        ? `${ledgerReference.slice(0, 20)}…${ledgerReference.slice(-8)}`
+                        : ledgerReference}
+                    </p>
+                  </div>
                 )}
 
                 <button

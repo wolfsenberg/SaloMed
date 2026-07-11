@@ -23,7 +23,7 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
   const [rate, setRate]           = useState(PHP_PER_USDC);
   const [error, setError]         = useState<string | null>(null);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
-  const [txHash, setTxHash]       = useState<string | null>(null);
+  const [ledgerReference, setLedgerReference] = useState<string | null>(null);
   const [refId, setRefId]         = useState<string | null>(null);
 
   useEffect(() => {
@@ -63,16 +63,15 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
         });
         setStep('done');
       } else {
-        // Fallback — PDAX credited via demo
+        // Pilot ledger path. This reference is not a Stellar transaction hash.
         const hash = result.tx_result || result.reference_id || 'ok';
-        setTxHash(hash);
+        setLedgerReference(hash);
         setRefId(result.reference_id);
         saveTx(beneficiaryAddress, {
           type:      'topup',
           amountXlm: parsedPhp / rate,
           amountPhp: parsedPhp,
           gcashRef:  result.reference_id,
-          txHash:    hash,
           status:    'success',
         });
 
@@ -245,7 +244,7 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
                   <p className="text-xs text-slate-500 mt-1">
                     {checkoutUrl
                       ? 'Complete payment via the InstaPay link. Vault credit remains pending until verified USDC settlement.'
-                      : `₱${parsedPhp.toLocaleString('en-PH', { minimumFractionDigits: 2 })} → ${xlmAmount} USDC credited to vault`
+                      : `Pilot top-up recorded: ₱${parsedPhp.toLocaleString('en-PH', { minimumFractionDigits: 2 })} → ${xlmAmount} test USDC`
                     }
                   </p>
                 </div>
@@ -266,16 +265,15 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
                   </a>
                 )}
 
-                {/* Fallback: show tx link */}
-                {txHash && !checkoutUrl && (
-                  <a
-                    href={`https://stellar.expert/explorer/testnet/tx/${txHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-blue-500 underline font-mono truncate max-w-full"
-                  >
-                    {txHash.length > 28 ? `${txHash.slice(0, 20)}…${txHash.slice(-8)}` : txHash}
-                  </a>
+                {ledgerReference && !checkoutUrl && (
+                  <div className="max-w-full text-center">
+                    <p className="text-[10px] uppercase tracking-wide text-slate-400">Pilot ledger reference</p>
+                    <p className="text-xs text-slate-500 font-mono truncate mt-0.5">
+                      {ledgerReference.length > 28
+                        ? `${ledgerReference.slice(0, 20)}…${ledgerReference.slice(-8)}`
+                        : ledgerReference}
+                    </p>
+                  </div>
                 )}
 
                 <button

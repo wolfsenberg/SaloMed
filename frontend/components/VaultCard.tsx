@@ -101,7 +101,11 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
           </p>
 
           <p className="text-[11px] text-slate-400 text-center pt-1">
-            {t('common_demo_testnet')}
+            {runtime?.real_money_enabled
+              ? 'Live settlement environment'
+              : runtime?.mode === 'stellar_testnet'
+                ? 'Pilot environment · Stellar Testnet · Test funds only'
+                : t('common_demo_testnet')}
           </p>
         </div>
       </div>
@@ -170,15 +174,17 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
           <p className="text-xs text-blue-300 font-mono truncate mr-2">
             {address.slice(0, 8)}…{address.slice(-8)}
           </p>
-          <a
-            href={`https://stellar.expert/explorer/testnet/account/${address}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[10px] bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded flex items-center gap-1 transition-colors"
-          >
-            <Globe size={10} />
-            Explorer
-          </a>
+          {runtime?.mode === 'stellar_testnet' && (
+            <a
+              href={`https://stellar.expert/explorer/testnet/account/${address}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded flex items-center gap-1 transition-colors"
+            >
+              <Globe size={10} />
+              Explorer
+            </a>
+          )}
         </div>
 
         {/* Actions row */}
@@ -194,7 +200,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
                 className="flex items-center gap-2 bg-white/20 hover:bg-white/30 active:scale-[0.97] transition-all rounded-xl px-3 py-3 text-xs font-semibold justify-center"
               >
                 <span className="w-5 h-5 bg-white rounded-md flex items-center justify-center text-[#007DFF] text-[11px] font-black">G</span>
-                Simulate GCash top-up
+                Add GCash test funds
               </button>
             )}
             {(runtime?.mode === 'pdax_uat' || runtime?.mode === 'pdax_prod') && (
@@ -283,7 +289,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
           'Earn 1 point for each full USDC paid to a whitelisted provider.',
           'Bronze: below 100 points; Silver: 100–499; Gold: 500 or more.',
           'Points cannot be converted, withdrawn, transferred, or spent.',
-          `PHP display uses a ${rateSource === 'fixed_demo' ? 'fixed demo' : 'configured indicative'} rate.`,
+          `PHP display uses a ${rateSource === 'fixed_demo' ? 'pilot reference' : 'configured indicative'} rate.`,
         ].map(tip => (
           <div key={tip} className="flex gap-2 text-xs text-blue-600">
             <span className="shrink-0 mt-0.5 font-bold">–</span>
@@ -311,10 +317,10 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
             </p>
             <p className="text-xs text-blue-700 leading-relaxed">
               {runtime?.simulated
-                ? 'This simulated balance is enforced by the demo ledger and can only move through demo-whitelisted healthcare flows. No real money is involved.'
+                ? 'This pilot balance uses test funds recorded in the SaloMed ledger and can move only through the pilot healthcare flow. Live settlement is not enabled.'
                 : 'Funds in this vault are enforced by the configured Soroban contract and can only be paid to contract-whitelisted healthcare providers.'}
             </p>
-            {!runtime?.simulated && (
+            {runtime?.mode === 'stellar_testnet' && (
               <a
                 href="https://stellar.expert/explorer/testnet/contract/CAO3K6OYB5A3VNVV3HKCSVG3ZZ442DZCDKAXG4CTSLBTN7FOYCCBRZ34"
                 target="_blank"

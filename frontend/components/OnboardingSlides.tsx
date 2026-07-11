@@ -8,9 +8,11 @@ import { useTranslation } from '@/lib/i18n/LanguageContext';
 
 interface Props {
   onComplete: () => void;
+  environmentNotice?: string;
+  liveSettlementEnabled?: boolean;
 }
 
-export default function OnboardingSlides({ onComplete }: Props) {
+export default function OnboardingSlides({ onComplete, environmentNotice, liveSettlementEnabled = false }: Props) {
   const [current, setCurrent] = useState(0);
   const { t } = useTranslation();
 
@@ -42,7 +44,9 @@ export default function OnboardingSlides({ onComplete }: Props) {
       ),
       tag: 'Your Health Alkansya',
       title: t('onboard_slide1_title'),
-      desc: t('onboard_slide1_desc'),
+      desc: liveSettlementEnabled
+        ? 'Use a purpose-bound health vault that can move funds only through configured healthcare flows.'
+        : t('onboard_slide1_desc'),
     },
     {
       // Slide 2 — How it works (familiar UX)
@@ -68,7 +72,9 @@ export default function OnboardingSlides({ onComplete }: Props) {
       ),
       tag: 'Familiar. Simple. Secure.',
       title: t('onboard_slide2_title'),
-      desc: t('onboard_slide2_desc'),
+      desc: liveSettlementEnabled
+        ? 'Review PHP reference amounts and confirm each healthcare transaction before settlement.'
+        : t('onboard_slide2_desc'),
     },
     {
       // Slide 3 — Remittance / OFW
@@ -93,13 +99,15 @@ export default function OnboardingSlides({ onComplete }: Props) {
             transition={{ delay: 0.6, type: 'spring', stiffness: 200 }}
             className="absolute -top-2 -left-2 bg-white/20 border border-white/30 rounded-full px-2.5 py-1"
           >
-            <span className="text-[10px] font-bold text-white">On-chain ✓</span>
+            <span className="text-[10px] font-bold text-white">Pilot flow ✓</span>
           </motion.div>
         </div>
       ),
       tag: 'For OFWs & Families',
       title: t('onboard_slide3_title'),
-      desc: t('onboard_slide3_desc'),
+      desc: liveSettlementEnabled
+        ? 'Send purpose-bound health support and review confirmed settlement records in your activity history.'
+        : t('onboard_slide3_desc'),
     },
   ];
 
@@ -183,6 +191,11 @@ export default function OnboardingSlides({ onComplete }: Props) {
 
           {/* Bottom — dots + button */}
           <div className="px-6 pb-8 pt-4 shrink-0 space-y-5">
+            <div className="rounded-xl border border-white/15 bg-slate-950/15 px-3 py-2 text-center">
+              <p className="text-xs font-semibold text-blue-50 leading-relaxed">
+                {environmentNotice ?? 'Pilot environment · Test funds only · Live settlement is not enabled'}
+              </p>
+            </div>
             {/* Step dots */}
             <div className="flex justify-center gap-2">
               {SLIDES.map((_, i) => (

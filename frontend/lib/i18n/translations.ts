@@ -66,11 +66,11 @@ export const TRANSLATIONS = {
     onboard_next: 'Next',
     onboard_start: 'Get Started',
     onboard_slide1_title: 'Your Health Alkansya',
-    onboard_slide1_desc: 'Unlike regular e-wallets, SaloMed vaults are Purpose-Bound. The funds you save here are strictly locked and can exclusively be spent on healthcare at whitelisted hospitals and pharmacies.',
+    onboard_slide1_desc: 'Explore a purpose-bound health vault using test funds and an illustrative provider directory in this pilot environment.',
     onboard_slide2_title: 'Zero-Crypto Anxiety',
-    onboard_slide2_desc: 'Enjoy a seamless app experience that feels exactly like your everyday e-wallet. Fund your vault in PHP and scan to pay instantly, while unbreakable Stellar blockchain security runs quietly in the background.',
+    onboard_slide2_desc: 'Preview PHP reference amounts, pilot top-ups, and healthcare payment flows in a familiar mobile experience.',
     onboard_slide3_title: 'The Ultimate Health Pasaload',
-    onboard_slide3_desc: 'Send instant medical support to your family anywhere. With all transactions permanently recorded on-chain, you have guaranteed peace of mind that your padala is spent exactly on medicine and healthcare.',
+    onboard_slide3_desc: 'Record test health support for a family member in the pilot ledger. Stellar mode separately shows confirmed contract events when enabled.',
 
     // Language Selection
     lang_select_title: 'Choose a Language',
@@ -87,8 +87,8 @@ export const TRANSLATIONS = {
     common_disconnect: 'Disconnect',
     common_desktop_view: 'Desktop View',
     common_mobile_view: 'Mobile View',
-    common_demo_testnet: 'Demo mode · Ensure Freighter is set to Testnet',
-    common_demo_simulated: 'Demo mode — applications are simulated.',
+    common_demo_testnet: 'Pilot environment · Test funds only',
+    common_demo_simulated: 'Pilot preview · Terms and decisions are illustrative.',
   },
   en: {
     // Navigation
@@ -155,11 +155,11 @@ export const TRANSLATIONS = {
     onboard_next: 'Next',
     onboard_start: 'Get Started',
     onboard_slide1_title: 'Your Health Alkansya',
-    onboard_slide1_desc: 'Unlike regular e-wallets, SaloMed vaults are Purpose-Bound. The funds you save here are strictly locked and can exclusively be spent on healthcare at whitelisted hospitals and pharmacies.',
+    onboard_slide1_desc: 'Explore a purpose-bound health vault using test funds and an illustrative provider directory in this pilot environment.',
     onboard_slide2_title: 'Zero-Crypto Anxiety',
-    onboard_slide2_desc: 'Enjoy a seamless app experience that feels exactly like your everyday e-wallet. Fund your vault in PHP and scan to pay instantly, while unbreakable Stellar blockchain security runs quietly in the background.',
+    onboard_slide2_desc: 'Preview PHP reference amounts, pilot top-ups, and healthcare payment flows in a familiar mobile experience.',
     onboard_slide3_title: 'The Ultimate Health Pasaload',
-    onboard_slide3_desc: 'Send instant medical support to your family anywhere. With all transactions permanently recorded on-chain, you have guaranteed peace of mind that your remittance is spent exactly on medicine and healthcare.',
+    onboard_slide3_desc: 'Record test health support for a family member in the pilot ledger. Stellar mode separately shows confirmed contract events when enabled.',
 
     // Language Selection
     lang_select_title: 'Choose a Language',
@@ -176,8 +176,8 @@ export const TRANSLATIONS = {
     common_disconnect: 'Disconnect',
     common_desktop_view: 'Desktop View',
     common_mobile_view: 'Mobile View',
-    common_demo_testnet: 'Demo mode · Ensure Freighter is set to Testnet',
-    common_demo_simulated: 'Demo mode — applications are simulated.',
+    common_demo_testnet: 'Pilot environment · Test funds only',
+    common_demo_simulated: 'Pilot preview · Terms and decisions are illustrative.',
   },
   tl: {
     // Navigation
@@ -244,11 +244,11 @@ export const TRANSLATIONS = {
     onboard_next: 'Susunod',
     onboard_start: 'Magsimula',
     onboard_slide1_title: 'Ang Iyong Health Alkansya',
-    onboard_slide1_desc: 'Hindi tulad ng mga karaniwang e-wallet, ang SaloMed vaults ay may layunin. Ang perang iniipon mo rito ay naka-lock at tanging sa mga nakalistang ospital at parmasya lamang pwedeng gastusin para sa kalusugan.',
+    onboard_slide1_desc: 'Subukan ang purpose-bound health vault gamit ang test funds at illustrative provider directory sa pilot environment.',
     onboard_slide2_title: 'Walang Kaba sa Crypto',
-    onboard_slide2_desc: 'I-enjoy ang app na parang ordinaryong e-wallet lang. Pondohan ang iyong vault gamit ang PHP at mag-scan para makapagbayad agad, habang sinisiguro ng Stellar blockchain ang seguridad.',
+    onboard_slide2_desc: 'I-preview ang PHP reference amounts, pilot top-ups, at healthcare payment flows sa pamilyar na mobile experience.',
     onboard_slide3_title: 'Ang Pinaka-aasahang Health Pasaload',
-    onboard_slide3_desc: 'Magpadala ng tulong medikal sa iyong pamilya kahit saan. Dahil nakatala nang permanente ang lahat ng transaksyon sa blockchain, nakakasiguro kang ang padala mo ay napupunta talaga sa pambili ng gamot at pagpapagamot.',
+    onboard_slide3_desc: 'Mag-record ng test health support para sa pamilya sa pilot ledger. Hiwalay na ipinapakita ng Stellar mode ang confirmed contract events kapag enabled.',
 
     // Language Selection
     lang_select_title: 'Pumili ng Wika',
@@ -265,8 +265,8 @@ export const TRANSLATIONS = {
     common_disconnect: 'I-disconnect',
     common_desktop_view: 'Desktop View',
     common_mobile_view: 'Mobile View',
-    common_demo_testnet: 'Demo mode · Siguraduhing nasa Testnet ang Freighter',
-    common_demo_simulated: 'Demo mode — simulated lamang ang mga applications.',
+    common_demo_testnet: 'Pilot environment · Test funds lamang',
+    common_demo_simulated: 'Pilot preview · Halimbawa lamang ang terms at decisions.',
   }
 };
 

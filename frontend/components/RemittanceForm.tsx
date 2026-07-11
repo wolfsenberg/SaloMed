@@ -98,9 +98,14 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
         <CheckCircle size={52} className="text-emerald-500" />
         <h2 className="text-xl font-bold text-slate-900">Health Padala sent</h2>
         <p className="text-sm text-slate-500">
-          {amountAsset.toFixed(7)} USDC was moved into the beneficiary&apos;s locked health vault.
+          {simulated
+            ? `${amountAsset.toFixed(7)} test USDC was recorded for the beneficiary in the pilot ledger.`
+            : `${amountAsset.toFixed(7)} USDC was moved into the beneficiary's locked health vault.`}
         </p>
-        {simulated && <p className="text-xs font-bold text-amber-600">SIMULATED — NO REAL MONEY</p>}
+        {simulated && <p className="text-xs font-semibold text-slate-500">Pilot ledger transfer · Test funds</p>}
+        <p className="text-[10px] uppercase tracking-wide text-slate-400">
+          {simulated ? 'Pilot reference' : 'Transaction hash'}
+        </p>
         <p className="max-w-xs truncate font-mono text-xs text-slate-400">{txHash}</p>
       </motion.div>
     );

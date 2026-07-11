@@ -120,15 +120,20 @@ export default function ProviderCombobox({ providerType, value, onChange }: Prop
 
       {selected && (
         <p className="mt-1 text-xs text-emerald-600 font-medium flex items-center gap-1">
-          <CheckCircle2 size={11} /> Simulated provider whitelist
+          <CheckCircle2 size={11} /> Pilot provider directory
         </p>
       )}
       {query.trim().length > 0 && !selected && filtered.length === 0 && (
         <p className="mt-1 text-xs text-slate-400">No matching {providerType} found in whitelist.</p>
       )}
-      {runtimeMode && runtimeMode !== 'demo' && (
+      {runtimeMode === 'stellar_testnet' && (
         <p className="mt-1 text-xs text-amber-600">
           Testnet mode requires a valid contract-whitelisted Stellar address in Manual Pay.
+        </p>
+      )}
+      {(runtimeMode === 'pdax_uat' || runtimeMode === 'pdax_prod') && (
+        <p className="mt-1 text-xs text-amber-600">
+          Partner settlement provider configuration is not enabled in this build.
         </p>
       )}
     </div>

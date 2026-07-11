@@ -111,7 +111,7 @@ export async function pdaxInitiateDeposit(
       amount_php: amountPhp,
       amount_usdc: amountPhp / Number(runtime.php_per_asset),
       beneficiary: beneficiaryAddress,
-      message: 'SIMULATED top-up completed in the demo vault. No real money moved.',
+      message: 'Pilot top-up completed with test funds in the SaloMed ledger.',
       status: 'completed',
     };
   }

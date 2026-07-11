@@ -247,6 +247,12 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
       <AnimatePresence>
         {showOnboarding && (
           <OnboardingSlides
+            liveSettlementEnabled={runtime?.real_money_enabled === true}
+            environmentNotice={runtime?.real_money_enabled
+              ? 'Live settlement environment · Review each transaction before confirming'
+              : runtime?.mode === 'stellar_testnet'
+                ? 'Pilot environment · Stellar Testnet · Test funds only'
+                : 'Pilot environment · Test funds only · Live settlement is not enabled'}
             onComplete={() => {
               setShowOnboarding(false);
               localStorage.setItem('salomed_onboarded', 'true');
@@ -265,9 +271,11 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
       </AnimatePresence>
 
       <div className={`h-dvh flex flex-col w-full overflow-hidden ${forceMobile ? 'bg-slate-50 max-w-lg mx-auto shadow-2xl relative' : 'md:flex-col bg-slate-50'}`}>
-        {runtime?.simulated && (
-          <div className="w-full bg-amber-500 text-amber-950 text-[11px] font-bold px-4 py-2 text-center z-[70] shrink-0">
-            SIMULATED DEMO — NO REAL MONEY · Balances and transactions use the SaloMed demo ledger
+        {runtime && !runtime.real_money_enabled && (
+          <div className="w-full bg-slate-900 text-slate-100 text-xs font-semibold px-4 py-1.5 text-center z-[70] shrink-0 tracking-wide">
+            {runtime.mode === 'demo'
+              ? 'PILOT ENVIRONMENT · TEST FUNDS · SALOMED LEDGER'
+              : 'PILOT ENVIRONMENT · STELLAR TESTNET · TEST FUNDS'}
           </div>
         )}
         {!hasFreighter && !freighterBannerDismissed && (

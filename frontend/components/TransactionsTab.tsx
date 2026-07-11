@@ -55,7 +55,7 @@ export default function TransactionsTab({ address, phpRate: _phpRate }: Props) {
       if (version !== refreshVersion.current) return;
       setTransactions(nextTransactions);
       setSourceLabel(runtime.history_source === 'demo_ledger'
-        ? 'Authoritative simulated ledger — not submitted to Stellar'
+        ? 'Off-chain pilot ledger · Test funds · Not submitted to Stellar'
         : 'Recent confirmed Soroban events available from RPC');
     } catch (cause) {
       if (version !== refreshVersion.current) return;
@@ -124,8 +124,8 @@ export default function TransactionsTab({ address, phpRate: _phpRate }: Props) {
                   <span className="flex items-center gap-1 shrink-0"><Clock size={10} />{new Date(transaction.createdAt).toLocaleString()}</span>
                 </div>
                 {transaction.simulated && (
-                  <span className="inline-block mt-1 text-[10px] font-semibold text-amber-700 bg-amber-50 rounded-full px-2 py-0.5">
-                    SIMULATED — NO REAL MONEY · NOT ON STELLAR
+                  <span className="inline-block mt-1 text-[10px] font-semibold text-slate-600 bg-slate-100 rounded-full px-2 py-0.5">
+                    Off-chain pilot ledger · Test funds
                   </span>
                 )}
                 <p className="text-[10px] text-slate-400 mt-0.5">≈ ₱{transaction.amountPhp.toFixed(2)}</p>

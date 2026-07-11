@@ -119,7 +119,7 @@ export default function BillScanner({ address, vault, onPaySuccess }: Props) {
                   ? 'bg-emerald-100 text-emerald-700'
                   : 'bg-slate-100 text-slate-500'
               }`}>
-                {result.ocr_mode === 'real' ? '✓ OCR Scan' : '⚡ Demo Mode'}
+                {result.ocr_mode === 'real' ? '✓ OCR Scan' : '⚡ Sample OCR'}
               </span>
             </div>
 
