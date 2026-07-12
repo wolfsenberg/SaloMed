@@ -7,6 +7,7 @@
 .env
 .env.*
 !.env.example
+!.env.local.example
 
 # Frontend (Node / Next.js)
 frontend/node_modules/
@@ -37,7 +38,13 @@ backend/*.sqlite3*
 
 # Smart Contracts (Rust / Soroban)
 contracts/**/target/
+contracts/node_modules/
+contracts/.tmp/
 **/*.rs.bk
+
+# Build artifacts / backups
+**/*.bak
+frontend/tsconfig.tsbuildinfo
 
 # IDE / Editor
 .vscode/

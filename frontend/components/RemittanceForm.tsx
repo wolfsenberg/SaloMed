@@ -7,7 +7,9 @@ import { AlertCircle, ArrowLeftRight, CheckCircle, Globe, Loader2, Lock, Send } 
 import type { HealthVault } from '@/lib/contract';
 import { calcPadala, sendPadala } from '@/lib/contract';
 import { saveTx } from '@/lib/transactions';
-import { getRuntimeStatus } from '@/lib/runtime';
+import { getRuntimeStatus, recordHistory } from '@/lib/runtime';
+import { fmtAsset, fmtPhp } from '@/lib/format';
+import { explorerTxUrl, networkBadgeLabel } from '@/lib/stellar-links';
 
 
 interface Props {
@@ -25,7 +27,6 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
   const [amount, setAmount] = useState('');
   const [showPhp, setShowPhp] = useState(false);
   const [phpRate, setPhpRate] = useState(56);
-  const [simulated, setSimulated] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
@@ -34,7 +35,6 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
     getRuntimeStatus()
       .then(runtime => {
         setPhpRate(Number(runtime.php_per_asset));
-        setSimulated(runtime.simulated);
       })
       .catch(() => {});
   }, []);
@@ -75,6 +75,16 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
         status: 'success',
         direction: 'sent',
       });
+      // Record for both sender (sent) and beneficiary (received) so history
+      // follows each wallet across devices.
+      void recordHistory({
+        address: ofwAddress, type: 'padala', amountAsset, amountPhp,
+        direction: 'sent', counterparty: `${recipient.slice(0, 6)}…${recipient.slice(-4)}`, txHash: hash,
+      });
+      void recordHistory({
+        address: recipient, type: 'padala', amountAsset, amountPhp,
+        direction: 'received', counterparty: `${ofwAddress.slice(0, 6)}…${ofwAddress.slice(-4)}`, txHash: hash,
+      });
       setTimeout(onSuccess, 2200);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Padala failed.');
@@ -98,15 +108,24 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
         <CheckCircle size={52} className="text-emerald-500" />
         <h2 className="text-xl font-bold text-slate-900">Health Padala sent</h2>
         <p className="text-sm text-slate-500">
-          {simulated
-            ? `${amountAsset.toFixed(7)} test USDC was recorded for the beneficiary in the pilot ledger.`
-            : `${amountAsset.toFixed(7)} USDC was moved into the beneficiary's locked health vault.`}
+          {fmtAsset(amountAsset)} XLM was moved into the beneficiary&apos;s locked health vault.
         </p>
-        {simulated && <p className="text-xs font-semibold text-slate-500">Pilot ledger transfer · Test funds</p>}
-        <p className="text-[10px] uppercase tracking-wide text-slate-400">
-          {simulated ? 'Pilot reference' : 'Transaction hash'}
-        </p>
-        <p className="max-w-xs truncate font-mono text-xs text-slate-400">{txHash}</p>
+        <span className="inline-block text-[10px] font-semibold text-blue-700 bg-blue-50 rounded-full px-2 py-0.5">
+          Stellar {networkBadgeLabel()}
+        </span>
+        <p className="text-[10px] uppercase tracking-wide text-slate-400">Transaction hash</p>
+        {explorerTxUrl(txHash) ? (
+          <a
+            href={explorerTxUrl(txHash)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 max-w-xs truncate font-mono text-xs text-blue-600 hover:text-blue-800"
+          >
+            <Globe size={11} className="shrink-0" /> {txHash}
+          </a>
+        ) : (
+          <p className="max-w-xs truncate font-mono text-xs text-slate-400">{txHash}</p>
+        )}
       </motion.div>
     );
   }
@@ -140,7 +159,7 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
           <div className="flex items-center justify-between">
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Amount</label>
             <button onClick={() => setShowPhp(value => !value)} className="text-xs font-semibold text-blue-600 flex items-center gap-1">
-              <ArrowLeftRight size={11} /> {showPhp ? 'Enter USDC' : 'Enter PHP'}
+              <ArrowLeftRight size={11} /> {showPhp ? 'Enter XLM' : 'Enter PHP'}
             </button>
           </div>
           <div className="relative mt-2">
@@ -153,19 +172,19 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
               placeholder="0.00"
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 pr-20 py-3 text-xl font-bold outline-none focus:border-blue-500"
             />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">{showPhp ? 'PHP' : 'USDC'}</span>
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">{showPhp ? 'PHP' : 'XLM'}</span>
           </div>
           {amountAsset > 0 && (
             <p className="text-xs text-slate-400 text-right mt-1">
-              {showPhp ? `= ${amountAsset.toFixed(7)} USDC` : `≈ ₱${amountPhp.toFixed(2)}`}
+              {showPhp ? `= ${fmtAsset(amountAsset)} XLM` : `≈ ₱${fmtPhp(amountPhp)}`}
             </p>
           )}
         </div>
 
         <div className="bg-slate-50 rounded-xl p-3 text-xs space-y-2">
-          <div className="flex justify-between"><span>Locked vault balance</span><strong>{vaultBalance.toFixed(7)} USDC</strong></div>
-          <div className="flex justify-between"><span>Platform fee</span><strong>0.0000000 USDC</strong></div>
-          <div className="flex justify-between"><span>Beneficiary receives</span><strong>{breakdown.recipientReceives.toFixed(7)} USDC</strong></div>
+          <div className="flex justify-between"><span>Locked vault balance</span><strong>{fmtAsset(vaultBalance)} XLM</strong></div>
+          <div className="flex justify-between"><span>Platform fee</span><strong>0.00 XLM</strong></div>
+          <div className="flex justify-between"><span>Beneficiary receives</span><strong>{fmtAsset(breakdown.recipientReceives)} XLM</strong></div>
           <p className="text-slate-400">Padala does not award or redeem SaloPoints.</p>
         </div>
 
@@ -181,7 +200,7 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
           disabled={submitting || amountAsset <= 0 || insufficient}
           className="w-full py-3.5 rounded-xl bg-blue-600 text-white font-semibold text-sm disabled:opacity-40 flex items-center justify-center gap-2"
         >
-          {submitting ? <><Loader2 size={15} className="animate-spin" /> Processing…</> : <><Send size={15} /> Send locked USDC</>}
+          {submitting ? <><Loader2 size={15} className="animate-spin" /> Processing…</> : <><Send size={15} /> Send locked XLM</>}
         </button>
       </div>
     </div>

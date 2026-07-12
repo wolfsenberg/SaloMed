@@ -57,7 +57,7 @@ export default function FreighterTopUpModal({ address, onClose, onSuccess }: Pro
 
     } catch (e: unknown) {
       console.error('Top-up failed:', e);
-      setError(e instanceof Error ? e.message : 'Deposit failed — ensure your wallet holds the configured USDC token.');
+      setError(e instanceof Error ? e.message : 'Deposit failed. Please try again.');
       setStep('form');
     }
   }
@@ -107,7 +107,7 @@ export default function FreighterTopUpModal({ address, onClose, onSuccess }: Pro
               >
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block">
-                    Amount (USDC)
+                    Amount (XLM)
                   </label>
                   <div className="relative">
                     <input
@@ -116,7 +116,7 @@ export default function FreighterTopUpModal({ address, onClose, onSuccess }: Pro
                       type="number" min="0" step="0.0001" placeholder="0.0000"
                       className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl px-4 pr-16 py-3 text-xl font-bold text-slate-800 placeholder-slate-300 outline-none transition-all"
                     />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">USDC</span>
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">XLM</span>
                   </div>
                   {parsedXlm > 0 && (
                     <p className="text-xs text-slate-400 text-right">≈ ₱{parsedPhp.toFixed(2)} PHP</p>
@@ -228,7 +228,7 @@ export default function FreighterTopUpModal({ address, onClose, onSuccess }: Pro
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Vault Top-Up</p>
                   <p className="text-lg font-bold text-slate-900">Top-Up Confirmed!</p>
                   <p className="text-sm text-slate-500 mt-1">
-                    <span className="font-semibold text-slate-700">{parsedXlm.toFixed(4)} USDC</span>
+                    <span className="font-semibold text-slate-700">{parsedXlm.toFixed(2)} XLM</span>
                     {' '}(≈ ₱{parsedPhp.toFixed(2)}) credited to your vault.
                   </p>
                 </div>

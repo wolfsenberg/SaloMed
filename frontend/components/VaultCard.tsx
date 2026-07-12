@@ -9,8 +9,12 @@ import {
 import { HealthVault } from '@/lib/contract';
 import GCashModal from '@/components/GCashModal';
 import FreighterTopUpModal from '@/components/FreighterTopUpModal';
+import InstaPayTopUpModal from '@/components/InstaPayTopUpModal';
 import { useTranslation } from '@/lib/i18n/LanguageContext';
 import { getRuntimeStatus, RuntimeStatus } from '@/lib/runtime';
+import { fmtPhp, fmtXlm } from '@/lib/format';
+import { explorerAccountUrl, explorerContractUrl, networkBadgeLabel } from '@/lib/stellar-links';
+import { CONTRACT_ID } from '@/lib/config';
 
 interface Props {
   address: string | null;
@@ -47,9 +51,10 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
   const { t } = useTranslation();
   const [showGCash, setShowGCash]         = useState(false);
   const [showFreighter, setShowFreighter] = useState(false);
+  const [showInstaPay, setShowInstaPay]   = useState(false);
   const [showPhp, setShowPhp]             = useState(false);
   const [phpRate, setPhpRate]             = useState(56);
-  const [rateSource, setRateSource]       = useState<'fixed_demo' | 'configured_indicative'>('fixed_demo');
+  const [rateSource, setRateSource]       = useState<'pdax_live' | 'configured_indicative' | 'fixed_demo'>('fixed_demo');
   const [runtime, setRuntime]             = useState<RuntimeStatus | null>(null);
 
   useEffect(() => {
@@ -57,7 +62,9 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
       .then(r => r.json())
       .then((d: { php_per_usdc: number; source?: string }) => {
         setPhpRate(d.php_per_usdc);
-        setRateSource(d.source === 'configured_indicative' ? 'configured_indicative' : 'fixed_demo');
+        if (d.source === 'pdax_live') setRateSource('pdax_live');
+        else if (d.source === 'configured_indicative') setRateSource('configured_indicative');
+        else setRateSource('fixed_demo');
       })
       .catch(() => {});
 
@@ -66,9 +73,6 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
 
   const xlmValue  = Number(vault.balance) / 10_000_000;
   const phpValue  = xlmValue * phpRate;
-
-  function fmtXlm(v: number) { return v.toFixed(2); }
-  function fmtPhp(v: number)  { return v.toFixed(2); }
 
   if (!address) {
     return (
@@ -101,11 +105,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
           </p>
 
           <p className="text-[11px] text-slate-400 text-center pt-1">
-            {runtime?.real_money_enabled
-              ? 'Live settlement environment'
-              : runtime?.mode === 'stellar_testnet'
-                ? 'Pilot environment · Stellar Testnet · Test funds only'
-                : t('common_demo_testnet')}
+            Secured on Stellar {networkBadgeLabel()}
           </p>
         </div>
       </div>
@@ -150,7 +150,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
                 ) : (
                   <p className="text-4xl font-bold tabular-nums">
                     {fmtXlm(xlmValue)}
-                    <span className="text-xl font-normal text-blue-200 ml-2">USDC</span>
+                    <span className="text-xl font-normal text-blue-200 ml-2">XLM</span>
                   </p>
                 )}
               </motion.div>
@@ -158,12 +158,16 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
             {/* Tap hint */}
             <p className="text-xs text-blue-300 mt-1 flex items-center gap-1">
               {showPhp
-                ? `≈ ${fmtXlm(xlmValue)} USDC`
+                ? `≈ ${fmtXlm(xlmValue)} XLM`
                 : `≈ ₱${fmtPhp(phpValue)} PHP`}
               <ArrowLeftRight size={10} className="text-blue-400" />
-              {rateSource === 'configured_indicative' && (
+              {rateSource === 'pdax_live' ? (
+                <span className="text-[10px] font-bold text-white bg-white/25 px-1.5 py-0.5 rounded-full">
+                  Live PDAX rate
+                </span>
+              ) : (
                 <span className="text-[10px] font-bold text-white/70 bg-white/15 px-1.5 py-0.5 rounded-full">
-                  Indicative PHP rate
+                  Indicative rate
                 </span>
               )}
             </p>
@@ -176,7 +180,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
           </p>
           {runtime?.mode === 'stellar_testnet' && (
             <a
-              href={`https://stellar.expert/explorer/testnet/account/${address}`}
+              href={explorerAccountUrl(address)}
               target="_blank"
               rel="noopener noreferrer"
               className="text-[10px] bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded flex items-center gap-1 transition-colors"
@@ -194,13 +198,13 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
             {t('vault_topup')}
           </p>
           <div className="grid grid-cols-1 gap-2">
-            {runtime?.mode === 'demo' && (
+            {(runtime?.mode === 'demo' || runtime?.mode === 'stellar_testnet') && (
               <button
                 onClick={() => setShowGCash(true)}
                 className="flex items-center gap-2 bg-white/20 hover:bg-white/30 active:scale-[0.97] transition-all rounded-xl px-3 py-3 text-xs font-semibold justify-center"
               >
                 <span className="w-5 h-5 bg-white rounded-md flex items-center justify-center text-[#007DFF] text-[11px] font-black">G</span>
-                Add GCash test funds
+                Add funds via GCash
               </button>
             )}
             {(runtime?.mode === 'pdax_uat' || runtime?.mode === 'pdax_prod') && (
@@ -209,12 +213,24 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
               </div>
             )}
             {runtime?.mode === 'stellar_testnet' && (
-              <button
-                onClick={() => setShowFreighter(true)}
-                className="flex items-center gap-2 bg-white/20 hover:bg-white/30 active:scale-[0.97] transition-all rounded-xl px-3 py-3 text-xs font-semibold justify-center"
-              >
-                Deposit USDC with Freighter
-              </button>
+              <>
+                <button
+                  onClick={() => setShowInstaPay(true)}
+                  className="flex items-center gap-2 bg-white text-[#007DFF] hover:bg-blue-50 active:scale-[0.97] transition-all rounded-xl px-3 py-3 text-xs font-bold justify-center"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <rect x="2" y="4" width="20" height="16" rx="3" stroke="currentColor" strokeWidth="1.6"/>
+                    <path d="M2 9h20" stroke="currentColor" strokeWidth="1.6"/>
+                  </svg>
+                  Top up with InstaPay (PDAX)
+                </button>
+                <button
+                  onClick={() => setShowFreighter(true)}
+                  className="flex items-center gap-2 bg-white/20 hover:bg-white/30 active:scale-[0.97] transition-all rounded-xl px-3 py-3 text-xs font-semibold justify-center"
+                >
+                  Deposit XLM with Freighter
+                </button>
+              </>
             )}
           </div>
         </div>      </motion.div>
@@ -255,7 +271,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
           <TrendingUp size={12} /> SaloPoints policy
         </p>
         <p className="text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2 leading-relaxed">
-          Earn 1 SaloPoint for every full 1 USDC paid through the vault. Points determine your credit tier only;
+          Earn 1 SaloPoint for every full 1 XLM paid through the vault. Points determine your credit tier only;
           they are not money, cashback, or a spendable savings balance.
         </p>
       </motion.div>
@@ -264,8 +280,8 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
       {/* Stats */}
       <motion.div variants={card} className="grid grid-cols-2 gap-3">
         {[
-          { label: 'Vault Asset', value: 'USDC', sub: '7 decimal units', Icon: CreditCard },
-          { label: 'Points Rule', value: '1 / USDC', sub: 'per full USDC paid', Icon: Star },
+          { label: 'Vault Asset', value: 'XLM', sub: 'Stellar Lumens', Icon: CreditCard },
+          { label: 'Points Rule', value: '1 / XLM', sub: 'per full XLM paid', Icon: Star },
           { label: 'Vault Status', value: vault.balance > 0n ? t('vault_active') : t('vault_empty'), sub: t('vault_escrow'), Icon: ShieldCheck },
           { label: 'Credit Tier',  value: vault.credit_tier,   sub: tierNextLabel(vault), Icon: Award       },
         ].map(stat => (
@@ -286,10 +302,12 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
           <TrendingUp size={13} /> Points and tiers
         </p>
         {[
-          'Earn 1 point for each full USDC paid to a whitelisted provider.',
+          'Earn 1 point for each full XLM paid to a whitelisted provider.',
           'Bronze: below 100 points; Silver: 100–499; Gold: 500 or more.',
           'Points cannot be converted, withdrawn, transferred, or spent.',
-          `PHP display uses a ${rateSource === 'fixed_demo' ? 'pilot reference' : 'configured indicative'} rate.`,
+          rateSource === 'pdax_live'
+            ? 'PHP conversion uses the live PDAX rate.'
+            : 'PHP display uses an indicative rate.',
         ].map(tip => (
           <div key={tip} className="flex gap-2 text-xs text-blue-600">
             <span className="shrink-0 mt-0.5 font-bold">–</span>
@@ -316,13 +334,11 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
               Purpose-Locked Health Fund
             </p>
             <p className="text-xs text-blue-700 leading-relaxed">
-              {runtime?.simulated
-                ? 'This pilot balance uses test funds recorded in the SaloMed ledger and can move only through the pilot healthcare flow. Live settlement is not enabled.'
-                : 'Funds in this vault are enforced by the configured Soroban contract and can only be paid to contract-whitelisted healthcare providers.'}
+              Funds in this vault are enforced by the Soroban smart contract on Stellar {networkBadgeLabel()} and can only be paid to contract-whitelisted healthcare providers.
             </p>
             {runtime?.mode === 'stellar_testnet' && (
               <a
-                href="https://stellar.expert/explorer/testnet/contract/CAO3K6OYB5A3VNVV3HKCSVG3ZZ442DZCDKAXG4CTSLBTN7FOYCCBRZ34"
+                href={explorerContractUrl(CONTRACT_ID)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-[10px] text-blue-500 hover:text-blue-700 font-semibold mt-1"
@@ -348,6 +364,13 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
           address={address}
           onClose={() => setShowFreighter(false)}
           onSuccess={() => { setShowFreighter(false); onRefresh(); }}
+        />
+      )}
+      {showInstaPay && (
+        <InstaPayTopUpModal
+          beneficiaryAddress={address}
+          onClose={() => setShowInstaPay(false)}
+          onSuccess={() => { setShowInstaPay(false); onRefresh(); }}
         />
       )}
     </AnimatePresence>

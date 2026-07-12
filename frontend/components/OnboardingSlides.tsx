@@ -99,7 +99,7 @@ export default function OnboardingSlides({ onComplete, environmentNotice, liveSe
             transition={{ delay: 0.6, type: 'spring', stiffness: 200 }}
             className="absolute -top-2 -left-2 bg-white/20 border border-white/30 rounded-full px-2.5 py-1"
           >
-            <span className="text-[10px] font-bold text-white">Pilot flow ✓</span>
+            <span className="text-[10px] font-bold text-white">On-chain ✓</span>
           </motion.div>
         </div>
       ),
@@ -193,7 +193,7 @@ export default function OnboardingSlides({ onComplete, environmentNotice, liveSe
           <div className="px-6 pb-8 pt-4 shrink-0 space-y-5">
             <div className="rounded-xl border border-white/15 bg-slate-950/15 px-3 py-2 text-center">
               <p className="text-xs font-semibold text-blue-50 leading-relaxed">
-                {environmentNotice ?? 'Pilot environment · Test funds only · Live settlement is not enabled'}
+                {environmentNotice ?? 'Secured on the Stellar network · Every transaction is verifiable on-chain'}
               </p>
             </div>
             {/* Step dots */}

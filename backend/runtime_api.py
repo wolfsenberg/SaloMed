@@ -5,7 +5,7 @@ from decimal import Decimal
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from salomed_runtime import DemoLedger, LedgerError, RuntimeMode, RuntimeSettings
+from salomed_runtime import DemoLedger, LedgerError, PostgresLedger, RuntimeMode, RuntimeSettings
 
 
 class TopUpRequest(BaseModel):
@@ -28,6 +28,10 @@ class RemittanceRequest(BaseModel):
     idempotency_key: str = Field(min_length=8, max_length=128)
 
 
+class EnsureFeesRequest(BaseModel):
+    address: str = Field(min_length=56, max_length=56)
+
+
 def _ledger_call(function, *args):
     try:
         return function(*args)
@@ -38,8 +42,21 @@ def _ledger_call(function, *args):
         ) from exc
 
 
-def create_runtime_router(settings: RuntimeSettings, demo_ledger: DemoLedger) -> APIRouter:
+def create_runtime_router(settings: RuntimeSettings, demo_ledger: "DemoLedger | PostgresLedger") -> APIRouter:
     router = APIRouter()
+
+    @router.post("/api/v2/ensure-fees", tags=["Runtime"])
+    async def ensure_fees(body: EnsureFeesRequest):
+        """
+        Ensure a user's wallet can pay transaction fees for payment/padala.
+        In Stellar modes this creates/tops-up the account with a little XLM from
+        the admin. In demo mode it is a no-op (no on-chain fees).
+        """
+        if settings.mode is RuntimeMode.DEMO:
+            return {"funded": True, "mode": "demo", "note": "no on-chain fees in demo mode"}
+        import stellar_bridge
+        result = stellar_bridge.ensure_fee_funds(body.address)
+        return {"mode": settings.mode.value, **result}
 
     @router.get("/api/runtime", tags=["Runtime"])
     async def runtime_status():
@@ -79,26 +96,81 @@ def create_runtime_router(settings: RuntimeSettings, demo_ledger: DemoLedger) ->
 
     @router.get("/api/v2/vaults/{address}/transactions", tags=["Vault v2"])
     async def transactions(address: str, limit: int = Query(50, ge=1, le=100)):
-        if settings.mode is not RuntimeMode.DEMO:
-            raise HTTPException(
-                status_code=501,
-                detail={
-                    "error": "EVENT_INDEXER_REQUIRED",
-                    "message": "Contract history requires the deployed event-enabled contract and indexer",
-                },
-            )
-        return {"transactions": _ledger_call(demo_ledger.history, address, limit)}
+        # Address-keyed history follows the wallet across devices. In demo mode
+        # this is the durable demo ledger; in Stellar modes it is the backend
+        # history index (a read-cache of on-chain activity; each row keeps its
+        # real tx hash for Explorer verification).
+        if settings.mode is RuntimeMode.DEMO:
+            return {"transactions": _ledger_call(demo_ledger.history, address, limit)}
+        import history_store
+        return {"transactions": history_store.history(address, limit), "source": "backend_index"}
+
+    class HistoryRecordRequest(BaseModel):
+        address: str = Field(min_length=56, max_length=56)
+        type: str = Field(min_length=1, max_length=32)
+        amount_asset: Decimal = Field(ge=0, max_digits=20, decimal_places=7)
+        amount_php: Decimal = Field(ge=0, max_digits=20, decimal_places=2)
+        direction: str | None = Field(default=None, max_length=16)
+        counterparty: str | None = Field(default=None, max_length=128)
+        tx_hash: str | None = Field(default=None, max_length=128)
+        status: str = Field(default="success", max_length=16)
+
+    @router.post("/api/v2/history/record", tags=["Vault v2"])
+    async def record_history(body: HistoryRecordRequest):
+        """Record a transaction against a Stellar address so it follows the wallet."""
+        import history_store
+        row = history_store.record(
+            address=body.address,
+            tx_type=body.type,
+            amount_asset=float(body.amount_asset),
+            amount_php=float(body.amount_php),
+            direction=body.direction,
+            counterparty=body.counterparty,
+            tx_hash=body.tx_hash,
+            status=body.status,
+        )
+        return {"recorded": True, "id": row["id"]}
 
     @router.post("/api/v2/topups", tags=["Vault v2"])
     async def topup(body: TopUpRequest):
+        # Stellar modes: fund the vault on-chain via the admin bridge, so the
+        # user does not need to pre-hold USDC or a trustline (admin is the USDC
+        # issuer / on-ramp float). This is the fiat on-ramp credit path used by
+        # GCash / InstaPay demo top-ups.
         if settings.mode is not RuntimeMode.DEMO:
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "error": "WRONG_RUNTIME_MODE",
-                    "message": "Use a signed Soroban deposit in Stellar mode; demo value cannot be created",
-                },
+            import stellar_bridge
+            from decimal import Decimal as _D
+
+            if not stellar_bridge.is_bridge_configured():
+                raise HTTPException(
+                    status_code=503,
+                    detail={"error": "BRIDGE_NOT_CONFIGURED",
+                            "message": "On-chain on-ramp requires SALOMED_SIGNER_SECRET + CONTRACT_ID."},
+                )
+            # Convert PHP to USDC using the configured/live rate.
+            usdc = (body.amount_php / settings.php_per_asset_decimal).quantize(_D("0.0000001"))
+            try:
+                tx_hash = stellar_bridge.credit_vault_usdc(body.beneficiary_address, float(usdc))
+            except stellar_bridge.BridgeError as exc:
+                raise HTTPException(status_code=502,
+                                    detail={"error": "ONCHAIN_CREDIT_FAILED", "message": str(exc)}) from exc
+            import history_store
+            history_store.record(
+                address=body.beneficiary_address, tx_type="topup",
+                amount_asset=float(usdc), amount_php=float(body.amount_php),
+                direction="received", tx_hash=tx_hash,
             )
+            return {
+                "success": True,
+                "mode": settings.mode.value,
+                "simulated": False,
+                "transaction_id": tx_hash,
+                "status": "completed",
+                "beneficiary_address": body.beneficiary_address,
+                "amount_php": f"{body.amount_php:.2f}",
+                "amount_asset": f"{usdc:.7f}",
+                "asset_code": "USDC",
+            }
         return _ledger_call(
             demo_ledger.topup,
             body.beneficiary_address,

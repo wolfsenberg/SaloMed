@@ -84,8 +84,8 @@ Until all five are evidenced, `pdax_uat`/`pdax_prod` should remain disabled. Thi
 
 ## Release statement
 
-Safe claim: **“SaloMed is a functional, clearly simulated health-vault demo with a tested Soroban implementation path.”**
+Safe claim: **"SaloMed is a functional, clearly simulated health-vault demo with a tested Soroban implementation path."**
 
-Unsafe claim until external gates are complete: **“Real GCash/PDAX money is converted to USDC and settled into the live SaloMed vault.”**
+Unsafe claim until external gates are complete: **"Real GCash/PDAX money is converted to USDC and settled into the live SaloMed vault."**
 
 Known non-critical engineering limitations: real-mode history is limited to recent RPC-retained events (120,000 ledgers / 100 results) until a persistent indexer is added; frontend display math still uses JavaScript numbers before exact 7-decimal contract encoding; runtime-mode policy could be further consolidated; contract error/governance/migration design remains future production work.

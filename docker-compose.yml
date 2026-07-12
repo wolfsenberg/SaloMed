@@ -1,0 +1,46 @@
+# ── SaloMed · Full Stack (Frontend + Backend) ────────────────────────────────
+# Run both services with a single command:
+#   docker compose up --build
+#
+# Frontend:  http://localhost:3000
+# Backend:   http://localhost:8000  (Swagger docs at /docs)
+
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: salomed-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      # Allow the frontend container/host to call the API
+      FRONTEND_ORIGIN: "http://localhost:3000"
+      # Persist the SQLite vault/history database inside the mounted volume
+      SALOMED_DB_PATH: "/app/data/salomed.sqlite3"
+    volumes:
+      # Persist vault balances + transaction history across rebuilds/restarts
+      - salomed-data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # The browser talks to the backend on the host's published port
+        NEXT_PUBLIC_API_URL: "http://localhost:8000"
+        NEXT_PUBLIC_CONTRACT_ID: "CA6X5ZJ24LBJBCRHSAJK5EXB7CMEED2X2JTDLTPBOZC3SM4ABZYNIRCG"
+        NEXT_PUBLIC_TOKEN_CONTRACT_ID: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
+        NEXT_PUBLIC_ADMIN_ADDRESS: "GBSXYPN2XWTJEZPLAMRIYQQVQTCJ2MEQOVOA3G73USGCMEXJ5YXPU2G7"
+        NEXT_PUBLIC_RPC_URL: "https://soroban-testnet.stellar.org"
+        NEXT_PUBLIC_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
+    container_name: salomed-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  salomed-data:

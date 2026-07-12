@@ -140,6 +140,73 @@ export async function getRuntimeVault(address: string): Promise<RuntimeVault> {
   };
 }
 
+/**
+ * Ensure the connected wallet can pay transaction fees for payment/padala.
+ * In Stellar modes the backend tops up a little XLM from the admin. No-op in
+ * demo mode. Best-effort: never throws so it can't block wallet connection.
+ */
+export async function ensureFeeFunds(address: string): Promise<void> {
+  try {
+    await apiJson('/api/v2/ensure-fees', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address }),
+    });
+  } catch {
+    // Non-fatal: user can still connect; fees can be funded later.
+  }
+}
+
+export interface HistoryRow {
+  id: string;
+  type: string;
+  direction: string | null;
+  amount_asset: number;
+  amount_php: number;
+  counterparty: string | null;
+  tx_hash: string | null;
+  status: string;
+  created_at: number;
+}
+
+/** Record a transaction against a Stellar address (history follows the wallet). */
+export async function recordHistory(row: {
+  address: string;
+  type: string;
+  amountAsset: number;
+  amountPhp: number;
+  direction?: string;
+  counterparty?: string;
+  txHash?: string;
+}): Promise<void> {
+  try {
+    await apiJson('/api/v2/history/record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        address: row.address,
+        type: row.type,
+        amount_asset: row.amountAsset.toFixed(7),
+        amount_php: row.amountPhp.toFixed(2),
+        direction: row.direction ?? null,
+        counterparty: row.counterparty ?? null,
+        tx_hash: row.txHash ?? null,
+        status: 'success',
+      }),
+    });
+  } catch {
+    // Non-fatal: local history still works if the index write fails.
+  }
+}
+
+/** Read address-keyed history from the backend index (cross-device). */
+export async function getAddressHistory(address: string): Promise<HistoryRow[]> {
+  const res = await apiJson<{ transactions: HistoryRow[] }>(
+    `/api/v2/vaults/${encodeURIComponent(address)}/transactions`,
+  );
+  return res.transactions ?? [];
+}
+
 export async function getRuntimeProviders(): Promise<RuntimeProvider[]> {
   const response = await apiJson<{ providers: RuntimeProvider[] }>('/api/v2/providers');
   return response.providers;
@@ -391,7 +458,7 @@ async function submitContractCall(
   const tx = contractTransaction(source, method, args);
   const prepared = await rpc.prepareTransaction(tx);
   const signedXdr = await signTransaction(prepared.toXDR());
-  if (!signedXdr) throw new Error('Transaction signing was rejected in Freighter.');
+  if (!signedXdr) throw new Error('Freighter did not return a signature. Make sure it is unlocked and set to Testnet.');
 
   const signed = StellarSdk.TransactionBuilder.fromXDR(signedXdr, NETWORK_PASSPHRASE);
   const sent = await rpc.sendTransaction(signed);

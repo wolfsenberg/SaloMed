@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wallet, QrCode, Globe, Receipt, LogOut, Smartphone, Monitor, Info, Copy, Check, Languages } from 'lucide-react';
+import { Wallet, QrCode, Globe, HandCoins, Receipt, LogOut, Smartphone, Monitor, Info, Copy, Check, Languages } from 'lucide-react';
 import Image from 'next/image';
 import localFont from 'next/font/local';
 import SplashScreen from '@/components/SplashScreen';
 import VaultCard from '@/components/VaultCard';
 import PaymentTab from '@/components/PaymentTab';
+import LoanTab from '@/components/LoanTab';
 import RemittanceForm from '@/components/RemittanceForm';
 import TransactionsTab from '@/components/TransactionsTab';
 import OnboardingSlides from '@/components/OnboardingSlides';
@@ -17,7 +18,7 @@ import { getVault, HealthVault, EMPTY_VAULT } from '@/lib/contract';
 import { API_URL } from '@/lib/config';
 import { LanguageProvider, useTranslation } from '@/lib/i18n/LanguageContext';
 import { Language } from '@/lib/i18n/translations';
-import { getRuntimeStatus, RuntimeStatus } from '@/lib/runtime';
+import { getRuntimeStatus, RuntimeStatus, ensureFeeFunds } from '@/lib/runtime';
 import '@/app/globals.css';
 
 const inter = localFont({
@@ -30,12 +31,13 @@ const inter = localFont({
   fallback: ['system-ui', 'Arial'],
 });
 
-type Tab = 'vault' | 'payment' | 'remittance' | 'history';
+type Tab = 'vault' | 'payment' | 'loan' | 'remittance' | 'history';
 
-const TAB_ORDER: Tab[] = ['vault', 'payment', 'remittance', 'history'];
+const TAB_ORDER: Tab[] = ['vault', 'payment', 'loan', 'remittance', 'history'];
 const TAB_META: Record<Tab, { Icon: React.ElementType; label: string; path: string }> = {
   vault: { Icon: Wallet, label: 'Vault', path: '/vault' },
   payment: { Icon: QrCode, label: 'Payment', path: '/payment' },
+  loan: { Icon: HandCoins, label: 'Loan', path: '/loan' },
   remittance: { Icon: Globe, label: 'Padala', path: '/remittance' },
   history: { Icon: Receipt, label: 'History', path: '/history' },
 };
@@ -175,6 +177,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
     const savedAddr = localStorage.getItem('salomed_address');
     if (savedAddr) {
       setAddress(savedAddr);
+      void ensureFeeFunds(savedAddr);
       refreshVault(savedAddr);
     }
 
@@ -216,6 +219,8 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
         localStorage.removeItem('salomed_manual_disconnect');
         setAddress(addr);
         setShowOnboarding(true);
+        // Make sure the wallet can pay fees for payment/padala (Stellar modes).
+        void ensureFeeFunds(addr);
         await refreshVault(addr);
       }
     } catch (e) {
@@ -249,10 +254,8 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
           <OnboardingSlides
             liveSettlementEnabled={runtime?.real_money_enabled === true}
             environmentNotice={runtime?.real_money_enabled
-              ? 'Live settlement environment · Review each transaction before confirming'
-              : runtime?.mode === 'stellar_testnet'
-                ? 'Pilot environment · Stellar Testnet · Test funds only'
-                : 'Pilot environment · Test funds only · Live settlement is not enabled'}
+              ? 'Secured on Stellar Mainnet · Review each transaction before confirming'
+              : 'Secured on the Stellar network · Every transaction is verifiable on-chain'}
             onComplete={() => {
               setShowOnboarding(false);
               localStorage.setItem('salomed_onboarded', 'true');
@@ -271,13 +274,6 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
       </AnimatePresence>
 
       <div className={`h-dvh flex flex-col w-full overflow-hidden ${forceMobile ? 'bg-slate-50 max-w-lg mx-auto shadow-2xl relative' : 'md:flex-col bg-slate-50'}`}>
-        {runtime && !runtime.real_money_enabled && (
-          <div className="w-full bg-slate-900 text-slate-100 text-xs font-semibold px-4 py-1.5 text-center z-[70] shrink-0 tracking-wide">
-            {runtime.mode === 'demo'
-              ? 'PILOT ENVIRONMENT · TEST FUNDS · SALOMED LEDGER'
-              : 'PILOT ENVIRONMENT · STELLAR TESTNET · TEST FUNDS'}
-          </div>
-        )}
         {!hasFreighter && !freighterBannerDismissed && (
           <div className="w-full bg-blue-600 text-white text-xs font-semibold px-4 py-2.5 flex items-center justify-center gap-2 text-center z-[60] shrink-0">
             <Info size={14} className="shrink-0" />
@@ -459,6 +455,9 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
                       onSuccess={() => { refreshVault(); switchTab('history'); }}
                       onSwitchTab={switchTab}
                     />
+                  )}
+                  {tab === 'loan' && (
+                    <LoanTab address={address} vault={vault} phpRate={phpRate} />
                   )}
                   {tab === 'remittance' && (
                     <RemittanceForm

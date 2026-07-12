@@ -84,10 +84,10 @@ export async function getVault(patientAddress: string): Promise<HealthVault> {
  */
 export async function depositToVault(userAddress: string, amountAsset: number): Promise<string> {
   const runtime = await getRuntimeStatus();
-  if (runtime.mode === 'demo') {
-    return demoTopUp(userAddress, amountAsset * Number(runtime.php_per_asset));
-  }
-  return contractDeposit(userAddress, userAddress, amountAsset);
+  // Both demo and Stellar modes fund the vault via the backend on-ramp credit
+  // (admin-funded in Stellar mode). This avoids requiring the user to pre-hold
+  // USDC or a trustline. Returns a real on-chain tx hash in Stellar mode.
+  return demoTopUp(userAddress, amountAsset * Number(runtime.php_per_asset));
 }
 
 /**

@@ -8,16 +8,20 @@ import * as StellarSdk from '@stellar/stellar-sdk';
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-export const CONTRACT_ID = process.env.NEXT_PUBLIC_CONTRACT_ID || 'CAO3K6OYB5A3VNVV3HKCSVG3ZZ442DZCDKAXG4CTSLBTN7FOYCCBRZ34';
-export const EXPECTED_TOKEN_ID = process.env.NEXT_PUBLIC_TOKEN_CONTRACT_ID || '';
-export const EXPECTED_ADMIN_ADDRESS = process.env.NEXT_PUBLIC_ADMIN_ADDRESS || '';
+export const CONTRACT_ID = process.env.NEXT_PUBLIC_CONTRACT_ID || 'CA6X5ZJ24LBJBCRHSAJK5EXB7CMEED2X2JTDLTPBOZC3SM4ABZYNIRCG';
+export const EXPECTED_TOKEN_ID = process.env.NEXT_PUBLIC_TOKEN_CONTRACT_ID || 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC';
+export const EXPECTED_ADMIN_ADDRESS = process.env.NEXT_PUBLIC_ADMIN_ADDRESS || 'GBSXYPN2XWTJEZPLAMRIYQQVQTCJ2MEQOVOA3G73USGCMEXJ5YXPU2G7';
 
 export const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || 'https://soroban-testnet.stellar.org';
 
 export const NETWORK_PASSPHRASE = process.env.NEXT_PUBLIC_NETWORK_PASSPHRASE || StellarSdk.Networks.TESTNET;
 
-/** Canonical vault asset. Native XLM is used only for Stellar network fees. */
-export const ASSET_CODE = 'USDC' as const;
+/** Stellar Explorer network segment: 'public' for mainnet, 'testnet' otherwise. */
+export const STELLAR_NETWORK_KIND: 'testnet' | 'public' =
+  NETWORK_PASSPHRASE === StellarSdk.Networks.PUBLIC ? 'public' : 'testnet';
+
+/** Canonical vault asset: native XLM (also pays Stellar network fees). */
+export const ASSET_CODE = 'XLM' as const;
 
 /** Demo/indicative fallback. Settlement credits must use an executed rate. */
 export const PHP_PER_USDC = 56;

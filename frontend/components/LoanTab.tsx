@@ -129,8 +129,8 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
                     </p>
                     <p className="text-xs text-amber-700 leading-relaxed">
                       {pendingLoans.length === 1
-                        ? `Your ${php(pendingLoans[0].amountPhp)} pilot application is recorded as pending in this preview.`
-                        : `You have ${pendingLoans.length} pilot applications (Total: ${php(pendingLoans.reduce((sum, l) => sum + l.amountPhp, 0))}) recorded as pending.`}
+                        ? `Your ${php(pendingLoans[0].amountPhp)} application is recorded as pending.`
+                        : `You have ${pendingLoans.length} applications (Total: ${php(pendingLoans.reduce((sum, l) => sum + l.amountPhp, 0))}) recorded as pending.`}
                     </p>
                   </div>
                 </div>
@@ -209,12 +209,12 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
 
             {/* How it works */}
             <div className="bg-white rounded-2xl shadow-card border border-slate-100 p-5 space-y-3">
-              <h3 className="text-sm font-bold text-slate-700">How the Pilot Flow Is Modeled</h3>
+              <h3 className="text-sm font-bold text-slate-700">How Health Credit Works</h3>
               {[
-                'Preview a health-credit request for a medical bill gap',
-                'Approved proceeds would be reflected in the purpose-bound vault',
-                'Illustrative repayment terms are shown in equal installments',
-                'SaloPoints illustrate how a future tier could affect terms',
+                'Request health credit to cover a medical bill gap',
+                'Approved proceeds are reflected in the purpose-bound vault',
+                'Repayment terms are shown in equal installments',
+                'Your SaloPoints tier can unlock better rates over time',
               ].map((s, i) => (
                 <div key={s} className="flex gap-3 items-start">
                   <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
@@ -297,7 +297,7 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
 
               {parsedPhp > 0 && (
                 <p className="text-xs text-slate-400 text-right">
-                  {showXlm ? `= ${php(parsedPhp)}` : `≈ ${parsedUsdc.toFixed(4)} USDC`}
+                  {showXlm ? `= ${php(parsedPhp)}` : `≈ ${parsedUsdc.toFixed(2)} XLM`}
                 </p>
               )}
 
@@ -397,17 +397,17 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
               <Clock size={36} className="text-amber-500" />
             </div>
             <div className="space-y-1">
-              <h3 className="text-xl font-bold text-slate-900">Pilot Application Recorded</h3>
+              <h3 className="text-xl font-bold text-slate-900">Application Recorded</h3>
               <p className="text-sm text-slate-500">
-                Your preview request for <span className="font-bold text-slate-900">{php(parsedPhp)}</span> (≈ {parsedUsdc.toFixed(4)} USDC) was saved locally for this pilot.
+                Your request for <span className="font-bold text-slate-900">{php(parsedPhp)}</span> (≈ {parsedUsdc.toFixed(2)} XLM) was saved locally on this device.
               </p>
               <p className="text-xs text-slate-400 mt-2">
                 Term: {selectedTerm} months · Rate: {rate}% p.a.
               </p>
             </div>
             <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-xs text-amber-700 max-w-xs leading-relaxed">
-              <p className="font-bold mb-1">Status: Preview only</p>
-              No real credit application was submitted, and no representative will contact you from this pilot flow.
+              <p className="font-bold mb-1">Status: Recorded locally</p>
+              This request is saved on your device for review. Health credit disbursement is not yet enabled.
             </div>
             <button
               onClick={() => { setStep('overview'); setAmountPhp(''); }}

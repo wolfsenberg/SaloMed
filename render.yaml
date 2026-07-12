@@ -1,0 +1,55 @@
+# SaloMed backend - Render Blueprint (stellar_testnet mode)
+#
+# Primary experience: real on-chain transactions on Stellar Testnet. The
+# Soroban contract is the source of truth for vault balances and history, read
+# by the frontend over RPC. The backend is STATELESS in this mode, so there is
+# no database to persist and Render's free-tier spin-down only causes a cold
+# start, never data loss.
+#
+# Deploy: push this repo, then in Render: New + > Blueprint > select this file.
+
+services:
+  - type: web
+    name: salomed-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /api/runtime
+    envVars:
+      - key: SALOMED_MODE
+        value: stellar_testnet
+      - key: SALOMED_ASSET_CODE
+        value: USDC
+      - key: PHP_PER_USDC
+        value: "56.00"
+      - key: STELLAR_NETWORK
+        value: testnet
+      - key: RPC_URL
+        value: https://soroban-testnet.stellar.org
+      - key: HORIZON_URL
+        value: https://horizon-testnet.stellar.org
+      - key: CONTRACT_ID
+        value: CA6X5ZJ24LBJBCRHSAJK5EXB7CMEED2X2JTDLTPBOZC3SM4ABZYNIRCG
+      - key: SALOMED_EXPECTED_TOKEN_ID
+        value: CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
+      - key: ADMIN_ADDRESS
+        value: GBSXYPN2XWTJEZPLAMRIYQQVQTCJ2MEQOVOA3G73USGCMEXJ5YXPU2G7
+      - key: SALOMED_CONTRACT_CONFIG_VERIFIED
+        value: "true"
+      # Admin secret key (S...) that signs on-chain USDC credits after a PDAX
+      # payment is confirmed. REQUIRED for the InstaPay -> vault bridge.
+      - key: SALOMED_SIGNER_SECRET
+        sync: false
+      # PDAX Institutional API credentials (fiat on-ramp). Set in dashboard only.
+      - key: PDAX_BASE_URL
+        value: https://uat.services.sandbox.pdax.ph/api/pdax-api
+      - key: PDAX_USERNAME
+        sync: false
+      - key: PDAX_PASSWORD
+        sync: false
+      - key: PDAX_WEBHOOK_SECRET
+        sync: false
+      # Your deployed Vercel URL, e.g. https://salomed.vercel.app
+      - key: FRONTEND_ORIGIN
+        sync: false

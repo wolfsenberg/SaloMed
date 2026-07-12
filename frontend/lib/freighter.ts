@@ -37,20 +37,37 @@ export async function connectWallet(): Promise<string | null> {
 
 export async function signTransaction(xdr: string): Promise<string | null> {
   const f = await api();
-  if (!f) { console.error('[Freighter] extension not found'); return null; }
+  if (!f) throw new Error('Freighter extension not found. Install it from freighter.app and refresh.');
+
+  // Ensure access is granted first; on a fresh session signTransaction can
+  // silently no-op if the dapp was never authorized. This (re)opens the grant
+  // popup if needed, then the sign popup follows.
   try {
-    const result = await f.signTransaction(xdr, {
-      networkPassphrase: process.env.NEXT_PUBLIC_NETWORK_PASSPHRASE ?? 'Test SDF Network ; September 2015',
-    });
-    if (!result || (result as Record<string, unknown>).error) {
-      console.error('[Freighter] sign error:', (result as Record<string, unknown>)?.error);
-      return null;
-    }
-    return (result as { signedTxXdr: string }).signedTxXdr ?? null;
-  } catch (e) {
-    console.error('[Freighter] signTransaction error:', e);
-    return null;
+    await f.requestAccess();
+  } catch {
+    // requestAccess throwing is non-fatal here; signTransaction will surface it.
   }
+
+  const passphrase = process.env.NEXT_PUBLIC_NETWORK_PASSPHRASE ?? 'Test SDF Network ; September 2015';
+  let addr: string | undefined;
+  try {
+    const a = await f.getAddress();
+    addr = (a as { address?: string })?.address;
+  } catch { /* address optional */ }
+
+  const result = await f.signTransaction(xdr, {
+    networkPassphrase: passphrase,
+    ...(addr ? { address: addr } : {}),
+  });
+
+  const err = (result as Record<string, unknown>)?.error;
+  if (err) {
+    const msg = typeof err === 'string' ? err : (err as { message?: string })?.message ?? JSON.stringify(err);
+    throw new Error(`Freighter: ${msg}`);
+  }
+  const signed = (result as { signedTxXdr?: string })?.signedTxXdr;
+  if (!signed) throw new Error('Freighter returned no signed transaction. Is it set to Testnet and unlocked?');
+  return signed;
 }
 
 export async function isFreighterInstalled(): Promise<boolean> {

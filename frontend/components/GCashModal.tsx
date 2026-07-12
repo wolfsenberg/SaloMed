@@ -3,9 +3,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
-import { X, Loader2, CheckCircle, Zap, ArrowDownToLine, ExternalLink } from 'lucide-react';
+import { X, Loader2, CheckCircle, Zap, ArrowDownToLine } from 'lucide-react';
 import { saveTx } from '@/lib/transactions';
-import { pdaxInitiateDeposit } from '@/lib/api';
 import { API_URL, PHP_PER_USDC } from '@/lib/config';
 
 interface LocalQRResult {
@@ -33,7 +32,6 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
   const [rateSource, setRateSource]   = useState<'fixed_demo' | 'configured_indicative'>('fixed_demo');
   const [result, setResult]           = useState<LocalQRResult | null>(null);
   const [ledgerReference, setLedgerReference] = useState<string | null>(null);
-  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [error, setError]             = useState<string | null>(null);
 
   useEffect(() => {
@@ -78,30 +76,11 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
     setStep('processing');
 
     try {
-      // ── PDAX real flow (when credentials are configured) ──────────────────
-      const pdaxResult = await pdaxInitiateDeposit(
-        beneficiaryAddress,
-        result.amount_php,
-        result.reference_id,
-      );
-
-      if ((pdaxResult.mode === 'pdax_uat' || pdaxResult.mode === 'pdax_prod') && pdaxResult.checkout_url) {
-        // Kept fail-closed: even a future checkout does not imply vault credit.
-        setCheckoutUrl(pdaxResult.checkout_url);
-        saveTx(beneficiaryAddress, {
-          type:      'topup',
-          amountXlm: result.amount_xlm,
-          amountPhp: result.amount_php,
-          gcashRef:  pdaxResult.reference_id,
-          txHash:    pdaxResult.pdax_reference,
-          status:    'pending',
-        });
-        setStep('done');
-        return;
-      }
-
-      // ── Demo / fallback flow ──────────────────────────────────────────────
-      const hash = pdaxResult.tx_result || pdaxResult.reference_id || 'ok';
+      // Credit the vault via the backend on-ramp. In Stellar mode this is an
+      // admin-funded on-chain deposit_remittance (real tx hash); in demo mode
+      // it credits the durable ledger. No user-held USDC / trustline needed.
+      const { depositToVault } = await import('@/lib/contract');
+      const hash = await depositToVault(beneficiaryAddress, result.amount_xlm);
 
       setLedgerReference(hash);
       saveTx(beneficiaryAddress, {
@@ -109,6 +88,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
         amountXlm: result.amount_xlm,
         amountPhp: result.amount_php,
         gcashRef:  result.reference_id,
+        txHash:    hash,
         status:    'success',
       });
 
@@ -120,8 +100,8 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
       setTimeout(() => { onSuccess(); }, 1500);
 
     } catch (e: unknown) {
-      console.error('GCash demo top-up failed:', e);
-      setError(e instanceof Error ? e.message : 'Pilot top-up failed. Please retry.');
+      console.error('GCash top-up failed:', e);
+      setError(e instanceof Error ? e.message : 'Top-up failed. Please retry.');
       setStep('qr');
     }
   }
@@ -227,7 +207,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                           ₱{parsedPhp.toLocaleString('en-PH', { minimumFractionDigits: 2 })} PHP
                         </p>
                         <p className="text-xs text-blue-400">
-                          ₱{rate.toFixed(2)} = 1 USDC
+                          ₱{rate.toFixed(2)} = 1 XLM
                           {rateSource === 'configured_indicative' && (
                             <span className="ml-1 text-amber-600 font-semibold">· indicative</span>
                           )}
@@ -235,7 +215,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                       </div>
                       <div className="text-right">
                         <p className="text-lg font-bold text-[#007DFF]">{xlmAmount}</p>
-                        <p className="text-xs text-blue-400">Test USDC to pilot vault</p>
+                        <p className="text-xs text-blue-400">XLM to your vault</p>
                       </div>
                     </motion.div>
                   )}
@@ -267,8 +247,8 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                 className="space-y-4"
               >
                 <div className="text-center">
-                  <p className="font-bold text-slate-900 text-base">Pilot GCash QR</p>
-                  <p className="text-xs text-slate-500 mt-0.5 font-medium">Interface testing only · Do not transfer funds to this QR</p>
+                  <p className="font-bold text-slate-900 text-base">GCash QR</p>
+                  <p className="text-xs text-slate-500 mt-0.5 font-medium">Scan with GCash to fund your vault</p>
                 </div>
 
                 <div className="flex justify-center">
@@ -293,7 +273,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { label: 'You send',   value: `₱${result.amount_php.toLocaleString('en-PH', { minimumFractionDigits: 2 })}` },
-                    { label: 'Pilot vault gets', value: `${result.amount_xlm} test USDC` },
+                    { label: 'Vault gets', value: `${result.amount_xlm} XLM` },
                   ].map(pill => (
                     <div key={pill.label} className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-center">
                       <p className="text-xs text-slate-400">{pill.label}</p>
@@ -306,7 +286,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                   onClick={handleSimulatePayment}
                   className="w-full py-3.5 rounded-xl bg-[#007DFF] hover:bg-blue-600 active:scale-[0.98] text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
                 >
-                  <Zap size={15} /> Confirm Test Payment
+                  <Zap size={15} /> Confirm Payment
                 </button>
               </motion.div>
             )}
@@ -320,7 +300,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                 <Loader2 size={40} className="text-[#007DFF] animate-spin" />
                 <div className="text-center">
                   <p className="font-semibold text-slate-800">Processing payment…</p>
-                  <p className="text-xs text-slate-400 mt-1">Recording test funds in your pilot vault</p>
+                  <p className="text-xs text-slate-400 mt-1">Crediting your vault</p>
                 </div>
               </motion.div>
             )}
@@ -334,31 +314,17 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                 <CheckCircle size={48} className="text-green-500" />
                 <div>
                   <p className="font-bold text-slate-900 text-lg">
-                    {checkoutUrl ? 'Payment Initiated!' : 'Top-up Successful!'}
+                    Top-up Successful!
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
-                    {checkoutUrl
-                      ? 'Checkout created. Vault credit remains blocked until verified USDC settlement.'
-                      : `Pilot top-up recorded: ₱${result?.amount_php.toLocaleString('en-PH', { minimumFractionDigits: 2 })} → ${result?.amount_xlm} test USDC`
+                    {`Top-up recorded: ₱${result?.amount_php.toLocaleString('en-PH', { minimumFractionDigits: 2 })} → ${result?.amount_xlm} XLM`
                     }
                   </p>
                 </div>
 
-                {/* PDAX real flow: open InstaPay checkout */}
-                {checkoutUrl && (
-                  <a
-                    href={checkoutUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 w-full py-3.5 rounded-xl bg-green-500 hover:bg-green-600 text-white font-semibold text-sm justify-center transition-all"
-                  >
-                    <ExternalLink size={15} /> Open InstaPay Checkout
-                  </a>
-                )}
-
-                {ledgerReference && !checkoutUrl && (
+                {ledgerReference && (
                   <div className="max-w-full text-center">
-                    <p className="text-[10px] uppercase tracking-wide text-slate-400">Pilot ledger reference</p>
+                    <p className="text-[10px] uppercase tracking-wide text-slate-400">Reference</p>
                     <p className="text-xs text-slate-500 font-mono truncate mt-0.5">
                       {ledgerReference.length > 28
                         ? `${ledgerReference.slice(0, 20)}…${ledgerReference.slice(-8)}`

@@ -9,6 +9,9 @@ import {
 
 import { payHospital, calcPayment } from '@/lib/contract';
 import { saveTx } from '@/lib/transactions';
+import { recordHistory } from '@/lib/runtime';
+import { fmtAsset, fmtPhp } from '@/lib/format';
+import { explorerTxUrl, networkBadgeLabel } from '@/lib/stellar-links';
 
 /** Shape decoded from a QR. `patient` is always overwritten by the connected wallet. */
 export interface SaloMedQRPayload {
@@ -82,6 +85,15 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
         txHash: hash,
         status: 'success',
       });
+      void recordHistory({
+        address: payload.patient,
+        type: 'payment',
+        amountAsset: payload.amount_usdc,
+        amountPhp: payload.amount_usdc * phpRate,
+        direction: 'sent',
+        counterparty: payload.provider_name || undefined,
+        txHash: hash,
+      });
 
       setDone(true);
       setTimeout(onSuccess, 2500);
@@ -139,7 +151,7 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
                   <h4 className="font-bold text-slate-900">Payment Processed!</h4>
                   <p className="text-sm text-slate-500">
                     <span className="font-semibold text-slate-700">
-                      {payload.amount_usdc.toFixed(4)} USDC
+                      {fmtAsset(payload.amount_usdc)} XLM
                     </span>{' '}
                     deducted from vault
                   </p>
@@ -148,8 +160,24 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
                   </p>
                 </div>
                 {txHash && (
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-400 break-all max-w-full">
-                    {typeof txHash === 'string' ? txHash.slice(0, 60) : JSON.stringify(txHash).slice(0, 60)}…
+                  <div className="flex flex-col items-center gap-1.5 w-full">
+                    <span className="inline-block text-[10px] font-semibold text-blue-700 bg-blue-50 rounded-full px-2 py-0.5">
+                      Stellar {networkBadgeLabel()}
+                    </span>
+                    {explorerTxUrl(txHash) ? (
+                      <a
+                        href={explorerTxUrl(txHash)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-blue-600 hover:text-blue-800 break-all max-w-full"
+                      >
+                        Verify on Stellar: {txHash.slice(0, 16)}…
+                      </a>
+                    ) : (
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-400 break-all max-w-full">
+                        {txHash.slice(0, 60)}…
+                      </div>
+                    )}
                   </div>
                 )}
                 <p className="text-xs text-slate-400">Returning to dashboard…</p>
@@ -179,11 +207,11 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
                     Amount to Deduct
                   </p>
                   <p className="text-3xl font-bold text-blue-700">
-                    {payload.amount_usdc.toFixed(4)}{' '}
-                    <span className="text-lg font-normal text-blue-400">USDC</span>
+                    {fmtAsset(payload.amount_usdc)}{' '}
+                    <span className="text-lg font-normal text-blue-400">XLM</span>
                   </p>
                   <p className="text-xs text-blue-400 mt-1">
-                    ≈ ₱{phpValue.toFixed(2)} PHP
+                    ≈ ₱{fmtPhp(phpValue)} PHP
                   </p>
                 </div>
 

@@ -20,7 +20,11 @@ export default function ProviderCombobox({ providerType, value, onChange }: Prop
   const inputRef = useRef<HTMLInputElement>(null);
   const boxRef   = useRef<HTMLDivElement>(null);
 
-  const providers = runtimeMode === 'demo' ? getProviders(providerType) : [];
+  // Providers are on-chain whitelisted, so show the directory in both demo and
+  // Stellar modes. Only the fail-closed PDAX modes hide it.
+  const providers = (runtimeMode === 'demo' || runtimeMode === 'stellar_testnet' || runtimeMode === null)
+    ? getProviders(providerType)
+    : [];
   const filtered  = query.trim().length === 0
     ? providers
     : providers.filter(p =>
@@ -107,6 +111,9 @@ export default function ProviderCombobox({ providerType, value, onChange }: Prop
                     <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
                       <MapPin size={10} /> {p.location}
                     </p>
+                    <p className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
+                      {p.paymentTarget.slice(0, 6)}…{p.paymentTarget.slice(-4)}
+                    </p>
                   </div>
                   {selected?.paymentTarget === p.paymentTarget && (
                     <CheckCircle2 size={14} className="text-emerald-500 shrink-0 mt-0.5" />
@@ -120,16 +127,11 @@ export default function ProviderCombobox({ providerType, value, onChange }: Prop
 
       {selected && (
         <p className="mt-1 text-xs text-emerald-600 font-medium flex items-center gap-1">
-          <CheckCircle2 size={11} /> Pilot provider directory
+          <CheckCircle2 size={11} /> Whitelisted provider
         </p>
       )}
       {query.trim().length > 0 && !selected && filtered.length === 0 && (
         <p className="mt-1 text-xs text-slate-400">No matching {providerType} found in whitelist.</p>
-      )}
-      {runtimeMode === 'stellar_testnet' && (
-        <p className="mt-1 text-xs text-amber-600">
-          Testnet mode requires a valid contract-whitelisted Stellar address in Manual Pay.
-        </p>
       )}
       {(runtimeMode === 'pdax_uat' || runtimeMode === 'pdax_prod') && (
         <p className="mt-1 text-xs text-amber-600">

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from salomed_runtime import RuntimeMode, RuntimeSettings
+from salomed_runtime import RuntimeSettings
 
 
 def create_legacy_compatibility_router(settings: RuntimeSettings) -> APIRouter:
@@ -42,12 +42,25 @@ def create_legacy_compatibility_router(settings: RuntimeSettings) -> APIRouter:
 
     @router.get("/api/gcash-rate", tags=["Utility"])
     async def indicative_asset_rate():
-        pdax_enabled = settings.mode in {RuntimeMode.PDAX_UAT, RuntimeMode.PDAX_PROD}
+        # Prefer the live PDAX PHP->USDC rate when PDAX is configured, so the
+        # whole app shows a real conversion rather than a hardcoded value.
+        import pdax_service as pdax
+        fallback = float(settings.php_per_asset_decimal)
+        if pdax._PDAX_CONFIGURED:
+            quote = await pdax.get_php_to_asset_quote(1000.0, "USDC", fallback_rate=fallback)
+            if quote.get("source") == "pdax_live":
+                return {
+                    "php_per_usdc": quote["rate"],
+                    "php_per_xlm": None,
+                    "source": "pdax_live",
+                    "pdax_enabled": True,
+                    "executable": False,
+                }
         return {
-            "php_per_usdc": float(settings.php_per_asset_decimal),
+            "php_per_usdc": fallback,
             "php_per_xlm": None,
-            "source": "configured_indicative" if pdax_enabled else "fixed_demo",
-            "pdax_enabled": pdax_enabled,
+            "source": "configured_indicative",
+            "pdax_enabled": pdax._PDAX_CONFIGURED,
             "executable": False,
         }
 

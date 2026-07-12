@@ -18,6 +18,26 @@ STROOPS_PER_ASSET = 10_000_000
 ASSET_QUANTUM = Decimal("0.0000001")
 PHP_QUANTUM = Decimal("0.01")
 
+# Whitelisted demo provider directory. provider_id is a real, checksum-valid
+# Stellar address so the same directory works when switched to stellar_testnet.
+# These IDs must stay in sync with frontend/lib/whitelist.ts.
+SEED_PROVIDERS = [
+    ("GDGXGJTIGCXMQTAG362YFKCBZ4FARG33SDOKCZ4DOTFP4J63EPCYMRKH", "Philippine General Hospital", "hospital"),
+    ("GB5B7D54X2YWGSNO325RBP32ZIMNGLLIIXBHSRU5TJFPY4E6XLAGVV74", "Philippine Heart Center", "hospital"),
+    ("GCTFXRJOGAKUZH5OKQTG77BDFHWD5CZ4YXKVJJR3SP3AIYPPBVKEIWK7", "St. Luke's Medical Center", "hospital"),
+    ("GDCYII5WNUNHGKW2XPLSC2YITBYLGUW3Y3IONY2PDJ43FYUZKCEBJQVY", "Makati Medical Center", "hospital"),
+    ("GA3O3Q3J2KECID3WI4EUCNH52PQ722YHA3NQGEHCUIBZIFGFHOHQOUAV", "The Medical City", "hospital"),
+    ("GCUFGMEDXSPW3JBE6K4RNG56NPY5GYDMDQTJWPHDIGBA7RTPYGY5K4RT", "Southern Philippines Medical Center", "hospital"),
+    ("GDSXB4TOKTSMTYJUZT5V5FSQCTL5VKCL5BM6FGZSSIPPQB6GAOZCE6ZK", "Vicente Sotto Memorial Medical Center", "hospital"),
+    ("GAE362LWPPTAVWORRFKLMI23YP74AOVVRX3TVL3Y2PQIOKJMCOD2K2ML", "Baguio General Hospital", "hospital"),
+    ("GDETADKFTAUVSS2WWNP4E53BPKFDYHARX3QZAVWVWBJ4NA73DKMXCJIK", "Mercury Drug", "pharmacy"),
+    ("GB7MEBYH3DEKHKJGS6Z6WTL45MQEWRVY7T4KFQ4DSVVDMJGGMRFVQW4O", "Watsons Pharmacy", "pharmacy"),
+    ("GB2H7FK4MSCYGURLHX3NZJ7DZPXGOYIMMS5QNEXTSNFM7WDWQTXV3ATF", "Southstar Drug", "pharmacy"),
+    ("GBEX57NASAYLM6WPKFRIHJGRMEXEFJGYZHCMBGTOX4U27YMR46D2XBLT", "Rose Pharmacy", "pharmacy"),
+    ("GCNHM5HIA2VGHKOOXR6UWFZAZYWZUDG7RW63P6CXLQAJYQ53WEKKAVTE", "The Generics Pharmacy", "pharmacy"),
+    ("GD3WALJF5DL36KPI6MDM2PBIOBYDLK32CJLV6RDAHO5BQRUEFRGZRAYU", "Generika Drugstore", "pharmacy"),
+]
+
 
 class RuntimeMode(str, Enum):
     DEMO = "demo"
@@ -37,6 +57,7 @@ class RuntimeSettings:
     php_per_asset: str
     admin_api_key: str
     database_path: str
+    database_url: str
 
     @property
     def php_per_asset_decimal(self) -> Decimal:
@@ -54,15 +75,15 @@ class RuntimeSettings:
             allowed = ", ".join(item.value for item in RuntimeMode)
             raise RuntimeError(f"Invalid SALOMED_MODE={raw_mode!r}; expected one of: {allowed}") from exc
 
-        asset_code = os.getenv("SALOMED_ASSET_CODE", "USDC").strip().upper()
-        if asset_code != "USDC":
-            raise RuntimeError("SaloMed currently supports one canonical vault asset: USDC")
+        asset_code = os.getenv("SALOMED_ASSET_CODE", "XLM").strip().upper()
+        if asset_code not in ("XLM", "USDC"):
+            raise RuntimeError("SaloMed supports XLM (native) or USDC as the vault asset")
 
         settings = cls(
             mode=mode,
             asset_code=asset_code,
             contract_id=os.getenv(
-                "CONTRACT_ID", "CAO3K6OYB5A3VNVV3HKCSVG3ZZ442DZCDKAXG4CTSLBTN7FOYCCBRZ34"
+                "CONTRACT_ID", "CA6X5ZJ24LBJBCRHSAJK5EXB7CMEED2X2JTDLTPBOZC3SM4ABZYNIRCG"
             ).strip().upper(),
             network=os.getenv("STELLAR_NETWORK", "testnet").strip().lower(),
             expected_token_id=os.getenv("SALOMED_EXPECTED_TOKEN_ID", "").strip().upper(),
@@ -73,6 +94,7 @@ class RuntimeSettings:
                 "SALOMED_DB_PATH",
                 str(Path(__file__).resolve().parent / "data" / "salomed.sqlite3"),
             ),
+            database_url=os.getenv("DATABASE_URL", "").strip(),
         )
         settings.php_per_asset_decimal
 
@@ -236,11 +258,7 @@ class DemoLedger:
                     name=excluded.name,
                     provider_type=excluded.provider_type
                 """,
-                [
-                    ("demo-pgh", "Philippine General Hospital (Demo)", "hospital"),
-                    ("demo-heart-center", "Philippine Heart Center (Demo)", "hospital"),
-                    ("demo-mercury", "Mercury Drug (Demo)", "pharmacy"),
-                ],
+                SEED_PROVIDERS,
             )
 
     @staticmethod
@@ -569,3 +587,377 @@ class DemoLedger:
             }
             for row in rows
         ]
+
+
+class PostgresLedger:
+    """
+    Persistent demo ledger backed by managed PostgreSQL.
+
+    Mirrors DemoLedger's public interface exactly (get_vault, list_providers,
+    topup, payment, remittance, history) and returns identical response shapes,
+    so the runtime router does not need to know which backend is active.
+
+    Used in deployed environments (e.g. Render) where the container filesystem
+    is ephemeral and SQLite would reset on every spin-down or redeploy.
+    """
+
+    def __init__(self, database_url: str, php_per_asset: Decimal) -> None:
+        import psycopg  # imported lazily so local SQLite runs need no driver
+
+        self._psycopg = psycopg
+        # Render exposes the URL as postgres://; psycopg wants postgresql://
+        if database_url.startswith("postgres://"):
+            database_url = "postgresql://" + database_url[len("postgres://"):]
+        self.database_url = database_url
+        self.php_per_asset = php_per_asset
+        self._initialize()
+
+    def _connect(self):
+        return self._psycopg.connect(self.database_url, autocommit=False)
+
+    def _initialize(self) -> None:
+        with self._connect() as connection:
+            with connection.cursor() as cur:
+                cur.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS vaults (
+                        address TEXT PRIMARY KEY,
+                        balance_stroops BIGINT NOT NULL DEFAULT 0 CHECK(balance_stroops >= 0),
+                        salo_points BIGINT NOT NULL DEFAULT 0 CHECK(salo_points >= 0),
+                        updated_at BIGINT NOT NULL
+                    );
+                    CREATE TABLE IF NOT EXISTS providers (
+                        provider_id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        provider_type TEXT NOT NULL CHECK(provider_type IN ('hospital', 'pharmacy')),
+                        active SMALLINT NOT NULL DEFAULT 1 CHECK(active IN (0, 1))
+                    );
+                    CREATE TABLE IF NOT EXISTS transactions (
+                        transaction_id TEXT PRIMARY KEY,
+                        operation_id TEXT NOT NULL,
+                        address TEXT NOT NULL,
+                        type TEXT NOT NULL,
+                        direction TEXT NOT NULL,
+                        amount_stroops BIGINT NOT NULL,
+                        amount_php_centavos BIGINT NOT NULL,
+                        status TEXT NOT NULL,
+                        counterparty TEXT,
+                        provider_id TEXT,
+                        points_delta BIGINT NOT NULL DEFAULT 0,
+                        created_at BIGINT NOT NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_transactions_address_created
+                    ON transactions(address, created_at DESC);
+                    CREATE TABLE IF NOT EXISTS operations (
+                        idempotency_key TEXT PRIMARY KEY,
+                        operation_type TEXT NOT NULL,
+                        request_fingerprint TEXT NOT NULL,
+                        response_json TEXT NOT NULL,
+                        created_at BIGINT NOT NULL
+                    );
+                    """
+                )
+                cur.executemany(
+                    """
+                    INSERT INTO providers(provider_id, name, provider_type, active)
+                    VALUES (%s, %s, %s, 1)
+                    ON CONFLICT(provider_id) DO UPDATE SET
+                        name=EXCLUDED.name,
+                        provider_type=EXCLUDED.provider_type
+                    """,
+                    SEED_PROVIDERS,
+                )
+            connection.commit()
+
+    @staticmethod
+    def _fingerprint(payload: dict[str, Any]) -> str:
+        return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+    @staticmethod
+    def _tier(points: int) -> str:
+        if points >= 500:
+            return "Gold"
+        if points >= 100:
+            return "Silver"
+        return "Bronze"
+
+    @staticmethod
+    def _ensure_vault(cur, address: str) -> None:
+        cur.execute(
+            "INSERT INTO vaults(address, updated_at) VALUES (%s, %s) ON CONFLICT(address) DO NOTHING",
+            (address, int(time.time())),
+        )
+
+    def _replay(self, cur, idempotency_key, operation_type, fingerprint):
+        cur.execute(
+            "SELECT operation_type, request_fingerprint, response_json FROM operations WHERE idempotency_key=%s",
+            (idempotency_key,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        if row[0] != operation_type or row[1] != fingerprint:
+            raise LedgerError(
+                "IDEMPOTENCY_CONFLICT",
+                "Idempotency key was already used for a different request",
+                409,
+            )
+        response = json.loads(row[2])
+        response["replayed"] = True
+        return response
+
+    @staticmethod
+    def _store_operation(cur, idempotency_key, operation_type, fingerprint, response) -> None:
+        cur.execute(
+            """
+            INSERT INTO operations(idempotency_key, operation_type, request_fingerprint, response_json, created_at)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (idempotency_key, operation_type, fingerprint, json.dumps(response, sort_keys=True), int(time.time())),
+        )
+
+    def get_vault(self, address: str) -> dict[str, Any]:
+        address = validate_stellar_address(address)
+        with self._connect() as connection:
+            with connection.cursor() as cur:
+                self._ensure_vault(cur, address)
+                cur.execute(
+                    "SELECT balance_stroops, salo_points FROM vaults WHERE address=%s",
+                    (address,),
+                )
+                row = cur.fetchone()
+            connection.commit()
+        balance = int(row[0])
+        points = int(row[1])
+        return {
+            "address": address,
+            "balance_stroops": balance,
+            "balance_asset": stroops_to_asset(balance),
+            "asset_code": "USDC",
+            "salo_points": points,
+            "credit_tier": self._tier(points),
+            "source": "postgres_ledger",
+            "simulated": True,
+        }
+
+    def list_providers(self) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            with connection.cursor() as cur:
+                cur.execute(
+                    "SELECT provider_id, name, provider_type FROM providers WHERE active=1 ORDER BY name"
+                )
+                rows = cur.fetchall()
+            connection.commit()
+        return [
+            {"provider_id": r[0], "name": r[1], "provider_type": r[2]}
+            for r in rows
+        ]
+
+    def topup(self, beneficiary_address: str, amount_php, idempotency_key: str) -> dict[str, Any]:
+        beneficiary = validate_stellar_address(beneficiary_address)
+        centavos = php_to_centavos(amount_php)
+        php = Decimal(centavos) / 100
+        stroops = asset_to_stroops(php / self.php_per_asset)
+        fingerprint = self._fingerprint({"beneficiary": beneficiary, "amount_php_centavos": centavos})
+
+        with self._connect() as connection:
+            with connection.cursor() as cur:
+                replay = self._replay(cur, idempotency_key, "topup", fingerprint)
+                if replay:
+                    connection.commit()
+                    return replay
+                self._ensure_vault(cur, beneficiary)
+                now = int(time.time())
+                transaction_id = f"DEMO-{uuid.uuid4().hex.upper()}"
+                cur.execute(
+                    "UPDATE vaults SET balance_stroops=balance_stroops+%s, updated_at=%s WHERE address=%s",
+                    (stroops, now, beneficiary),
+                )
+                cur.execute(
+                    """
+                    INSERT INTO transactions VALUES (%s, %s, %s, 'topup', 'received', %s, %s, 'success', NULL, NULL, 0, %s)
+                    """,
+                    (transaction_id, idempotency_key, beneficiary, stroops, centavos, now),
+                )
+                response = {
+                    "success": True,
+                    "mode": "demo",
+                    "simulated": True,
+                    "transaction_id": transaction_id,
+                    "status": "completed",
+                    "beneficiary_address": beneficiary,
+                    "amount_php": f"{php:.2f}",
+                    "amount_asset": stroops_to_asset(stroops),
+                    "asset_code": "USDC",
+                    "replayed": False,
+                }
+                self._store_operation(cur, idempotency_key, "topup", fingerprint, response)
+            connection.commit()
+            return response
+
+    def payment(self, patient_address: str, provider_id: str, amount_asset, idempotency_key: str) -> dict[str, Any]:
+        patient = validate_stellar_address(patient_address)
+        stroops = asset_to_stroops(amount_asset)
+        fingerprint = self._fingerprint({"patient": patient, "provider_id": provider_id, "amount_stroops": stroops})
+
+        with self._connect() as connection:
+            with connection.cursor() as cur:
+                replay = self._replay(cur, idempotency_key, "payment", fingerprint)
+                if replay:
+                    connection.commit()
+                    return replay
+                cur.execute(
+                    "SELECT name, provider_type FROM providers WHERE provider_id=%s AND active=1",
+                    (provider_id,),
+                )
+                provider = cur.fetchone()
+                if provider is None:
+                    raise LedgerError("PROVIDER_NOT_WHITELISTED", "Provider is not whitelisted", 403)
+                self._ensure_vault(cur, patient)
+                cur.execute("SELECT balance_stroops FROM vaults WHERE address=%s FOR UPDATE", (patient,))
+                balance = int(cur.fetchone()[0])
+                if balance < stroops:
+                    raise LedgerError("INSUFFICIENT_VAULT_BALANCE", "Insufficient vault balance", 409)
+                points = stroops // STROOPS_PER_ASSET
+                now = int(time.time())
+                transaction_id = f"DEMO-{uuid.uuid4().hex.upper()}"
+                centavos = int(
+                    (Decimal(stroops) / STROOPS_PER_ASSET * self.php_per_asset * 100).quantize(
+                        Decimal("1"), rounding=ROUND_DOWN
+                    )
+                )
+                cur.execute(
+                    "UPDATE vaults SET balance_stroops=balance_stroops-%s, salo_points=salo_points+%s, updated_at=%s WHERE address=%s",
+                    (stroops, points, now, patient),
+                )
+                cur.execute(
+                    """
+                    INSERT INTO transactions VALUES (%s, %s, %s, 'payment', 'sent', %s, %s, 'success', %s, %s, %s, %s)
+                    """,
+                    (transaction_id, idempotency_key, patient, stroops, centavos, provider[0], provider_id, points, now),
+                )
+                response = {
+                    "success": True,
+                    "mode": "demo",
+                    "simulated": True,
+                    "transaction_id": transaction_id,
+                    "status": "completed",
+                    "patient_address": patient,
+                    "provider_id": provider_id,
+                    "provider_name": provider[0],
+                    "provider_type": provider[1],
+                    "amount_asset": stroops_to_asset(stroops),
+                    "asset_code": "USDC",
+                    "points_earned": points,
+                    "replayed": False,
+                }
+                self._store_operation(cur, idempotency_key, "payment", fingerprint, response)
+            connection.commit()
+            return response
+
+    def remittance(self, sender_address: str, beneficiary_address: str, amount_asset, idempotency_key: str) -> dict[str, Any]:
+        sender = validate_stellar_address(sender_address)
+        beneficiary = validate_stellar_address(beneficiary_address)
+        if sender == beneficiary:
+            raise LedgerError("SAME_VAULT", "Sender and beneficiary must be different", 422)
+        stroops = asset_to_stroops(amount_asset)
+        fingerprint = self._fingerprint({"sender": sender, "beneficiary": beneficiary, "amount_stroops": stroops})
+
+        with self._connect() as connection:
+            with connection.cursor() as cur:
+                replay = self._replay(cur, idempotency_key, "remittance", fingerprint)
+                if replay:
+                    connection.commit()
+                    return replay
+                self._ensure_vault(cur, sender)
+                self._ensure_vault(cur, beneficiary)
+                cur.execute("SELECT balance_stroops FROM vaults WHERE address=%s FOR UPDATE", (sender,))
+                balance = int(cur.fetchone()[0])
+                if balance < stroops:
+                    raise LedgerError("INSUFFICIENT_VAULT_BALANCE", "Insufficient vault balance", 409)
+                now = int(time.time())
+                operation_id = f"DEMO-{uuid.uuid4().hex.upper()}"
+                centavos = int(
+                    (Decimal(stroops) / STROOPS_PER_ASSET * self.php_per_asset * 100).quantize(
+                        Decimal("1"), rounding=ROUND_DOWN
+                    )
+                )
+                cur.execute(
+                    "UPDATE vaults SET balance_stroops=balance_stroops-%s, updated_at=%s WHERE address=%s",
+                    (stroops, now, sender),
+                )
+                cur.execute(
+                    "UPDATE vaults SET balance_stroops=balance_stroops+%s, updated_at=%s WHERE address=%s",
+                    (stroops, now, beneficiary),
+                )
+                cur.executemany(
+                    """
+                    INSERT INTO transactions VALUES (%s, %s, %s, 'padala', %s, %s, %s, 'success', %s, NULL, 0, %s)
+                    """,
+                    [
+                        (f"{operation_id}-S", operation_id, sender, "sent", stroops, centavos, beneficiary, now),
+                        (f"{operation_id}-R", operation_id, beneficiary, "received", stroops, centavos, sender, now),
+                    ],
+                )
+                response = {
+                    "success": True,
+                    "mode": "demo",
+                    "simulated": True,
+                    "transaction_id": operation_id,
+                    "status": "completed",
+                    "sender_address": sender,
+                    "beneficiary_address": beneficiary,
+                    "amount_asset": stroops_to_asset(stroops),
+                    "asset_code": "USDC",
+                    "replayed": False,
+                }
+                self._store_operation(cur, idempotency_key, "remittance", fingerprint, response)
+            connection.commit()
+            return response
+
+    def history(self, address: str, limit: int = 50) -> list[dict[str, Any]]:
+        address = validate_stellar_address(address)
+        with self._connect() as connection:
+            with connection.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT transaction_id, type, direction, amount_stroops, amount_php_centavos,
+                           status, counterparty, provider_id, points_delta, created_at
+                    FROM transactions
+                    WHERE address=%s
+                    ORDER BY created_at DESC, transaction_id DESC
+                    LIMIT %s
+                    """,
+                    (address, max(1, min(limit, 100))),
+                )
+                rows = cur.fetchall()
+            connection.commit()
+        return [
+            {
+                "transaction_id": r[0],
+                "type": r[1],
+                "direction": r[2],
+                "amount_asset": stroops_to_asset(int(r[3])),
+                "asset_code": "USDC",
+                "amount_php": f"{Decimal(r[4]) / 100:.2f}",
+                "status": r[5],
+                "counterparty": r[6],
+                "provider_id": r[7],
+                "points_delta": int(r[8]),
+                "created_at": int(r[9]),
+                "simulated": True,
+            }
+            for r in rows
+        ]
+
+
+def create_demo_ledger(settings: "RuntimeSettings") -> "DemoLedger | PostgresLedger":
+    """
+    Select the persistence backend for the demo ledger:
+    - PostgresLedger when DATABASE_URL is set (deployed / production).
+    - DemoLedger (SQLite) otherwise (local development).
+    Both expose the same interface.
+    """
+    if settings.database_url:
+        return PostgresLedger(settings.database_url, settings.php_per_asset_decimal)
+    return DemoLedger(settings.database_path, settings.php_per_asset_decimal)

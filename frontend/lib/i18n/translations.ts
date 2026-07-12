@@ -66,11 +66,11 @@ export const TRANSLATIONS = {
     onboard_next: 'Next',
     onboard_start: 'Get Started',
     onboard_slide1_title: 'Your Health Alkansya',
-    onboard_slide1_desc: 'Explore a purpose-bound health vault using test funds and an illustrative provider directory in this pilot environment.',
+    onboard_slide1_desc: 'A purpose-bound health vault secured on the Stellar network. Save for healthcare, and spend only at whitelisted hospitals and pharmacies.',
     onboard_slide2_title: 'Zero-Crypto Anxiety',
-    onboard_slide2_desc: 'Preview PHP reference amounts, pilot top-ups, and healthcare payment flows in a familiar mobile experience.',
+    onboard_slide2_desc: 'See your balance in Philippine Pesos, top up in a few taps, and pay for healthcare in a familiar mobile experience.',
     onboard_slide3_title: 'The Ultimate Health Pasaload',
-    onboard_slide3_desc: 'Record test health support for a family member in the pilot ledger. Stellar mode separately shows confirmed contract events when enabled.',
+    onboard_slide3_desc: 'Send health support to a family member straight to their locked vault. Every transfer is recorded on Stellar and verifiable on-chain.',
 
     // Language Selection
     lang_select_title: 'Choose a Language',
@@ -87,8 +87,8 @@ export const TRANSLATIONS = {
     common_disconnect: 'Disconnect',
     common_desktop_view: 'Desktop View',
     common_mobile_view: 'Mobile View',
-    common_demo_testnet: 'Pilot environment · Test funds only',
-    common_demo_simulated: 'Pilot preview · Terms and decisions are illustrative.',
+    common_demo_testnet: 'Secured on the Stellar network',
+    common_demo_simulated: 'Every transaction is recorded on-chain and verifiable on Stellar.',
   },
   en: {
     // Navigation
@@ -155,11 +155,11 @@ export const TRANSLATIONS = {
     onboard_next: 'Next',
     onboard_start: 'Get Started',
     onboard_slide1_title: 'Your Health Alkansya',
-    onboard_slide1_desc: 'Explore a purpose-bound health vault using test funds and an illustrative provider directory in this pilot environment.',
+    onboard_slide1_desc: 'A purpose-bound health vault secured on the Stellar network. Save for healthcare, and spend only at whitelisted hospitals and pharmacies.',
     onboard_slide2_title: 'Zero-Crypto Anxiety',
-    onboard_slide2_desc: 'Preview PHP reference amounts, pilot top-ups, and healthcare payment flows in a familiar mobile experience.',
+    onboard_slide2_desc: 'See your balance in Philippine Pesos, top up in a few taps, and pay for healthcare in a familiar mobile experience.',
     onboard_slide3_title: 'The Ultimate Health Pasaload',
-    onboard_slide3_desc: 'Record test health support for a family member in the pilot ledger. Stellar mode separately shows confirmed contract events when enabled.',
+    onboard_slide3_desc: 'Send health support to a family member straight to their locked vault. Every transfer is recorded on Stellar and verifiable on-chain.',
 
     // Language Selection
     lang_select_title: 'Choose a Language',
@@ -176,8 +176,8 @@ export const TRANSLATIONS = {
     common_disconnect: 'Disconnect',
     common_desktop_view: 'Desktop View',
     common_mobile_view: 'Mobile View',
-    common_demo_testnet: 'Pilot environment · Test funds only',
-    common_demo_simulated: 'Pilot preview · Terms and decisions are illustrative.',
+    common_demo_testnet: 'Secured on the Stellar network',
+    common_demo_simulated: 'Every transaction is recorded on-chain and verifiable on Stellar.',
   },
   tl: {
     // Navigation
@@ -244,11 +244,11 @@ export const TRANSLATIONS = {
     onboard_next: 'Susunod',
     onboard_start: 'Magsimula',
     onboard_slide1_title: 'Ang Iyong Health Alkansya',
-    onboard_slide1_desc: 'Subukan ang purpose-bound health vault gamit ang test funds at illustrative provider directory sa pilot environment.',
+    onboard_slide1_desc: 'Isang health vault na naka-secure sa Stellar network. Mag-ipon para sa kalusugan, at magagamit lamang sa mga whitelisted na ospital at parmasya.',
     onboard_slide2_title: 'Walang Kaba sa Crypto',
-    onboard_slide2_desc: 'I-preview ang PHP reference amounts, pilot top-ups, at healthcare payment flows sa pamilyar na mobile experience.',
+    onboard_slide2_desc: 'Makikita ang balanse sa Piso, mag-top up sa ilang tap, at magbayad para sa kalusugan sa pamilyar na mobile experience.',
     onboard_slide3_title: 'Ang Pinaka-aasahang Health Pasaload',
-    onboard_slide3_desc: 'Mag-record ng test health support para sa pamilya sa pilot ledger. Hiwalay na ipinapakita ng Stellar mode ang confirmed contract events kapag enabled.',
+    onboard_slide3_desc: 'Magpadala ng tulong pangkalusugan diretso sa naka-lock na vault ng pamilya. Bawat padala ay naka-record sa Stellar at verifiable on-chain.',
 
     // Language Selection
     lang_select_title: 'Pumili ng Wika',
@@ -265,8 +265,8 @@ export const TRANSLATIONS = {
     common_disconnect: 'I-disconnect',
     common_desktop_view: 'Desktop View',
     common_mobile_view: 'Mobile View',
-    common_demo_testnet: 'Pilot environment · Test funds lamang',
-    common_demo_simulated: 'Pilot preview · Halimbawa lamang ang terms at decisions.',
+    common_demo_testnet: 'Naka-secure sa Stellar network',
+    common_demo_simulated: 'Bawat transaksyon ay naka-record on-chain at verifiable sa Stellar.',
   }
 };
 

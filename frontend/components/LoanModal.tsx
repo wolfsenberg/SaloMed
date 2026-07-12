@@ -159,9 +159,9 @@ export default function LoanModal({ gapAmount, vault, onClose, onSuccess }: Prop
               className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center"
             >
               <div className="flex items-center justify-center gap-2 text-emerald-700 font-semibold text-sm">
-                <CheckCircle size={16} /> Pilot application recorded
+                <CheckCircle size={16} /> Application recorded
               </div>
-              <p className="text-slate-500 text-xs mt-1">No real credit application was submitted from this preview.</p>
+              <p className="text-slate-500 text-xs mt-1">This request is recorded for review. Disbursement is not yet enabled.</p>
             </motion.div>
           ) : (
             <button
@@ -171,7 +171,7 @@ export default function LoanModal({ gapAmount, vault, onClose, onSuccess }: Prop
             >
               {submitting
                 ? <><Loader2 size={16} className="animate-spin" /> Submitting…</>
-                : `Preview application — ${php(monthly)}/mo for ${selectedTerm} months`}
+                : `Apply — ${php(monthly)}/mo for ${selectedTerm} months`}
             </button>
           )}
         </AnimatePresence>

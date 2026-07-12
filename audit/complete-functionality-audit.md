@@ -48,7 +48,7 @@ Until one ledger is declared authoritative per runtime mode, balance, payment, r
 3. The backend updates `_demo_vaults` and returns `success: true`.
 4. The frontend refreshes from Horizon and overwrites the displayed balance with the user's native, spendable XLM.
 
-**Result:** in normal demo fallback, the UI can show “Top-up successful” while the visible vault balance does not increase. The older `/api/topup-legacy` native-XLM funding route would change the Horizon balance, but it is only a last-resort path when the PDAX endpoint itself throws; a successful `demo_fallback` response prevents that route from running.
+**Result:** in normal demo fallback, the UI can show "Top-up successful" while the visible vault balance does not increase. The older `/api/topup-legacy` native-XLM funding route would change the Horizon balance, but it is only a last-resort path when the PDAX endpoint itself throws; a successful `demo_fallback` response prevents that route from running.
 
 ### Hospital/pharmacy payment
 
@@ -68,9 +68,9 @@ The stricter `/api/payment/pay-hospital` contract route exists, but no active fr
 
 **Result:** Stellar recipients receive freely spendable XLM, not purpose-bound contract credit. The displayed padala fee is not taken from the transaction, and the recorded recipient amount can differ from the amount actually sent.
 
-### SaloPoints and “Savings”
+### SaloPoints and "Savings"
 
-The contract awards one point per full USDC-equivalent paid. The UI instead uses provider-specific point rates, stores earned points in local storage, and takes the higher of local and backend values. The UI converts points to “Savings” at 50 points per XLM and offers that as a payment source, but payment still spends native XLM and points are never deducted.
+The contract awards one point per full USDC-equivalent paid. The UI instead uses provider-specific point rates, stores earned points in local storage, and takes the higher of local and backend values. The UI converts points to "Savings" at 50 points per XLM and offers that as a payment source, but payment still spends native XLM and points are never deducted.
 
 **Result:** rewards can be edited locally, reused indefinitely, and do not represent a funded or contract-enforced asset.
 
@@ -94,11 +94,11 @@ Bill scanning exists but is not mounted by the active layout. If re-enabled, its
 
 The product's defining security promise is therefore not enforced by the path users actually take.
 
-#### C2. “Vault balance” is the freely spendable wallet balance
+#### C2. "Vault balance" is the freely spendable wallet balance
 
 - `frontend/lib/contract.ts:93-148` fetches contract/backend data but overwrites balance with Horizon native XLM.
 - `frontend/app/(app)/layout.tsx:100-125` repeats the Horizon override as a fast path.
-- `backend/main.py:1307-1335` explicitly calls Horizon native XLM “the source of truth for the vault balance display.”
+- `backend/main.py:1307-1335` explicitly calls Horizon native XLM "the source of truth for the vault balance display."
 
 This makes the UI label materially misleading: the displayed balance can be spent outside SaloMed at any time.
 
@@ -182,7 +182,7 @@ UI comments describe hospital/pharmacy/padala fees, but the configured constants
 
 Contract: one point per full USDC. UI: two points/XLM for hospitals, one for pharmacies/padala. Local storage wins when it is higher, so browser state can override the contract-derived tier.
 
-#### H3. “Savings” is unfunded and non-consuming
+#### H3. "Savings" is unfunded and non-consuming
 
 Points are displayed as redeemable XLM, but no redemption reserve or token contract exists and points are not burned/deducted. Selecting Savings only changes a UI balance check; it does not change the transaction funding source.
 
@@ -249,7 +249,7 @@ Thus a fallback/static price is falsely advertised as live.
 - No payment/reference ID or replay/duplicate-billing key.
 - No provider metadata/type; UI-specific hospital/pharmacy reward rules cannot be enforced.
 - No fee split/platform treasury mechanics despite UI claims.
-- No points redemption/burn mechanism despite “Savings” UI.
+- No points redemption/burn mechanism despite "Savings" UI.
 - No explicit storage TTL maintenance strategy.
 - No upgrade/migration/emergency-pause/governance path.
 - Panic strings are used instead of a stable typed error enum.
@@ -302,7 +302,7 @@ Do not fall from PDAX UAT/production into demo mode on an error. Mode must be fi
 | Live HTML labels | No PDAX/InstaPay label; simulation text present | Current local PDAX work is not the public deployment |
 | Public GitHub Actions | Latest public main run passed on `431a0e2` at 2026-04-30 | Does not validate the current local uncommitted changes at `249e4d1` |
 
-The workflow named “CI/CD” contains test/build/audit jobs but no explicit Vercel or Render deployment job. External platform Git integration may deploy separately, but that is not evidenced or gated by this workflow.
+The workflow named "CI/CD" contains test/build/audit jobs but no explicit Vercel or Render deployment job. External platform Git integration may deploy separately, but that is not evidenced or gated by this workflow.
 
 ## Recommended remediation sequence
 
