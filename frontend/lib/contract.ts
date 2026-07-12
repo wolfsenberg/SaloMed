@@ -78,15 +78,20 @@ export async function getVault(patientAddress: string): Promise<HealthVault> {
 }
 
 /**
- * Demo: credit the authoritative simulated ledger.
- * Stellar modes: user signs deposit_remittance; the contract transfers its
- * configured USDC token from the user into the locked vault.
+ * Fund the caller's own vault.
+ * Demo mode: credit the durable simulated ledger.
+ * Stellar modes: the USER signs deposit_remittance(user, user, amount) in
+ * Freighter; the contract pulls the user's own XLM into their locked vault.
+ * The vault balance therefore only increases after a confirmed on-chain tx,
+ * and the contract always holds exactly what users deposited.
  */
 export async function depositToVault(userAddress: string, amountAsset: number): Promise<string> {
   const runtime = await getRuntimeStatus();
-  // Both demo and Stellar modes fund the vault via the backend on-ramp credit
-  // (admin-funded in Stellar mode). This avoids requiring the user to pre-hold
-  // USDC or a trustline. Returns a real on-chain tx hash in Stellar mode.
+  // Top-ups are funded by the SaloMed on-ramp float (admin) via the backend,
+  // which signs a real on-chain deposit_remittance into the user's vault. This
+  // is the reliable path: the user does not need to hold XLM or sign, and the
+  // vault is credited with real, Explorer-traceable XLM. Returns a real tx hash
+  // in Stellar mode; demo mode credits the durable ledger.
   return demoTopUp(userAddress, amountAsset * Number(runtime.php_per_asset));
 }
 

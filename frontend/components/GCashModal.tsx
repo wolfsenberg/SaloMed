@@ -76,12 +76,13 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
     setStep('processing');
 
     try {
-      // Credit the vault via the backend on-ramp. In Stellar mode this is an
-      // admin-funded on-chain deposit_remittance (real tx hash); in demo mode
-      // it credits the durable ledger. No user-held USDC / trustline needed.
+      // Fund the vault on-chain. In Stellar mode the USER signs
+      // deposit_remittance in Freighter (real tx hash); vault increases only
+      // after confirmed on-chain success. Demo mode credits the durable ledger.
       const { depositToVault } = await import('@/lib/contract');
       const hash = await depositToVault(beneficiaryAddress, result.amount_xlm);
 
+      // Backend already records the top-up in the address-keyed history index.
       setLedgerReference(hash);
       saveTx(beneficiaryAddress, {
         type:      'topup',

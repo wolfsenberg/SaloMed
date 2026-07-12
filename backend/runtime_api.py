@@ -32,6 +32,17 @@ class EnsureFeesRequest(BaseModel):
     address: str = Field(min_length=56, max_length=56)
 
 
+class HistoryRecordRequest(BaseModel):
+    address: str = Field(min_length=56, max_length=56)
+    type: str = Field(min_length=1, max_length=32)
+    amount_asset: Decimal = Field(ge=0, max_digits=20, decimal_places=7)
+    amount_php: Decimal = Field(ge=0, max_digits=20, decimal_places=2)
+    direction: str | None = Field(default=None, max_length=16)
+    counterparty: str | None = Field(default=None, max_length=128)
+    tx_hash: str | None = Field(default=None, max_length=128)
+    status: str = Field(default="success", max_length=16)
+
+
 def _ledger_call(function, *args):
     try:
         return function(*args)
@@ -104,16 +115,6 @@ def create_runtime_router(settings: RuntimeSettings, demo_ledger: "DemoLedger | 
             return {"transactions": _ledger_call(demo_ledger.history, address, limit)}
         import history_store
         return {"transactions": history_store.history(address, limit), "source": "backend_index"}
-
-    class HistoryRecordRequest(BaseModel):
-        address: str = Field(min_length=56, max_length=56)
-        type: str = Field(min_length=1, max_length=32)
-        amount_asset: Decimal = Field(ge=0, max_digits=20, decimal_places=7)
-        amount_php: Decimal = Field(ge=0, max_digits=20, decimal_places=2)
-        direction: str | None = Field(default=None, max_length=16)
-        counterparty: str | None = Field(default=None, max_length=128)
-        tx_hash: str | None = Field(default=None, max_length=128)
-        status: str = Field(default="success", max_length=16)
 
     @router.post("/api/v2/history/record", tags=["Vault v2"])
     async def record_history(body: HistoryRecordRequest):

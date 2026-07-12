@@ -77,9 +77,9 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
         tx = result.tx_hash ?? null;
         credited = result.usdc_amount ?? usdcOut;
       } else {
-        // 2) Demo fallback: no real fiat settlement (no real money yet), so
-        //    credit the vault on-chain via the admin on-ramp float. The USDC
-        //    credited is real and verifiable; only the fiat leg is simulated.
+        // 2) No confirmed PDAX settlement yet: fund the vault on-chain via a
+        //    user-signed deposit (Freighter opens; real tx hash). The vault
+        //    only increases after confirmed on-chain success.
         const { depositToVault } = await import('@/lib/contract');
         tx = await depositToVault(beneficiaryAddress, usdcOut);
       }

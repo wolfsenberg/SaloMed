@@ -35,29 +35,19 @@ export async function connectWallet(): Promise<string | null> {
   return addr;
 }
 
-export async function signTransaction(xdr: string): Promise<string | null> {
+export async function signTransaction(xdr: string, signerAddress?: string): Promise<string | null> {
   const f = await api();
   if (!f) throw new Error('Freighter extension not found. Install it from freighter.app and refresh.');
 
-  // Ensure access is granted first; on a fresh session signTransaction can
-  // silently no-op if the dapp was never authorized. This (re)opens the grant
-  // popup if needed, then the sign popup follows.
-  try {
-    await f.requestAccess();
-  } catch {
-    // requestAccess throwing is non-fatal here; signTransaction will surface it.
-  }
-
   const passphrase = process.env.NEXT_PUBLIC_NETWORK_PASSPHRASE ?? 'Test SDF Network ; September 2015';
-  let addr: string | undefined;
-  try {
-    const a = await f.getAddress();
-    addr = (a as { address?: string })?.address;
-  } catch { /* address optional */ }
 
+  // signTransaction itself triggers the Freighter approval popup. We pass the
+  // signer address (when known) so the extension targets the right account.
+  // No extra requestAccess/getAddress round-trips here: the wallet is already
+  // connected before any signing flow, so those only added latency.
   const result = await f.signTransaction(xdr, {
     networkPassphrase: passphrase,
-    ...(addr ? { address: addr } : {}),
+    ...(signerAddress ? { address: signerAddress } : {}),
   });
 
   const err = (result as Record<string, unknown>)?.error;

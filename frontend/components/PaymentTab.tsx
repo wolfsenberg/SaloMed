@@ -116,10 +116,11 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
         providerName: providerName || undefined, providerType, payFrom,
         ptsEarned: genBreakdown.ptsEarned, txHash, status: 'success',
       });
-      void recordHistory({
+      await recordHistory({
         address, type: 'payment', amountAsset: parsedXlm, amountPhp: parsedPhp,
         direction: 'sent', counterparty: providerName || undefined, txHash,
       });
+      window.dispatchEvent(new CustomEvent('salomed_tx_update', { detail: { address: address.toUpperCase() } }));
       setDone(true);
       setTimeout(onSuccess, 2500);
     } catch (e: unknown) {
@@ -171,10 +172,11 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
         txHash,
         status:       'success',
       });
-      void recordHistory({
+      await recordHistory({
         address, type: 'payment', amountAsset: manualParsed, amountPhp: manualParsedPhp,
         direction: 'sent', counterparty: providerName || undefined, txHash,
       });
+      window.dispatchEvent(new CustomEvent('salomed_tx_update', { detail: { address: address.toUpperCase() } }));
       setDone(true);
       setTimeout(onSuccess, 2500);
     } catch (e: unknown) {

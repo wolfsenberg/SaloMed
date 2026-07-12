@@ -43,7 +43,8 @@ export default function FreighterTopUpModal({ address, onClose, onSuccess }: Pro
     try {
       const { depositToVault } = await import('@/lib/contract');
       const hash = await depositToVault(address, parsedXlm);
-      
+
+      // Backend already records the top-up in the address-keyed history index.
       setTxHash(hash);
       saveTx(address, {
         type:      'topup',
@@ -52,6 +53,9 @@ export default function FreighterTopUpModal({ address, onClose, onSuccess }: Pro
         txHash:    hash,
         status:    'success',
       });
+      window.dispatchEvent(new CustomEvent('salomed_tx_update', {
+        detail: { address: address.toUpperCase() },
+      }));
       setStep('done');
       setTimeout(onSuccess, 2200);
 

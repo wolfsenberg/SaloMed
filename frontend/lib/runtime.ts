@@ -299,18 +299,20 @@ async function readContractHistory(address: string, phpRate: number): Promise<Ru
   const events: StellarSdk.rpc.Api.EventResponse[] = [];
   let cursor: string | undefined;
   while (true) {
-    const page = await rpc.getEvents({
-      startLedger: cursor ? undefined : Math.max(1, latest.sequence - 120_000),
-      cursor,
-      filters: [{
-        type: 'contract',
-        contractIds: [CONTRACT_ID],
-        topics: [['*', addressTopic], ['*', '*', addressTopic]],
-      }],
-      limit: 100,
-    });
+    const eventFilter = {
+      type: 'contract',
+      contractIds: [CONTRACT_ID],
+      topics: [['*', addressTopic], ['*', '*', addressTopic]],
+    };
+    const request = cursor
+      ? { filters: [eventFilter], pagination: { cursor, limit: 100 } }
+      : { startLedger: Math.max(1, latest.sequence - 120_000), filters: [eventFilter], pagination: { limit: 100 } };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const page = await rpc.getEvents(request as any);
     events.push(...page.events);
-    const nextCursor = page.events.at(-1)?.pagingToken;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const last = page.events.at(-1) as any;
+    const nextCursor: string | undefined = last?.pagingToken ?? last?.id ?? (page as any).cursor;
     if (page.events.length < 100 || !nextCursor || nextCursor === cursor) break;
     cursor = nextCursor;
   }
@@ -457,7 +459,7 @@ async function submitContractCall(
   const source = await rpc.getAccount(signerAddress);
   const tx = contractTransaction(source, method, args);
   const prepared = await rpc.prepareTransaction(tx);
-  const signedXdr = await signTransaction(prepared.toXDR());
+  const signedXdr = await signTransaction(prepared.toXDR(), signerAddress);
   if (!signedXdr) throw new Error('Freighter did not return a signature. Make sure it is unlocked and set to Testnet.');
 
   const signed = StellarSdk.TransactionBuilder.fromXDR(signedXdr, NETWORK_PASSPHRASE);
