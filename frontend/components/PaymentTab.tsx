@@ -22,7 +22,7 @@ interface Props {
   address: string | null;
   vault: HealthVault;
   onSuccess: () => void;
-  onSwitchTab: (tab: any) => void;
+  onSwitchTab: (tab: any, options?: { scrollTop?: boolean }) => void;
 }
 
 type View         = 'home' | 'generate' | 'manual';
@@ -590,14 +590,15 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                       <p className="text-sm font-bold text-amber-900">Not enough balance</p>
                       <p className="text-xs text-amber-700 leading-relaxed">
                         Your locked vault balance ({activeBalance.toFixed(2)} XLM) is not enough to cover this payment.
+                        Add funds in Vault, then return here to complete it.
                       </p>
                     </div>
                   </div>
                   <button
-                    onClick={() => onSwitchTab('vault')}
+                    onClick={() => onSwitchTab('vault', { scrollTop: true })}
                     className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
                   >
-                    <Wallet size={13} /> Top Up in Vault
+                    <Wallet size={13} /> Add Funds in Vault
                   </button>
                 </div>
               )}
@@ -920,14 +921,15 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                       <p className="text-sm font-bold text-amber-900">Not enough balance</p>
                       <p className="text-xs text-amber-700 leading-relaxed">
                         Your locked vault balance ({activeBalance.toFixed(2)} XLM) is not enough for this transaction.
+                        Add funds in Vault, then return here to complete it.
                       </p>
                     </div>
                   </div>
                   <button
-                    onClick={() => onSwitchTab('vault')}
+                    onClick={() => onSwitchTab('vault', { scrollTop: true })}
                     className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
                   >
-                    <Wallet size={13} /> Top Up in Vault
+                    <Wallet size={13} /> Add Funds in Vault
                   </button>
                 </div>
               )}

@@ -86,6 +86,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
   const [freighterBannerDismissed, setFreighterBannerDismissed] = useState(false);
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
   const prevTab = useRef<Tab>('vault');
+  const contentRef = useRef<HTMLDivElement | null>(null);
 
   const { t, language, setLanguage, hasChosenLanguage } = useTranslation();
 
@@ -192,8 +193,22 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
     });
   }, [refreshVault]);
 
-  function switchTab(next: Tab) {
-    if (next === tab) return;
+  function scrollContentToTop() {
+    contentRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+  }
+
+  function scheduleScrollContentToTop() {
+    requestAnimationFrame(() => {
+      scrollContentToTop();
+      requestAnimationFrame(scrollContentToTop);
+    });
+  }
+
+  function switchTab(next: Tab, options?: { scrollTop?: boolean }) {
+    if (next === tab) {
+      if (options?.scrollTop) scheduleScrollContentToTop();
+      return;
+    }
     const pi = TAB_ORDER.indexOf(prevTab.current);
     const ni = TAB_ORDER.indexOf(next);
     setDir(ni > pi ? 1 : -1);
@@ -201,6 +216,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
     prevTab.current = next;
     // Update URL without triggering a Next.js navigation — instant, no remount
     window.history.pushState(null, '', TAB_META[next].path);
+    if (options?.scrollTop) scheduleScrollContentToTop();
   }
 
   async function handleConnect() {
@@ -421,7 +437,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
             )}
 
             {/* Content — rendered directly from state, no Next.js navigation */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 scroll-touch overscroll-y-contain">
+            <div ref={contentRef} className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 scroll-touch overscroll-y-contain">
               <AnimatePresence mode="wait" custom={dir}>
                 <motion.div
                   key={tab}

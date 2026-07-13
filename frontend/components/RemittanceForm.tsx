@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { AlertCircle, ArrowLeftRight, CheckCircle, Globe, Loader2, Lock, Send } from 'lucide-react';
+import { AlertCircle, ArrowLeftRight, CheckCircle, Globe, Loader2, Lock, Send, Users, Zap } from 'lucide-react';
 
 import type { HealthVault } from '@/lib/contract';
 import { calcPadala, getVault, sendPadala } from '@/lib/contract';
@@ -13,20 +13,35 @@ import { fmtAsset, fmtPhp } from '@/lib/format';
 import { explorerTxUrl, networkBadgeLabel } from '@/lib/stellar-links';
 import LiveRateButton from '@/components/LiveRateButton';
 import { useXlmPhpRate } from '@/lib/use-xlm-php-rate';
+import InstaPayTopUpModal from '@/components/InstaPayTopUpModal';
 
 
 interface Props {
   ofwAddress: string | null;
   vault: HealthVault;
   onSuccess: () => void;
-  onSwitchTab: (tab: any) => void;
+  onSwitchTab: (tab: any, options?: { scrollTop?: boolean }) => void;
 }
+
+type SavedBeneficiary = {
+  label: string;
+  address: string;
+  updatedAt: number;
+};
+
 function isValidStellarAddress(address: string): boolean {
   return /^G[A-Z2-7]{55}$/.test(address.trim().toUpperCase());
 }
 
+function storageKey(address: string) {
+  return `salomed_padala_beneficiaries:${address.toUpperCase()}`;
+}
+
 export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchTab }: Props) {
   const [beneficiary, setBeneficiary] = useState('');
+  const [beneficiaryLabel, setBeneficiaryLabel] = useState('');
+  const [savedBeneficiaries, setSavedBeneficiaries] = useState<SavedBeneficiary[]>([]);
+  const [showInstaPay, setShowInstaPay] = useState(false);
   const [amount, setAmount] = useState('');
   const [showPhp, setShowPhp] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -34,6 +49,9 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
   const [txHash, setTxHash] = useState<string | null>(null);
   const rate = useXlmPhpRate();
 
+  const normalizedBeneficiary = beneficiary.trim().toUpperCase();
+  const beneficiaryIsValid = isValidStellarAddress(normalizedBeneficiary);
+  const canFundBeneficiary = beneficiaryIsValid && normalizedBeneficiary !== ofwAddress?.toUpperCase();
   const vaultBalance = Number(vault.balance) / 10_000_000;
   const amountAsset = showPhp
     ? (parseFloat(amount) || 0) / rate.phpPerXlm
@@ -42,12 +60,48 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
   const breakdown = calcPadala(amountAsset);
   const insufficient = amountAsset > vaultBalance;
 
+  useEffect(() => {
+    if (!ofwAddress) {
+      setSavedBeneficiaries([]);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(storageKey(ofwAddress));
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(parsed)) setSavedBeneficiaries(parsed.slice(0, 5));
+    } catch {
+      setSavedBeneficiaries([]);
+    }
+  }, [ofwAddress]);
+
+  function persistBeneficiaries(next: SavedBeneficiary[]) {
+    setSavedBeneficiaries(next);
+    if (ofwAddress) localStorage.setItem(storageKey(ofwAddress), JSON.stringify(next));
+  }
+
+  function rememberBeneficiary(address = normalizedBeneficiary, label = beneficiaryLabel) {
+    const cleanAddress = address.trim().toUpperCase();
+    if (!isValidStellarAddress(cleanAddress) || cleanAddress === ofwAddress?.toUpperCase()) return;
+    const cleanLabel = label.trim() || `${cleanAddress.slice(0, 6)}…${cleanAddress.slice(-4)}`;
+    const next = [
+      { label: cleanLabel, address: cleanAddress, updatedAt: Date.now() },
+      ...savedBeneficiaries.filter(item => item.address !== cleanAddress),
+    ].slice(0, 5);
+    persistBeneficiaries(next);
+  }
+
+  function selectBeneficiary(item: SavedBeneficiary) {
+    setBeneficiary(item.address);
+    setBeneficiaryLabel(item.label);
+    setError(null);
+  }
+
   async function handleSend() {
     if (!ofwAddress) { setError('Connect your Freighter wallet first.'); return; }
-    if (!isValidStellarAddress(beneficiary)) {
+    if (!isValidStellarAddress(normalizedBeneficiary)) {
       setError('Enter a checksum-valid Stellar G-address for the beneficiary vault.'); return;
     }
-    if (beneficiary.trim().toUpperCase() === ofwAddress.toUpperCase()) {
+    if (normalizedBeneficiary === ofwAddress.toUpperCase()) {
       setError('Sender and beneficiary must be different wallets.'); return;
     }
     if (amountAsset <= 0) { setError('Enter a positive amount.'); return; }
@@ -65,15 +119,16 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
         setSubmitting(false);
         return;
       }
-      const recipient = beneficiary.trim().toUpperCase();
+      const recipient = normalizedBeneficiary;
       const hash = await sendPadala(ofwAddress, recipient, amountAsset);
       setTxHash(hash);
+      rememberBeneficiary(recipient);
       saveTx(ofwAddress, {
         type: 'padala',
         amountXlm: amountAsset,
         amountPhp,
         recipientMethod: 'stellar',
-        recipientLabel: `${recipient.slice(0, 6)}…${recipient.slice(-4)}`,
+        recipientLabel: beneficiaryLabel.trim() || `${recipient.slice(0, 6)}…${recipient.slice(-4)}`,
         payFrom: 'vault',
         txHash: hash,
         status: 'success',
@@ -140,11 +195,32 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
         <p className="text-xs font-semibold uppercase tracking-widest text-blue-200">Purpose-bound remittance</p>
         <h2 className="text-xl font-bold mt-1">Health Padala</h2>
         <p className="text-sm text-blue-100 mt-1">
-          Value moves from your locked vault to the beneficiary&apos;s locked vault—not to a spendable wallet balance.
+          Send from your locked vault, or fund a family health vault directly through InstaPay.
         </p>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-5 space-y-4">
+        {savedBeneficiaries.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+              <Users size={12} /> Saved family vaults
+            </p>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {savedBeneficiaries.map(item => (
+                <button
+                  key={item.address}
+                  type="button"
+                  onClick={() => selectBeneficiary(item)}
+                  className="shrink-0 rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                  title={item.address}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div>
           <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Beneficiary Stellar address</label>
           <div className="relative mt-2">
@@ -157,6 +233,12 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
               className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-mono outline-none focus:border-blue-500"
             />
           </div>
+          <input
+            value={beneficiaryLabel}
+            onChange={event => setBeneficiaryLabel(event.target.value)}
+            placeholder="Optional label, e.g. Mama, Papa, Patient"
+            className="mt-2 w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+          />
         </div>
 
         <div>
@@ -202,9 +284,33 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
           <p className="text-slate-400">Padala is kept fee-free for the pilot and does not award or redeem SaloPoints.</p>
         </div>
 
+        {canFundBeneficiary && (
+          <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 space-y-2">
+            <div className="flex items-start gap-2">
+              <Zap size={15} className="text-blue-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-bold text-blue-800">Fund this family vault via InstaPay</p>
+                <p className="text-xs text-blue-600 leading-relaxed">
+                  Pay in PHP through PDAX InstaPay. The beneficiary receives locked XLM in their health vault.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                rememberBeneficiary();
+                setShowInstaPay(true);
+              }}
+              className="w-full rounded-lg bg-white px-3 py-2 text-xs font-bold text-blue-700 border border-blue-100 hover:bg-blue-100"
+            >
+              Fund family vault via InstaPay
+            </button>
+          </div>
+        )}
+
         {insufficient && (
-          <button onClick={() => onSwitchTab('vault')} className="w-full text-xs font-semibold text-amber-700 bg-amber-50 rounded-xl p-3">
-            Insufficient balance — open Vault to top up
+          <button onClick={() => onSwitchTab('vault', { scrollTop: true })} className="w-full text-xs font-semibold text-amber-700 bg-amber-50 rounded-xl p-3">
+            Insufficient balance — add funds in Vault
           </button>
         )}
         {error && <p className="text-xs text-red-600 flex items-center gap-1.5"><AlertCircle size={13} />{error}</p>}
@@ -217,6 +323,17 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
           {submitting ? <><Loader2 size={15} className="animate-spin" /> Processing…</> : <><Send size={15} /> Send locked XLM</>}
         </button>
       </div>
+
+      {showInstaPay && canFundBeneficiary && (
+        <InstaPayTopUpModal
+          beneficiaryAddress={normalizedBeneficiary}
+          onClose={() => setShowInstaPay(false)}
+          onSuccess={() => {
+            rememberBeneficiary();
+            setShowInstaPay(false);
+          }}
+        />
+      )}
     </div>
   );
 }

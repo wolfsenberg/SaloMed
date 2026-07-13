@@ -153,6 +153,16 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
           </button>
         )}
 
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={loading}
+          className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-blue-100/90 transition-colors hover:bg-white/20 disabled:opacity-60"
+        >
+          <RefreshCw size={10} className={loading ? 'animate-spin' : ''} />
+          Refresh vault
+        </button>
+
         <div className="mt-1 flex items-center justify-between gap-2">
           <p className="min-w-0 truncate text-xs font-mono text-blue-300">
             {address.slice(0, 8)}…{address.slice(-8)}
@@ -311,15 +321,6 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
             <span>{tip}</span>
           </div>
         ))}
-      </motion.div>
-
-      <motion.div variants={card}>
-        <button
-          onClick={onRefresh}
-          className="w-full py-2 text-xs text-slate-400 hover:text-blue-600 transition-colors flex items-center justify-center gap-1.5"
-        >
-          <RefreshCw size={12} /> Refresh vault
-        </button>
       </motion.div>
 
       {/* Purpose lock notice — always visible, reinforces the core value */}

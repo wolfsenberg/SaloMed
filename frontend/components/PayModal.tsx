@@ -15,7 +15,7 @@ interface Props {
   vault?: any; // HealthVault structure
   onClose: () => void;
   onSuccess: () => void;
-  onSwitchTab?: (tab: string) => void;
+  onSwitchTab?: (tab: string, options?: { scrollTop?: boolean }) => void;
 }
 
 function isValidStellarAddress(addr: string) {
@@ -165,15 +165,16 @@ export default function PayModal({ patientAddress, amountXlm, vault, onClose, on
                 <p className="text-sm font-bold text-amber-900">Not enough balance</p>
                 <p className="text-xs text-amber-700">
                   Your vault has {vaultBalance.toFixed(2)} XLM, which is not enough for this payment.
+                  Add funds in Vault, then return here to complete it.
                 </p>
               </div>
             </div>
             {onSwitchTab && (
               <button
-                onClick={() => { onClose(); onSwitchTab('vault'); }}
+                onClick={() => { onClose(); onSwitchTab('vault', { scrollTop: true }); }}
                 className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition-colors"
               >
-                Top Up in Vault
+                Add Funds in Vault
               </button>
             )}
           </div>
