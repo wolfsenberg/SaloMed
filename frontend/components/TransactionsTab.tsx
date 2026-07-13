@@ -1,18 +1,48 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, Clock, ExternalLink, Receipt, RefreshCw } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Clock, ExternalLink, Receipt, RefreshCw, Send } from 'lucide-react';
 
 import { loadTxs, Transaction } from '@/lib/transactions';
 import { getAddressHistory } from '@/lib/runtime';
 import { fmtAsset, fmtPhp } from '@/lib/format';
-import { explorerTxUrl, networkBadgeLabel } from '@/lib/stellar-links';
+import { explorerTxUrl } from '@/lib/stellar-links';
 import { topUpMethodLabel } from '@/lib/topup-label';
-
 
 interface Props {
   address: string | null;
 }
+
+const activityStyle = {
+  topup: {
+    label: 'Top-up',
+    Icon: ArrowDownLeft,
+    icon: 'bg-emerald-50 text-emerald-600',
+    amount: 'text-emerald-600',
+    link: 'text-emerald-700 hover:text-emerald-800',
+  },
+  payment: {
+    label: 'Payment',
+    Icon: ArrowUpRight,
+    icon: 'bg-blue-50 text-blue-600',
+    amount: 'text-blue-600',
+    link: 'text-blue-600 hover:text-blue-800',
+  },
+  padala: {
+    label: 'Padala',
+    Icon: Send,
+    icon: 'bg-violet-50 text-violet-600',
+    amount: 'text-violet-700',
+    link: 'text-violet-700 hover:text-violet-800',
+  },
+  loan: {
+    label: 'Salo',
+    Icon: Receipt,
+    icon: 'bg-amber-50 text-amber-600',
+    amount: 'text-amber-700',
+    link: 'text-amber-700 hover:text-amber-800',
+  },
+} as const;
 
 export default function TransactionsTab({ address }: Props) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -24,7 +54,7 @@ export default function TransactionsTab({ address }: Props) {
     const version = ++refreshVersion.current;
     setLoading(true);
     // Primary source: the backend index keyed by Stellar address, so history
-    // follows the WALLET across devices. Each row keeps its real tx hash for
+    // follows the wallet across devices. Each row keeps its real tx hash for
     // Stellar Explorer verification. Falls back to the local record offline.
     let rows: Transaction[] = [];
     try {
@@ -45,7 +75,7 @@ export default function TransactionsTab({ address }: Props) {
       rows = [];
     }
     if (rows.length === 0) {
-      rows = loadTxs(address); // offline fallback
+      rows = loadTxs(address);
     }
     if (version === refreshVersion.current) {
       setTransactions(rows);
@@ -75,7 +105,7 @@ export default function TransactionsTab({ address }: Props) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-slate-900">Vault Activity</h2>
-          <p className="text-xs text-slate-400 mt-0.5">On-chain activity · Stellar {networkBadgeLabel()}</p>
+          <p className="text-xs text-slate-400 mt-0.5">Recent movement in your health vault</p>
         </div>
         <button onClick={refresh} disabled={loading} className="p-2 rounded-xl bg-white border border-slate-200 text-slate-500">
           <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
@@ -93,44 +123,45 @@ export default function TransactionsTab({ address }: Props) {
       <div className="space-y-2">
         {transactions.map(transaction => {
           const received = transaction.direction === 'received' || transaction.type === 'topup';
-          const Icon = received ? ArrowDownLeft : ArrowUpRight;
+          const style = activityStyle[transaction.type] ?? activityStyle.payment;
+          const Icon = style.Icon;
           const label = transaction.providerName
             || transaction.recipientLabel
             || transaction.senderLabel
             || (transaction.type === 'topup' ? topUpMethodLabel(transaction.topUpSource) : transaction.status);
           const explorer = transaction.txHash ? explorerTxUrl(transaction.txHash) : '';
+
           return (
             <div key={transaction.id} className="bg-white border border-slate-100 rounded-2xl p-4 flex gap-3 items-center shadow-card">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${received ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${style.icon}`}>
                 <Icon size={18} />
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-bold text-slate-800 capitalize">{transaction.type}</p>
-                  <p className={`text-sm font-bold ${received ? 'text-emerald-600' : 'text-slate-800'}`}>
-                    {received ? '+' : '−'}₱{fmtPhp(transaction.amountPhp)}
+              <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-slate-800">{style.label}</p>
+                  <p className="mt-1 truncate text-[11px] text-slate-400">{label}</p>
+                  <div className="mt-1 flex items-center gap-2">
+                    {explorer && (
+                      <a
+                        href={explorer}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`inline-flex items-center gap-1 text-[10px] font-semibold ${style.link}`}
+                      >
+                        <ExternalLink size={10} /> Verify on Stellar
+                      </a>
+                    )}
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className={`text-sm font-bold ${style.amount}`}>
+                    {received ? '+' : '-'}₱{fmtPhp(transaction.amountPhp)}
+                  </p>
+                  <p className="mt-1 text-[10px] text-slate-400">~ {fmtAsset(transaction.amountXlm)} XLM</p>
+                  <p className="mt-2 flex items-center justify-end gap-1 text-[11px] text-slate-400">
+                    <Clock size={10} />{new Date(transaction.timestamp).toLocaleString()}
                   </p>
                 </div>
-                <div className="flex items-center justify-between gap-2 mt-1 text-[11px] text-slate-400">
-                  <span className="truncate">{label}</span>
-                  <span className="flex items-center gap-1 shrink-0"><Clock size={10} />{new Date(transaction.timestamp).toLocaleString()}</span>
-                </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="inline-block text-[10px] font-semibold text-blue-700 bg-blue-50 rounded-full px-2 py-0.5">
-                    Stellar {networkBadgeLabel()}
-                  </span>
-                  {explorer && (
-                    <a
-                      href={explorer}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 hover:text-blue-800"
-                    >
-                      <ExternalLink size={10} /> Verify on Stellar
-                    </a>
-                  )}
-                </div>
-                <p className="text-[10px] text-slate-400 mt-0.5">≈ {fmtAsset(transaction.amountXlm)} XLM</p>
               </div>
             </div>
           );

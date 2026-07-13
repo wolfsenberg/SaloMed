@@ -22,5 +22,8 @@ export const GENERIC_TOPUP_LABEL = 'Vault top-up';
  */
 export function topUpMethodLabel(source: string | null | undefined): string {
   if (!source) return GENERIC_TOPUP_LABEL;
-  return TOPUP_METHOD_LABELS[source.trim().toLowerCase()] ?? GENERIC_TOPUP_LABEL;
+  const key = source.trim().toLowerCase();
+  return Object.prototype.hasOwnProperty.call(TOPUP_METHOD_LABELS, key)
+    ? TOPUP_METHOD_LABELS[key]
+    : GENERIC_TOPUP_LABEL;
 }
