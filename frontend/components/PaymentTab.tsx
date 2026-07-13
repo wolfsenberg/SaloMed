@@ -9,7 +9,7 @@ import {
   Copy, Check, Sparkles, Building2, FlaskConical, Star, Wallet, ShieldCheck,
 } from 'lucide-react';
 import type { HealthVault } from '@/lib/contract';
-import { POINTS_RATE, calcPayment, payHospital } from '@/lib/contract';
+import { POINTS_RATE, PROVIDER_SERVICE_FEE_WAIVED, calcPayment, payHospital } from '@/lib/contract';
 import { saveTx } from '@/lib/transactions';
 import { recordHistory } from '@/lib/runtime';
 import QRScannerModal from '@/components/QRScannerModal';
@@ -544,11 +544,18 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     </div>
                   </div>
                   <div className="flex justify-between text-slate-400">
-                    <span>Platform fee ({(genBreakdown.feeRate * 100).toFixed(1)}%)</span>
+                    <span>Patient platform fee</span>
+                    <span>None</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>
+                      Provider service fee ({(genBreakdown.feeRate * 100).toFixed(2)}%
+                      {PROVIDER_SERVICE_FEE_WAIVED ? ', waived' : ''})
+                    </span>
                     <span>{showPhp ? `₱${(genBreakdown.salomedFee * rate.phpPerXlm).toFixed(2)}` : `${genBreakdown.salomedFee.toFixed(2)} XLM`}</span>
                   </div>
                   <div className="flex justify-between text-slate-500">
-                    <span>Merchant receives</span>
+                    <span>Provider receives</span>
                     <div className="text-right">
                       <p className="font-semibold text-slate-700">{showPhp ? `₱${(genBreakdown.merchantReceives * rate.phpPerXlm).toFixed(2)}` : `${genBreakdown.merchantReceives.toFixed(2)} XLM`}</p>
                       <p className="text-[10px] text-slate-400">≈ {showPhp ? `${genBreakdown.merchantReceives.toFixed(2)} XLM` : `₱${(genBreakdown.merchantReceives * rate.phpPerXlm).toFixed(2)}`}</p>
@@ -560,7 +567,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                       <span>+{genBreakdown.ptsEarned} pts</span>
                     </div>
                     <div className="flex justify-between text-blue-600 font-bold">
-                      <span>Net cost to you</span>
+                      <span>Patient net cost</span>
                       <div className="text-right">
                         <p>{showPhp ? `₱${(genBreakdown.effectiveCost * rate.phpPerXlm).toFixed(2)}` : `${genBreakdown.effectiveCost.toFixed(2)} XLM`}</p>
                         <p className="text-[10px] font-medium opacity-80">≈ {showPhp ? `${genBreakdown.effectiveCost.toFixed(2)} XLM` : `₱${(genBreakdown.effectiveCost * rate.phpPerXlm).toFixed(2)}`}</p>
@@ -866,11 +873,18 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     </div>
                   </div>
                   <div className="flex justify-between text-slate-400">
-                    <span>Platform fee ({(manualBreakdown.feeRate * 100).toFixed(1)}%)</span>
+                    <span>Patient platform fee</span>
+                    <span>None</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>
+                      Provider service fee ({(manualBreakdown.feeRate * 100).toFixed(2)}%
+                      {PROVIDER_SERVICE_FEE_WAIVED ? ', waived' : ''})
+                    </span>
                     <span>{showPhp ? `₱${(manualBreakdown.salomedFee * rate.phpPerXlm).toFixed(2)}` : `${manualBreakdown.salomedFee.toFixed(2)} XLM`}</span>
                   </div>
                   <div className="flex justify-between text-slate-500">
-                    <span>Merchant receives</span>
+                    <span>Provider receives</span>
                     <div className="text-right">
                       <p className="font-semibold text-slate-700">{showPhp ? `₱${(manualBreakdown.merchantReceives * rate.phpPerXlm).toFixed(2)}` : `${manualBreakdown.merchantReceives.toFixed(2)} XLM`}</p>
                       <p className="text-[10px] text-slate-400">≈ {showPhp ? `${manualBreakdown.merchantReceives.toFixed(2)} XLM` : `₱${(manualBreakdown.merchantReceives * rate.phpPerXlm).toFixed(2)}`}</p>
@@ -882,7 +896,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                       <span>+{manualBreakdown.ptsEarned} pts</span>
                     </div>
                     <div className="flex justify-between text-blue-600 font-bold">
-                      <span>Net cost to you</span>
+                      <span>Patient net cost</span>
                       <div className="text-right">
                         <p>{showPhp ? `₱${(manualBreakdown.effectiveCost * rate.phpPerXlm).toFixed(2)}` : `${manualBreakdown.effectiveCost.toFixed(2)} XLM`}</p>
                         <p className="text-[10px] font-medium opacity-80">≈ {showPhp ? `${manualBreakdown.effectiveCost.toFixed(2)} XLM` : `₱${(manualBreakdown.effectiveCost * rate.phpPerXlm).toFixed(2)}`}</p>

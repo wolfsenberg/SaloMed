@@ -25,6 +25,8 @@ export const EMPTY_VAULT: HealthVault = {
 
 /** Contract rule: one point for every full USDC paid. */
 export const POINTS_RATE = { hospital: 1, pharmacy: 1 } as const;
+export const PROVIDER_SERVICE_FEE_RATE = 0.0075;
+export const PROVIDER_SERVICE_FEE_WAIVED = true;
 
 export interface PaymentBreakdown {
   feeRate: number;
@@ -35,13 +37,14 @@ export interface PaymentBreakdown {
 }
 
 /**
- * The deployed contract sends the complete amount to the provider and does not
- * implement a fee split or cash-equivalent cashback. Keep receipts truthful.
+ * Business policy: patients are not charged a SaloMed platform fee. The
+ * provider-side service fee is waived in the current pilot because the deployed
+ * contract still sends the complete amount to the provider.
  */
 export function calcPayment(amountAsset: number, _type: 'hospital' | 'pharmacy'): PaymentBreakdown {
   const ptsEarned = Math.floor(Math.max(0, amountAsset));
   return {
-    feeRate: 0,
+    feeRate: PROVIDER_SERVICE_FEE_RATE,
     salomedFee: 0,
     merchantReceives: amountAsset,
     ptsEarned,
@@ -57,7 +60,7 @@ export interface PadalaBreakdown {
   effectiveCost: number;
 }
 
-/** Deposits lock the complete amount for the beneficiary; no fee exists yet. */
+/** Padala is a growth loop: the complete amount is locked for the beneficiary. */
 export function calcPadala(amountAsset: number): PadalaBreakdown {
   return {
     feeRate: 0,

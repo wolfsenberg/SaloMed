@@ -197,9 +197,9 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
 
         <div className="bg-slate-50 rounded-xl p-3 text-xs space-y-2">
           <div className="flex justify-between"><span>Locked vault balance</span><strong>{fmtAsset(vaultBalance)} XLM</strong></div>
-          <div className="flex justify-between"><span>Platform fee</span><strong>0.00 XLM</strong></div>
+          <div className="flex justify-between"><span>Family padala fee</span><strong>Free</strong></div>
           <div className="flex justify-between"><span>Beneficiary receives</span><strong>{fmtAsset(breakdown.recipientReceives)} XLM</strong></div>
-          <p className="text-slate-400">Padala does not award or redeem SaloPoints.</p>
+          <p className="text-slate-400">Padala is kept fee-free for the pilot and does not award or redeem SaloPoints.</p>
         </div>
 
         {insufficient && (

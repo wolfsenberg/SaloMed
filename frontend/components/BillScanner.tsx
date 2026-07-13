@@ -182,7 +182,7 @@ export default function BillScanner({ address, vault, onPaySuccess }: Props) {
                 title={!address ? 'Connect wallet first' : undefined}
                 className="w-full py-3 rounded-xl border-2 border-blue-600 text-blue-600 hover:bg-blue-50 active:scale-[0.98] disabled:border-slate-200 disabled:text-slate-400 font-semibold text-sm transition-all"
               >
-                {address ? '🏦 Apply for Micro-Loan (Salo)' : 'Connect wallet to apply'}
+                {address ? 'Request Salo' : 'Connect wallet to request Salo'}
               </button>
 
               <button

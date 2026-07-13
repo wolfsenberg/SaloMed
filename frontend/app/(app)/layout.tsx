@@ -36,7 +36,7 @@ const TAB_ORDER: Tab[] = ['vault', 'payment', 'loan', 'remittance', 'history'];
 const TAB_META: Record<Tab, { Icon: React.ElementType; label: string; path: string }> = {
   vault: { Icon: Wallet, label: 'Vault', path: '/vault' },
   payment: { Icon: QrCode, label: 'Payment', path: '/payment' },
-  loan: { Icon: HandCoins, label: 'Loan', path: '/loan' },
+  loan: { Icon: HandCoins, label: 'Salo', path: '/loan' },
   remittance: { Icon: Globe, label: 'Padala', path: '/remittance' },
   history: { Icon: Receipt, label: 'History', path: '/history' },
 };

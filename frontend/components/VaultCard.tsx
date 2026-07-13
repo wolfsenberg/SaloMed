@@ -266,7 +266,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
           <TrendingUp size={12} /> SaloPoints policy
         </p>
         <p className="text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2 leading-relaxed">
-          Earn 1 SaloPoint for every full 1 XLM paid through the vault. Points determine your credit tier only;
+          Earn 1 SaloPoint for every full 1 XLM paid through the vault. Points determine your Salo tier only;
           they are not money, cashback, or a spendable savings balance.
         </p>
       </motion.div>
@@ -278,7 +278,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
           { label: 'Vault Asset', value: 'XLM', sub: 'Stellar Lumens', Icon: CreditCard },
           { label: 'Points Rule', value: '1 / XLM', sub: 'per full XLM paid', Icon: Star },
           { label: 'Vault Status', value: vault.balance > 0n ? t('vault_active') : t('vault_empty'), sub: t('vault_escrow'), Icon: ShieldCheck },
-          { label: 'Credit Tier',  value: vault.credit_tier,   sub: tierNextLabel(vault), Icon: Award       },
+          { label: 'Salo Tier',  value: vault.credit_tier,   sub: tierNextLabel(vault), Icon: Award       },
         ].map(stat => (
           <div key={stat.label} className="bg-white rounded-2xl shadow-card border border-slate-100 p-4">
             <div className="flex items-center gap-1.5 mb-2">

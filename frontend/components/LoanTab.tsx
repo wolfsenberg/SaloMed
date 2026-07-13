@@ -105,12 +105,12 @@ export default function LoanTab({ address, vault }: Props) {
             {/* Hero */}
             <div className="gradient-brand rounded-2xl p-5 text-white">
               <p className="text-xs font-semibold uppercase tracking-widest text-blue-200 mb-1 flex items-center gap-1.5">
-                <Coins size={11} /> SaloMed Micro-Loan
+                <Coins size={11} /> Salo
               </p>
-              <h2 className="text-xl font-bold mb-1">Gap Funding</h2>
+              <h2 className="text-xl font-bold mb-1">Health Bill Support</h2>
               <p className="text-sm text-blue-100 leading-relaxed">
-                Bridge the gap between your vault and your medical bill.
-                Rates are based on your SaloPoints tier.
+                Salo means support when your vault falls short.
+                Requests are reviewed with trusted partners.
               </p>
             </div>
 
@@ -127,7 +127,7 @@ export default function LoanTab({ address, vault }: Props) {
                   </div>
                   <div className="space-y-0.5">
                     <p className="text-sm font-bold text-amber-900">
-                      {pendingLoans.length === 1 ? 'Loan Pending Review' : 'Multiple Loans Pending Review'}
+                      {pendingLoans.length === 1 ? 'Salo Request Pending' : 'Multiple Salo Requests Pending'}
                     </p>
                     <p className="text-xs text-amber-700 leading-relaxed">
                       {pendingLoans.length === 1
@@ -150,11 +150,11 @@ export default function LoanTab({ address, vault }: Props) {
               </motion.div>
             )}
 
-            {/* Credit tier card */}
+            {/* Salo tier card */}
             <div className="bg-white rounded-2xl shadow-card border border-slate-100 p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Your Credit Tier</p>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Your Salo Tier</p>
                   <div className="flex items-center gap-2">
                     <span className="text-2xl font-bold text-slate-900">{vault.credit_tier}</span>
                     <Award size={18} className="text-blue-500" />
@@ -209,23 +209,14 @@ export default function LoanTab({ address, vault }: Props) {
               ))}
             </div>
 
-            <div className="flex justify-end">
-              <LiveRateButton
-                phpPerXlm={xlmRate.phpPerXlm}
-                source={xlmRate.source}
-                loading={xlmRate.loading}
-                onRefresh={xlmRate.refresh}
-              />
-            </div>
-
             {/* How it works */}
             <div className="bg-white rounded-2xl shadow-card border border-slate-100 p-5 space-y-3">
-              <h3 className="text-sm font-bold text-slate-700">How Health Credit Works</h3>
+              <h3 className="text-sm font-bold text-slate-700">How Salo Works</h3>
               {[
-                'Request health credit to cover a medical bill gap',
+                'Request Salo to cover a medical bill gap',
                 'Approved proceeds are reflected in the purpose-bound vault',
                 'Repayment terms are shown in equal installments',
-                'Your SaloPoints tier can unlock better rates over time',
+                'Your SaloPoints tier can unlock better partner-reviewed rates over time',
               ].map((s, i) => (
                 <div key={s} className="flex gap-3 items-start">
                   <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
@@ -242,14 +233,14 @@ export default function LoanTab({ address, vault }: Props) {
                 disabled={loanLimitReached}
                 className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:bg-slate-100 disabled:text-slate-400 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
               >
-                {loanLimitReached ? 'Loan Limit Reached' : 'Apply for a Loan'} <ChevronRight size={16} />
+                {loanLimitReached ? 'Request Limit Reached' : 'Request Salo'} <ChevronRight size={16} />
               </button>
               
               {loanLimitReached && (
                 <div className="flex gap-2 bg-slate-50 border border-slate-200 rounded-xl p-3">
                   <Info size={14} className="text-slate-400 shrink-0 mt-0.5" />
                   <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Maximum of 2 loans are allowed at the same time to ensure financial safety. 
+                    Maximum of 2 Salo requests are allowed at the same time to ensure financial safety. 
                     Please wait for your current applications to be processed or settled.
                   </p>
                 </div>
@@ -272,7 +263,7 @@ export default function LoanTab({ address, vault }: Props) {
                 <ChevronLeft size={18} />
               </button>
               <div>
-                <h2 className="font-bold text-lg text-slate-900">Loan Application</h2>
+                <h2 className="font-bold text-lg text-slate-900">Salo Request</h2>
                 <p className="text-xs text-slate-400">{rate}% p.a. · {vault.credit_tier} tier</p>
               </div>
             </div>
@@ -281,7 +272,7 @@ export default function LoanTab({ address, vault }: Props) {
             <div className="bg-white rounded-2xl shadow-card border border-slate-100 p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
-                  <Coins size={11} /> Loan Amount
+                  <Coins size={11} /> Support Amount
                 </label>
                 <button
                   onClick={() => setShowXlm(v => !v)}
@@ -374,7 +365,7 @@ export default function LoanTab({ address, vault }: Props) {
                   exit={{ opacity: 0, height: 0 }}
                   className="bg-white rounded-2xl shadow-card border border-slate-100 p-5 space-y-2"
                 >
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Loan Breakdown</p>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Salo Summary</p>
                   {[
                     { label: 'Principal',                         value: php(parsedPhp) },
                     { label: `Monthly payment (${selectedTerm} mo)`, value: php(monthly) },
@@ -400,7 +391,7 @@ export default function LoanTab({ address, vault }: Props) {
               {submitting
                 ? <><Loader2 size={16} className="animate-spin" /> Submitting…</>
                 : parsedPhp > 0
-                  ? `Apply — ${php(monthly)}/mo for ${selectedTerm} months`
+                  ? `Request Salo — ${php(monthly)}/mo for ${selectedTerm} months`
                   : 'Enter an amount to continue'
               }
             </button>
@@ -420,7 +411,7 @@ export default function LoanTab({ address, vault }: Props) {
             <div className="space-y-1">
               <h3 className="text-xl font-bold text-slate-900">Application Recorded</h3>
               <p className="text-sm text-slate-500">
-                Your request for <span className="font-bold text-slate-900">{php(parsedPhp)}</span> (≈ {parsedUsdc.toFixed(2)} XLM) was saved locally on this device.
+                Your Salo request for <span className="font-bold text-slate-900">{php(parsedPhp)}</span> (≈ {parsedUsdc.toFixed(2)} XLM) was saved locally on this device.
               </p>
               <p className="text-xs text-slate-400 mt-2">
                 Term: {selectedTerm} months · Rate: {rate}% p.a.
@@ -428,13 +419,13 @@ export default function LoanTab({ address, vault }: Props) {
             </div>
             <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-xs text-amber-700 max-w-xs leading-relaxed">
               <p className="font-bold mb-1">Status: Recorded locally</p>
-              This request is saved on your device for review. Health credit disbursement is not yet enabled.
+              This request is saved on your device for partner review. Salo support release is not yet enabled.
             </div>
             <button
               onClick={() => { setStep('overview'); setAmountPhp(''); }}
               className="text-sm font-semibold text-blue-600 hover:text-blue-700"
             >
-              Back to Loan Overview
+              Back to Salo
             </button>
           </motion.div>
         )}
