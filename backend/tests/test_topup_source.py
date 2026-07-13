@@ -8,6 +8,7 @@ strict live-rate rule and the P7 rate-conversion property.
 from __future__ import annotations
 
 from pathlib import Path
+import time
 
 import pytest
 from fastapi import FastAPI
@@ -141,6 +142,38 @@ def test_topup_rate_unavailable_blocks_and_never_credits(client, monkeypatch):
     assert history_store.history(BENEFICIARY) == []
 
 
+def test_xlm_quote_prefers_market_rate_even_when_pdax_is_configured(monkeypatch):
+    import asyncio
+
+    called = {"pdax": False}
+
+    async def _market(asset="XLM"):
+        return {
+            "success": True,
+            "asset": asset,
+            "rate": 11.34,
+            "source": "coingecko_live",
+            "last_updated_at": 123,
+        }
+
+    async def _pdax(*args, **kwargs):
+        called["pdax"] = True
+        return {"ok": True, "data": {"data": {"price": 7.53, "total_amount": 132.8}}}
+
+    orig_configured = pdax_service._PDAX_CONFIGURED
+    pdax_service._PDAX_CONFIGURED = True
+    monkeypatch.setattr(pdax_service, "get_market_php_rate", _market)
+    monkeypatch.setattr(pdax_service, "_request", _pdax)
+    try:
+        quote = asyncio.run(pdax_service.get_php_to_asset_quote(1000.0, "XLM", fallback_rate=11.34))
+    finally:
+        pdax_service._PDAX_CONFIGURED = orig_configured
+
+    assert quote["source"] == "coingecko_live"
+    assert quote["rate"] == 11.34
+    assert called["pdax"] is False
+
+
 # Feature: reliable-traceable-transactions, Property 7: Live-rate conversion is
 # proportional and never fixed 1:1.
 @hyp_settings(max_examples=100, deadline=None)
@@ -160,7 +193,7 @@ def test_php_to_asset_is_proportional_and_never_fixed_one_to_one(amount_php, rat
     orig_configured = pdax_service._PDAX_CONFIGURED
     orig_cache = pdax_service._rate_cache
     pdax_service._PDAX_CONFIGURED = False
-    pdax_service._rate_cache = {"rate": rate, "ts": 1.0}
+    pdax_service._rate_cache = {"XLM": {"rate": rate, "ts": time.time(), "source": "coingecko_live"}}
     try:
         quote = asyncio.run(pdax_service.get_php_to_asset_quote(amount_php, "XLM", fallback_rate=rate))
     finally:

@@ -28,7 +28,8 @@ ENVIRONMENT VARIABLES  (optional overrides via .env or shell)
   STELLAR_NETWORK      — testnet | mainnet          (default: testnet)
   STELLAR_SOURCE       — CLI identity name          (default: salomed-admin)
   ADMIN_ADDRESS        — Public key of salomed-admin (G…)  used as ofw arg
-  PHP_PER_USDC         — PHP→USDC exchange rate     (default: 56.0)
+  PHP_PER_XLM          — PHP→XLM fallback rate when live providers are down
+  PHP_PER_USDC         — PHP→USDC exchange rate for legacy USDC-only paths
   FRONTEND_ORIGIN      — CORS origin for the Next.js app
 ─────────────────────────────────────────────────────────────────────────────
 """
@@ -70,6 +71,7 @@ except ImportError:
 # Loaded after dotenv so env vars are already set.
 # All public functions return dicts — never raises, always falls back gracefully.
 from pdax_service import (
+    get_php_to_asset_quote,
     get_xlm_php_rate,
     initiate_instapay_deposit,
     initiate_instapay_withdrawal,
@@ -95,8 +97,7 @@ SOURCE        = os.getenv("STELLAR_SOURCE",  "salomed-admin")
 ADMIN_ADDRESS = os.getenv("ADMIN_ADDRESS",   "GBSXYPN2XWTJEZPLAMRIYQQVQTCJ2MEQOVOA3G73USGCMEXJ5YXPU2G7")
 PHP_PER_USDC  = float(os.getenv("PHP_PER_USDC", "56.0"))
 ADMIN_ADDRESS = os.getenv("ADMIN_ADDRESS",   "GBSXYPN2XWTJEZPLAMRIYQQVQTCJ2MEQOVOA3G73USGCMEXJ5YXPU2G7")
-PHP_PER_XLM   = float(os.getenv("PHP_PER_USDC", "56.0"))
-PHP_PER_USDC  = PHP_PER_XLM # Alias for backward compatibility
+PHP_PER_XLM   = float(os.getenv("PHP_PER_XLM", os.getenv("PHP_PER_ASSET", "11.34")))
 
 # When DEMO_FALLBACK=true (default), CLI failures are silently replaced with
 # in-memory demo state so the app remains fully functional without a real
@@ -1305,18 +1306,17 @@ async def gcash_rate():
     """
     Exchange rate used for PHP ↔ XLM/USDC conversions.
 
-    When PDAX credentials are configured, returns a **live rate** fetched from
-    the PDAX indicative price endpoint (cached for 30 s to avoid hammering).
-    Falls back to the PHP_PER_USDC env var / default (56.0) when PDAX is
-    unavailable or not yet configured.
+    Uses PDAX when available, then CoinGecko XLM/PHP market data, and only then
+    the configured PHP_PER_XLM fallback.
     """
-    live_rate = await get_xlm_php_rate(fallback_rate=PHP_PER_USDC)
-    source = "pdax_live" if _PDAX_CONFIGURED else "fixed_fallback"
+    quote = await get_php_to_asset_quote(1000.0, "XLM", fallback_rate=PHP_PER_XLM)
+    live_rate = quote.get("rate", PHP_PER_XLM)
     return {
         "php_per_usdc": live_rate,
         "php_per_xlm":  live_rate,
-        "source":       source,
+        "source":       quote.get("source", "configured_indicative"),
         "pdax_enabled": _PDAX_CONFIGURED,
+        "last_updated_at": quote.get("last_updated_at"),
     }
 
 
@@ -1496,16 +1496,18 @@ async def pdax_rate(
     quote: str = Query("PHP", description="Quote currency (PHP)"),
 ):
     """
-    Fetch live indicative exchange rate from PDAX.
-    Cached for 30 seconds. Falls back to PHP_PER_USDC env var when PDAX is unavailable.
+    Fetch live XLM/PHP rate from PDAX or CoinGecko.
+    Cached for 30 seconds. Falls back to PHP_PER_XLM when providers are unavailable.
     """
-    rate = await get_xlm_php_rate(fallback_rate=PHP_PER_USDC)
+    asset = base.upper()
+    result = await get_php_to_asset_quote(1000.0, asset, fallback_rate=PHP_PER_XLM)
     return {
-        "base":       base,
+        "base":       asset,
         "quote":      quote,
-        "rate":       rate,
-        "source":     "pdax_live" if _PDAX_CONFIGURED else "fixed_fallback",
+        "rate":       result.get("rate", PHP_PER_XLM),
+        "source":     result.get("source", "configured_indicative"),
         "pdax_enabled": _PDAX_CONFIGURED,
+        "last_updated_at": result.get("last_updated_at"),
     }
 
 

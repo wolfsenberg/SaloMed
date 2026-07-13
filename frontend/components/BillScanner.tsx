@@ -6,6 +6,8 @@ import { scanBill, BillScanResult } from '@/lib/api';
 import PayModal from '@/components/PayModal';
 import LoanModal from '@/components/LoanModal';
 import type { HealthVault } from '@/lib/contract';
+import LiveRateButton from '@/components/LiveRateButton';
+import { useXlmPhpRate } from '@/lib/use-xlm-php-rate';
 
 interface Props {
   address: string | null;
@@ -24,6 +26,8 @@ export default function BillScanner({ address, vault, onPaySuccess }: Props) {
   const [error, setError]       = useState<string | null>(null);
   const [modal, setModal]       = useState<'pay' | 'loan' | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const rate = useXlmPhpRate();
+  const gapXlm = result ? result.out_of_pocket_balance / rate.phpPerXlm : 0;
 
   async function process(file: File) {
     setError(null);
@@ -148,6 +152,18 @@ export default function BillScanner({ address, vault, onPaySuccess }: Props) {
                   {php(result.out_of_pocket_balance)}
                 </span>
               </div>
+              <div className="mt-3">
+                <LiveRateButton
+                  phpPerXlm={rate.phpPerXlm}
+                  source={rate.source}
+                  loading={rate.loading}
+                  onRefresh={rate.refresh}
+                  className="w-full"
+                />
+                <p className="text-xs text-slate-400 text-right mt-1">
+                  ≈ {gapXlm.toFixed(7)} XLM
+                </p>
+              </div>
             </div>
 
             {/* CTAs */}
@@ -187,7 +203,7 @@ export default function BillScanner({ address, vault, onPaySuccess }: Props) {
           <PayModal
             patientAddress={address}
             vault={vault}
-            amountXlm={result.out_of_pocket_balance}
+            amountXlm={gapXlm}
             onClose={() => setModal(null)}
             onSuccess={() => { setModal(null); setResult(null); onPaySuccess(); }}
           />

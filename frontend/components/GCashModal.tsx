@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { X, Loader2, CheckCircle, Zap, ArrowDownToLine } from 'lucide-react';
 import { saveTx } from '@/lib/transactions';
-import { API_URL, PHP_PER_USDC } from '@/lib/config';
+import LiveRateButton from '@/components/LiveRateButton';
+import { useXlmPhpRate } from '@/lib/use-xlm-php-rate';
 
 interface LocalQRResult {
   reference_id: string;
@@ -28,30 +29,17 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
   const [step, setStep]               = useState<Step>('form');
   const [gcashNumber, setGcashNumber] = useState('');
   const [amountPhp, setAmountPhp]     = useState('');
-  const [rate, setRate]               = useState(PHP_PER_USDC);
-  const [rateSource, setRateSource]   = useState<'fixed_demo' | 'configured_indicative'>('fixed_demo');
   const [result, setResult]           = useState<LocalQRResult | null>(null);
   const [ledgerReference, setLedgerReference] = useState<string | null>(null);
   const [error, setError]             = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch(`${API_URL}/api/gcash-rate`)
-      .then(r => r.json())
-      .then((d: { php_per_usdc: number; source?: string }) => {
-        if (d.php_per_usdc > 0) setRate(d.php_per_usdc);
-        setRateSource(d.source === 'configured_indicative' ? 'configured_indicative' : 'fixed_demo');
-      })
-      .catch(() => {
-        console.warn('[GCashModal] Failed to fetch display rate, using default:', PHP_PER_USDC);
-      });
-  }, []);
+  const rate = useXlmPhpRate();
 
   const parsedPhp = parseFloat(amountPhp) || 0;
-  const xlmAmount = parsedPhp > 0 ? (parsedPhp / (rate || 56)).toFixed(2) : '—';
+  const xlmAmount = parsedPhp > 0 ? (parsedPhp / rate.phpPerXlm).toFixed(2) : '—';
 
   function buildQRResult(): LocalQRResult {
     const refId  = 'SM' + Math.random().toString(36).slice(2, 10).toUpperCase();
-    const amtXlm = parseFloat((parsedPhp / rate).toFixed(2));
+    const amtXlm = parseFloat((parsedPhp / rate.phpPerXlm).toFixed(2));
     const payload =
       `00020101021226570011ph.ppmi.www0116${gcashNumber}` +
       `520400005303608540${parsedPhp.toFixed(2)}5802PH` +
@@ -209,8 +197,8 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                           ₱{parsedPhp.toLocaleString('en-PH', { minimumFractionDigits: 2 })} PHP
                         </p>
                         <p className="text-xs text-blue-400">
-                          ₱{rate.toFixed(2)} = 1 XLM
-                          {rateSource === 'configured_indicative' && (
+                          ₱{rate.phpPerXlm.toFixed(2)} = 1 XLM
+                          {!rate.isLive && (
                             <span className="ml-1 text-amber-600 font-semibold">· indicative</span>
                           )}
                         </p>
@@ -222,6 +210,14 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                     </motion.div>
                   )}
                 </AnimatePresence>
+
+                <LiveRateButton
+                  phpPerXlm={rate.phpPerXlm}
+                  source={rate.source}
+                  loading={rate.loading}
+                  onRefresh={rate.refresh}
+                  className="w-full"
+                />
 
                 <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
                   <ArrowDownToLine size={16} className="text-slate-400 shrink-0" />

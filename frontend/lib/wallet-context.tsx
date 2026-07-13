@@ -3,6 +3,7 @@
 import { createContext, useContext } from 'react';
 import type { HealthVault } from '@/lib/contract';
 import { EMPTY_VAULT } from '@/lib/contract';
+import { PHP_PER_XLM } from '@/lib/config';
 
 export interface WalletCtx {
   address:      string | null;
@@ -19,7 +20,7 @@ export interface WalletCtx {
 }
 
 export const WalletContext = createContext<WalletCtx>({
-  address: null, vault: EMPTY_VAULT, phpRate: 56,
+  address: null, vault: EMPTY_VAULT, phpRate: PHP_PER_XLM,
   connecting: false, loadingVault: false, connectError: null,
   handleConnect: () => {}, handleDisconnect: () => {},
   refreshVault: () => {}, clearError: () => {}, switchRoute: () => {},

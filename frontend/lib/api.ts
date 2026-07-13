@@ -46,7 +46,7 @@ export interface PdaxQuoteResult {
   asset: string;
   asset_amount: number;
   amount_php: number;
-  source: 'pdax_live' | 'indicative';
+  source: 'pdax_live' | 'coingecko_live' | 'indicative';
 }
 
 export interface PdaxDepositResult {
@@ -57,17 +57,31 @@ export interface PdaxDepositResult {
   request_id?: string;
   amount_php: number;
   status: string;
+  asset_code?: string;
+  asset_amount?: number;
   usdc_amount?: number;
   rate?: number;
-  rate_source?: 'pdax_live' | 'indicative';
+  rate_source?: 'pdax_live' | 'coingecko_live' | 'indicative';
 }
 
 export interface PdaxConfirmResult {
   credited: boolean;
   already?: boolean;
   tx_hash?: string;
+  asset_code?: string;
+  asset_amount?: number;
   usdc_amount?: number;
   pdax_status?: string;
+}
+
+export interface PdaxDepositStatusResult {
+  identifier: string;
+  found: boolean;
+  pdax_status: string;
+  beneficiary_address?: string | null;
+  amount_php?: string | number | null;
+  credited: boolean;
+  tx_hash?: string | null;
 }
 
 /** Live PDAX connectivity + institutional balances. */
@@ -77,7 +91,7 @@ export async function getPdaxStatus(): Promise<PdaxStatusResult> {
 }
 
 /** Live PHP to asset conversion quote from PDAX. */
-export async function pdaxQuote(amountPhp: number, asset = 'USDC'): Promise<PdaxQuoteResult> {
+export async function pdaxQuote(amountPhp: number, asset = 'XLM'): Promise<PdaxQuoteResult> {
   const res = await fetch(`${API_URL}/api/pdax/quote?amount_php=${encodeURIComponent(amountPhp)}&asset=${asset}`);
   return handleResponse<PdaxQuoteResult>(res);
 }
@@ -104,7 +118,7 @@ export async function pdaxInitiateDeposit(
 
 /**
  * Poll for payment completion. When PDAX reports the deposit completed, the
- * backend credits the vault with USDC on-chain and returns the Stellar tx hash.
+ * backend credits the vault with the configured asset and returns the Stellar tx hash.
  */
 export async function pdaxConfirm(
   identifier: string,
@@ -116,4 +130,10 @@ export async function pdaxConfirm(
     body: JSON.stringify({ identifier, beneficiary_address: beneficiaryAddress }),
   });
   return handleResponse<PdaxConfirmResult>(res);
+}
+
+/** Read the local PDAX deposit tracking row plus the latest PDAX status. */
+export async function pdaxDepositStatus(identifier: string): Promise<PdaxDepositStatusResult> {
+  const res = await fetch(`${API_URL}/api/pdax/deposits/${encodeURIComponent(identifier)}`);
+  return handleResponse<PdaxDepositStatusResult>(res);
 }

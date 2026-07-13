@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import {
@@ -15,6 +15,8 @@ import { recordHistory } from '@/lib/runtime';
 import QRScannerModal from '@/components/QRScannerModal';
 import ProviderCombobox from '@/components/ProviderCombobox';
 import { useTranslation } from '@/lib/i18n/LanguageContext';
+import LiveRateButton from '@/components/LiveRateButton';
+import { useXlmPhpRate } from '@/lib/use-xlm-php-rate';
 
 interface Props {
   address: string | null;
@@ -27,7 +29,6 @@ type View         = 'home' | 'generate' | 'manual';
 type ProviderType = 'hospital' | 'pharmacy';
 type PayFrom      = 'vault';
 
-import { API_URL } from '@/lib/config';
 const QUICK_AMT = [1, 5, 10, 25, 50];
 
 export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: Props) {
@@ -41,9 +42,8 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
   const [genSubmitting, setGenSubmitting] = useState(false);
   const [amountXlm, setAmountXlm]         = useState('');
   const [showPhp, setShowPhp]             = useState(false);
-  const [phpRate, setPhpRate]             = useState(56);
-  const [rateSource, setRateSource]       = useState<'fixed_demo' | 'configured_indicative'>('fixed_demo');
   const [copied, setCopied]               = useState(false);
+  const rate = useXlmPhpRate();
 
   // Manual pay state
   const [manualAddress, setManualAddress] = useState('');
@@ -55,29 +55,19 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
   const [lastPaidAmount, setLastPaidAmount] = useState(0);
   const [lastPaidPhp, setLastPaidPhp]       = useState(0);
 
-  useEffect(() => {
-    fetch(`${API_URL}/api/gcash-rate`)
-      .then(r => r.json())
-      .then((d: { php_per_usdc: number; source?: string }) => {
-        setPhpRate(d.php_per_usdc);
-        setRateSource(d.source === 'configured_indicative' ? 'configured_indicative' : 'fixed_demo');
-      })
-      .catch(() => {});
-  }, []);
-
   // The amount field stores the raw typed string in the CURRENTLY shown unit.
   // We interpret it by mode instead of converting on every keystroke, so typing
   // stays smooth (no float round-trip jank) and the on-chain XLM is exact.
   const rawGenAmount = parseFloat(amountXlm) || 0;
-  const parsedXlm    = showPhp ? (phpRate > 0 ? rawGenAmount / phpRate : 0) : rawGenAmount;
-  const parsedPhp    = showPhp ? rawGenAmount : rawGenAmount * phpRate;
+  const parsedXlm    = showPhp ? (rate.phpPerXlm > 0 ? rawGenAmount / rate.phpPerXlm : 0) : rawGenAmount;
+  const parsedPhp    = showPhp ? rawGenAmount : rawGenAmount * rate.phpPerXlm;
   const vaultXlm     = Number(vault.balance) / 10_000_000;
   const activeBalance  = vaultXlm;
   const pointsRate     = POINTS_RATE[providerType];
 
   const rawManualAmount = parseFloat(manualAmount) || 0;
-  const manualParsed    = showPhp ? (phpRate > 0 ? rawManualAmount / phpRate : 0) : rawManualAmount;
-  const manualParsedPhp = showPhp ? rawManualAmount : rawManualAmount * phpRate;
+  const manualParsed    = showPhp ? (rate.phpPerXlm > 0 ? rawManualAmount / rate.phpPerXlm : 0) : rawManualAmount;
+  const manualParsedPhp = showPhp ? rawManualAmount : rawManualAmount * rate.phpPerXlm;
 
   const genBreakdown    = calcPayment(parsedXlm, providerType);
   const manualBreakdown = calcPayment(manualParsed, providerType);
@@ -297,16 +287,29 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     <span className="text-lg font-normal text-blue-200 ml-2">XLM</span>
                   </p>
                   <p className="text-xs text-blue-300 mt-0.5">
-                    ≈ ₱{(vaultXlm * phpRate).toFixed(2)} PHP
-                    {rateSource === 'configured_indicative' && (
-                      <span className="ml-1.5 text-[10px] font-bold text-green-300">· Indicative PHP rate</span>
-                    )}
+                    ≈ ₱{(vaultXlm * rate.phpPerXlm).toFixed(2)} PHP
+                    <span className="ml-1.5 text-[10px] font-bold text-green-300">
+                      · {rate.source === 'pdax_live'
+                        ? 'Live PDAX rate'
+                        : rate.source === 'coingecko_live'
+                          ? 'Live market rate'
+                          : 'Indicative PHP rate'}
+                    </span>
                   </p>
                 </div>
               </div>
               <p className="text-xs text-blue-300 font-mono mt-2 truncate">
                 {address.slice(0, 10)}…{address.slice(-10)}
               </p>
+              <div className="mt-3">
+                <LiveRateButton
+                  phpPerXlm={rate.phpPerXlm}
+                  source={rate.source}
+                  loading={rate.loading}
+                  onRefresh={rate.refresh}
+                  className="w-full bg-white/15 border-white/20 text-white hover:bg-white/25"
+                />
+              </div>
             </div>
 
             {/* Action buttons — GCash style */}
@@ -456,7 +459,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     <div className="text-left">
                       <p className="text-[10px] text-slate-400 leading-none">Locked vault balance</p>
                       <p className="text-xs font-bold mt-0.5">
-                        {showPhp ? `₱${(vaultXlm * phpRate).toFixed(2)}` : `${vaultXlm.toFixed(2)} XLM`}
+                        {showPhp ? `₱${(vaultXlm * rate.phpPerXlm).toFixed(2)}` : `${vaultXlm.toFixed(2)} XLM`}
                       </p>
                     </div>
                   </div>
@@ -510,6 +513,14 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                 </div>
               )}
 
+              <LiveRateButton
+                phpPerXlm={rate.phpPerXlm}
+                source={rate.source}
+                loading={rate.loading}
+                onRefresh={rate.refresh}
+                className="w-full"
+              />
+
               {/* Quick amounts */}
               <div className="flex gap-2">
                 {QUICK_AMT.map(n => (
@@ -540,13 +551,13 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                   </div>
                   <div className="flex justify-between text-slate-400">
                     <span>Platform fee ({(genBreakdown.feeRate * 100).toFixed(1)}%)</span>
-                    <span>{showPhp ? `₱${(genBreakdown.salomedFee * phpRate).toFixed(2)}` : `${genBreakdown.salomedFee.toFixed(2)} XLM`}</span>
+                    <span>{showPhp ? `₱${(genBreakdown.salomedFee * rate.phpPerXlm).toFixed(2)}` : `${genBreakdown.salomedFee.toFixed(2)} XLM`}</span>
                   </div>
                   <div className="flex justify-between text-slate-500">
                     <span>Merchant receives</span>
                     <div className="text-right">
-                      <p className="font-semibold text-slate-700">{showPhp ? `₱${(genBreakdown.merchantReceives * phpRate).toFixed(2)}` : `${genBreakdown.merchantReceives.toFixed(2)} XLM`}</p>
-                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${genBreakdown.merchantReceives.toFixed(2)} XLM` : `₱${(genBreakdown.merchantReceives * phpRate).toFixed(2)}`}</p>
+                      <p className="font-semibold text-slate-700">{showPhp ? `₱${(genBreakdown.merchantReceives * rate.phpPerXlm).toFixed(2)}` : `${genBreakdown.merchantReceives.toFixed(2)} XLM`}</p>
+                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${genBreakdown.merchantReceives.toFixed(2)} XLM` : `₱${(genBreakdown.merchantReceives * rate.phpPerXlm).toFixed(2)}`}</p>
                     </div>
                   </div>
                   <div className="border-t border-slate-200 pt-1.5 space-y-1">
@@ -557,8 +568,8 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     <div className="flex justify-between text-blue-600 font-bold">
                       <span>Net cost to you</span>
                       <div className="text-right">
-                        <p>{showPhp ? `₱${(genBreakdown.effectiveCost * phpRate).toFixed(2)}` : `${genBreakdown.effectiveCost.toFixed(2)} XLM`}</p>
-                        <p className="text-[10px] font-medium opacity-80">≈ {showPhp ? `${genBreakdown.effectiveCost.toFixed(2)} XLM` : `₱${(genBreakdown.effectiveCost * phpRate).toFixed(2)}`}</p>
+                        <p>{showPhp ? `₱${(genBreakdown.effectiveCost * rate.phpPerXlm).toFixed(2)}` : `${genBreakdown.effectiveCost.toFixed(2)} XLM`}</p>
+                        <p className="text-[10px] font-medium opacity-80">≈ {showPhp ? `${genBreakdown.effectiveCost.toFixed(2)} XLM` : `₱${(genBreakdown.effectiveCost * rate.phpPerXlm).toFixed(2)}`}</p>
                       </div>
                     </div>
                   </div>
@@ -746,7 +757,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     <div className="text-left">
                       <p className="text-[10px] text-slate-400 leading-none">Locked vault balance</p>
                       <p className="text-xs font-bold mt-0.5">
-                        {showPhp ? `₱${(vaultXlm * phpRate).toFixed(2)}` : `${vaultXlm.toFixed(2)} XLM`}
+                        {showPhp ? `₱${(vaultXlm * rate.phpPerXlm).toFixed(2)}` : `${vaultXlm.toFixed(2)} XLM`}
                       </p>
                     </div>
                   </div>
@@ -823,6 +834,14 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                 )}
               </div>
 
+              <LiveRateButton
+                phpPerXlm={rate.phpPerXlm}
+                source={rate.source}
+                loading={rate.loading}
+                onRefresh={rate.refresh}
+                className="w-full"
+              />
+
               {/* Quick amounts */}
               <div className="flex gap-2">
                 {QUICK_AMT.map(n => (
@@ -853,13 +872,13 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                   </div>
                   <div className="flex justify-between text-slate-400">
                     <span>Platform fee ({(manualBreakdown.feeRate * 100).toFixed(1)}%)</span>
-                    <span>{showPhp ? `₱${(manualBreakdown.salomedFee * phpRate).toFixed(2)}` : `${manualBreakdown.salomedFee.toFixed(2)} XLM`}</span>
+                    <span>{showPhp ? `₱${(manualBreakdown.salomedFee * rate.phpPerXlm).toFixed(2)}` : `${manualBreakdown.salomedFee.toFixed(2)} XLM`}</span>
                   </div>
                   <div className="flex justify-between text-slate-500">
                     <span>Merchant receives</span>
                     <div className="text-right">
-                      <p className="font-semibold text-slate-700">{showPhp ? `₱${(manualBreakdown.merchantReceives * phpRate).toFixed(2)}` : `${manualBreakdown.merchantReceives.toFixed(2)} XLM`}</p>
-                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${manualBreakdown.merchantReceives.toFixed(2)} XLM` : `₱${(manualBreakdown.merchantReceives * phpRate).toFixed(2)}`}</p>
+                      <p className="font-semibold text-slate-700">{showPhp ? `₱${(manualBreakdown.merchantReceives * rate.phpPerXlm).toFixed(2)}` : `${manualBreakdown.merchantReceives.toFixed(2)} XLM`}</p>
+                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${manualBreakdown.merchantReceives.toFixed(2)} XLM` : `₱${(manualBreakdown.merchantReceives * rate.phpPerXlm).toFixed(2)}`}</p>
                     </div>
                   </div>
                   <div className="border-t border-slate-200 pt-1.5 space-y-1">
@@ -870,8 +889,8 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     <div className="flex justify-between text-blue-600 font-bold">
                       <span>Net cost to you</span>
                       <div className="text-right">
-                        <p>{showPhp ? `₱${(manualBreakdown.effectiveCost * phpRate).toFixed(2)}` : `${manualBreakdown.effectiveCost.toFixed(2)} XLM`}</p>
-                        <p className="text-[10px] font-medium opacity-80">≈ {showPhp ? `${manualBreakdown.effectiveCost.toFixed(2)} XLM` : `₱${(manualBreakdown.effectiveCost * phpRate).toFixed(2)}`}</p>
+                        <p>{showPhp ? `₱${(manualBreakdown.effectiveCost * rate.phpPerXlm).toFixed(2)}` : `${manualBreakdown.effectiveCost.toFixed(2)} XLM`}</p>
+                        <p className="text-[10px] font-medium opacity-80">≈ {showPhp ? `${manualBreakdown.effectiveCost.toFixed(2)} XLM` : `₱${(manualBreakdown.effectiveCost * rate.phpPerXlm).toFixed(2)}`}</p>
                       </div>
                     </div>
                   </div>

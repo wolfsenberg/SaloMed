@@ -12,10 +12,9 @@ import { topUpMethodLabel } from '@/lib/topup-label';
 
 interface Props {
   address: string | null;
-  phpRate: number;
 }
 
-export default function TransactionsTab({ address, phpRate: _phpRate }: Props) {
+export default function TransactionsTab({ address }: Props) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const refreshVersion = useRef(0);

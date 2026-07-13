@@ -23,8 +23,8 @@ export const STELLAR_NETWORK_KIND: 'testnet' | 'public' =
 /** Canonical vault asset: native XLM (also pays Stellar network fees). */
 export const ASSET_CODE = 'XLM' as const;
 
-/** Demo/indicative fallback. Settlement credits must use an executed rate. */
+/** Demo/indicative USDC fallback for legacy paths. */
 export const PHP_PER_USDC = 56;
 
-/** @deprecated Kept only while old components are migrated to canonical USDC naming. */
-export const PHP_PER_XLM = PHP_PER_USDC;
+/** Demo/indicative XLM fallback. Live UI should refresh from /api/gcash-rate. */
+export const PHP_PER_XLM = Number(process.env.NEXT_PUBLIC_PHP_PER_XLM || '11.34');

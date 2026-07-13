@@ -9,11 +9,12 @@ import {
 import type { HealthVault } from '@/lib/contract';
 import { loadTxs, Transaction, saveTx } from '@/lib/transactions';
 import { useTranslation } from '@/lib/i18n/LanguageContext';
+import LiveRateButton from '@/components/LiveRateButton';
+import { useXlmPhpRate } from '@/lib/use-xlm-php-rate';
 
 interface Props {
   address: string | null;
   vault: HealthVault;
-  phpRate: number;
 }
 
 const TIER_RATE: Record<HealthVault['credit_tier'], number> = {
@@ -36,17 +37,18 @@ const php = (n: number) =>
 
 type Step = 'overview' | 'apply' | 'done';
 
-export default function LoanTab({ address, vault, phpRate }: Props) {
+export default function LoanTab({ address, vault }: Props) {
   const { t } = useTranslation();
   const [step, setStep]             = useState<Step>('overview');
   const [amountPhp, setAmountPhp]   = useState('');
   const [showXlm, setShowXlm]       = useState(false);
   const [selectedTerm, setSelectedTerm] = useState(6);
   const [submitting, setSubmitting] = useState(false);
+  const xlmRate = useXlmPhpRate();
 
   const rate       = TIER_RATE[vault.credit_tier];
   const parsedPhp  = parseFloat(amountPhp) || 0;
-  const parsedUsdc = parsedPhp / phpRate;
+  const parsedUsdc = parsedPhp / xlmRate.phpPerXlm;
   const monthly    = parsedPhp > 0 ? monthlyPayment(parsedPhp, rate, selectedTerm) : 0;
   const totalPay   = monthly * selectedTerm;
   const totalInt   = totalPay - parsedPhp;
@@ -195,7 +197,7 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
             {/* Stats row */}
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: 'Vault Balance', value: `${vaultXlm.toFixed(2)} XLM`, sub: `≈ ₱${(vaultXlm * phpRate).toFixed(0)}`, Icon: Coins },
+                { label: 'Vault Balance', value: `${vaultXlm.toFixed(2)} XLM`, sub: `≈ ₱${(vaultXlm * xlmRate.phpPerXlm).toFixed(0)}`, Icon: Coins },
                 { label: 'SaloPoints',   value: vault.salo_points.toLocaleString(), sub: 'earned', Icon: Star },
                 { label: 'Rate',          value: `${rate}% p.a.`,  sub: vault.credit_tier, Icon: Percent },
               ].map(s => (
@@ -206,6 +208,14 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
                 </div>
               ))}
             </div>
+
+            <LiveRateButton
+              phpPerXlm={xlmRate.phpPerXlm}
+              source={xlmRate.source}
+              loading={xlmRate.loading}
+              onRefresh={xlmRate.refresh}
+              className="w-full"
+            />
 
             {/* How it works */}
             <div className="bg-white rounded-2xl shadow-card border border-slate-100 p-5 space-y-3">
@@ -301,6 +311,14 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
                   {showXlm ? `= ${php(parsedPhp)}` : `≈ ${parsedUsdc.toFixed(2)} XLM`}
                 </p>
               )}
+
+              <LiveRateButton
+                phpPerXlm={xlmRate.phpPerXlm}
+                source={xlmRate.source}
+                loading={xlmRate.loading}
+                onRefresh={xlmRate.refresh}
+                className="w-full"
+              />
 
               {/* Preset amounts */}
               <div className="flex gap-2 flex-wrap">

@@ -241,9 +241,79 @@ async def _request(
 
 # ── 1. Live PHP/XLM exchange rate ─────────────────────────────────────────────
 
-# Simple in-process cache so we don't hammer PDAX on every page load
-_rate_cache: dict[str, Any] = {"rate": 56.0, "ts": 0.0}
+# Simple in-process cache so we don't hammer providers on every page load.
+# Cache per asset; a USDC quote must never be reused as an XLM quote.
+_rate_cache: dict[str, dict[str, Any]] = {}
 _RATE_TTL = 30  # seconds before we re-fetch
+_COINGECKO_SIMPLE_PRICE_URL = os.getenv(
+    "COINGECKO_SIMPLE_PRICE_URL",
+    "https://api.coingecko.com/api/v3/simple/price",
+)
+
+
+def _cached_rate(asset: str, source: str | None = None) -> float | None:
+    row = _rate_cache.get(asset.upper())
+    if not row:
+        return None
+    if source and row.get("source") != source:
+        return None
+    if time.time() - float(row.get("ts", 0.0)) > _RATE_TTL:
+        return None
+    rate = row.get("rate")
+    try:
+        parsed = float(rate)
+        return parsed if parsed > 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _store_rate(asset: str, rate: float, source: str) -> None:
+    if rate > 0:
+        _rate_cache[asset.upper()] = {"rate": rate, "ts": time.time(), "source": source}
+
+
+async def get_market_php_rate(asset: str = "XLM") -> dict[str, Any]:
+    """
+    Public market fallback for assets PDAX does not quote reliably.
+
+    XLM/PHP uses CoinGecko's simple price endpoint:
+      /simple/price?ids=stellar&vs_currencies=php&include_last_updated_at=true
+    """
+    asset = asset.upper()
+    if asset != "XLM" or not _HTTPX_OK:
+        return {"success": False, "asset": asset, "source": "market_unavailable"}
+
+    cached = _cached_rate(asset, "coingecko_live")
+    if cached:
+        return {"success": True, "asset": asset, "rate": cached, "source": "coingecko_live"}
+
+    try:
+        async with httpx.AsyncClient(timeout=8) as client:
+            response = await client.get(
+                _COINGECKO_SIMPLE_PRICE_URL,
+                params={
+                    "ids": "stellar",
+                    "vs_currencies": "php",
+                    "include_last_updated_at": "true",
+                },
+                headers={"accept": "application/json"},
+            )
+            response.raise_for_status()
+            data = response.json()
+            rate = float(data["stellar"]["php"])
+            if rate > 0:
+                _store_rate(asset, rate, "coingecko_live")
+                return {
+                    "success": True,
+                    "asset": asset,
+                    "rate": rate,
+                    "source": "coingecko_live",
+                    "last_updated_at": data.get("stellar", {}).get("last_updated_at"),
+                }
+    except Exception as exc:
+        logger.warning("[RATE] CoinGecko PHP/%s lookup failed: %s", asset, exc)
+
+    return {"success": False, "asset": asset, "source": "market_unavailable"}
 
 
 async def get_php_to_asset_quote(amount_php: float, asset: str = "USDC",
@@ -260,11 +330,37 @@ async def get_php_to_asset_quote(amount_php: float, asset: str = "USDC",
 
     Returns:
         { "success": bool, "rate": float, "asset": str,
-          "asset_amount": float, "amount_php": float, "source": "pdax_live"|"indicative" }
+          "asset_amount": float, "amount_php": float,
+          "source": "pdax_live"|"coingecko_live"|"indicative" }
     Never raises.
     """
     asset = asset.upper()
     safe_php = max(float(amount_php or 0), 0.0)
+
+    # For SaloMed's XLM vault, public market data is the truthful display rate.
+    # PDAX UAT/sandbox can return a non-market test quote, so it must not drive
+    # app-wide PHP<->XLM UI conversion.
+    if asset == "XLM":
+        market = await get_market_php_rate(asset)
+        if market.get("success"):
+            rate = float(market["rate"])
+            return {
+                "success": True,
+                "rate": rate,
+                "asset": asset,
+                "asset_amount": round(safe_php / rate, 7) if rate else 0.0,
+                "amount_php": safe_php,
+                "source": market.get("source", "coingecko_live"),
+                "last_updated_at": market.get("last_updated_at"),
+            }
+        return {
+            "success": False,
+            "rate": fallback_rate,
+            "asset": asset,
+            "asset_amount": round(safe_php / fallback_rate, 7) if fallback_rate else 0.0,
+            "amount_php": safe_php,
+            "source": "configured_indicative",
+        }
 
     if _PDAX_CONFIGURED and safe_php > 0:
         result = await _request(
@@ -285,8 +381,7 @@ async def get_php_to_asset_quote(amount_php: float, asset: str = "USDC",
                 rate = float(price)
                 asset_amount = float(total)
                 if rate > 0 and asset_amount >= 0:
-                    _rate_cache["rate"] = rate
-                    _rate_cache["ts"] = time.time()
+                    _store_rate(asset, rate, "pdax_live")
                     logger.info("[PDAX] Live PHP/%s rate: %.4f (%.2f PHP -> %.4f %s)",
                                 asset, rate, safe_php, asset_amount, asset)
                     return {
@@ -301,7 +396,7 @@ async def get_php_to_asset_quote(amount_php: float, asset: str = "USDC",
                 pass
         logger.warning("[PDAX] Live quote failed for PHP/%s; using indicative %.2f", asset, fallback_rate)
 
-    rate = _rate_cache["rate"] if _rate_cache["ts"] > 0 else fallback_rate
+    rate = _cached_rate(asset) or fallback_rate
     return {
         "success": False,
         "rate": rate,
@@ -312,13 +407,13 @@ async def get_php_to_asset_quote(amount_php: float, asset: str = "USDC",
     }
 
 
-async def get_xlm_php_rate(fallback_rate: float = 56.0, asset: str = "XLM") -> float:
+async def get_xlm_php_rate(fallback_rate: float = 11.34, asset: str = "XLM") -> float:
     """
     Returns the live PHP price of 1 unit of the vault asset (native XLM by
     default) using the PDAX quote, or the fallback if PDAX is unavailable.
 
     IMPORTANT: the SaloMed vault is denominated in native XLM, so this must quote
-    XLM (~7.5 PHP), not USDC (~62 PHP). Quoting the wrong asset makes every
+    XLM market value, not USDC (~56 PHP). Quoting the wrong asset makes every
     PHP<->XLM conversion in the app (balances, payment amounts) off by the
     XLM/USDC price ratio, which then mismatches the real on-chain XLM value.
     """
@@ -523,7 +618,7 @@ async def get_firm_quote(
     """
     if not _PDAX_CONFIGURED:
         # Return a static quote so UI calculations still work
-        static_rate = _rate_cache["rate"] or 56.0
+        static_rate = _cached_rate("XLM") or 0.0
         return {
             "success":      False,
             "error":        "PDAX not configured",
@@ -541,7 +636,7 @@ async def get_firm_quote(
 
     if result["ok"]:
         data = result["data"]
-        rate = float(data.get("rate") or data.get("price") or _rate_cache["rate"] or 56.0)
+        rate = float(data.get("rate") or data.get("price") or _cached_rate("XLM") or 0.0)
         return {
             "success":      True,
             "quote_id":     data.get("quote_id") or data.get("id") or "",
@@ -555,7 +650,7 @@ async def get_firm_quote(
     return {
         "success":      False,
         "error":        result.get("error", "Firm quote failed"),
-        "fallback_rate": _rate_cache["rate"] or 56.0,
+        "fallback_rate": _cached_rate("XLM") or 0.0,
     }
 
 

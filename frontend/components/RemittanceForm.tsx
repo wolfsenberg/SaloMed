@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { AlertCircle, ArrowLeftRight, CheckCircle, Globe, Loader2, Lock, Send } from 'lucide-react';
 
@@ -11,7 +11,8 @@ import { recordHistory } from '@/lib/runtime';
 import { blocksForInsufficientBalance } from '@/lib/balance-guard';
 import { fmtAsset, fmtPhp } from '@/lib/format';
 import { explorerTxUrl, networkBadgeLabel } from '@/lib/stellar-links';
-import { API_URL } from '@/lib/config';
+import LiveRateButton from '@/components/LiveRateButton';
+import { useXlmPhpRate } from '@/lib/use-xlm-php-rate';
 
 
 interface Props {
@@ -28,27 +29,16 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
   const [beneficiary, setBeneficiary] = useState('');
   const [amount, setAmount] = useState('');
   const [showPhp, setShowPhp] = useState(false);
-  const [phpRate, setPhpRate] = useState(56);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Live PHP-per-XLM rate so the padala amount and its PHP display match the
-    // real on-chain XLM value shown on Freighter and the Stellar Explorer.
-    fetch(`${API_URL}/api/gcash-rate`)
-      .then(r => r.json())
-      .then((d: { php_per_usdc: number }) => {
-        if (d?.php_per_usdc > 0) setPhpRate(d.php_per_usdc);
-      })
-      .catch(() => {});
-  }, []);
+  const rate = useXlmPhpRate();
 
   const vaultBalance = Number(vault.balance) / 10_000_000;
   const amountAsset = showPhp
-    ? (parseFloat(amount) || 0) / phpRate
+    ? (parseFloat(amount) || 0) / rate.phpPerXlm
     : parseFloat(amount) || 0;
-  const amountPhp = amountAsset * phpRate;
+  const amountPhp = amountAsset * rate.phpPerXlm;
   const breakdown = calcPadala(amountAsset);
   const insufficient = amountAsset > vaultBalance;
 
@@ -195,6 +185,15 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
               {showPhp ? `= ${fmtAsset(amountAsset)} XLM` : `≈ ₱${fmtPhp(amountPhp)}`}
             </p>
           )}
+          <div className="mt-2">
+            <LiveRateButton
+              phpPerXlm={rate.phpPerXlm}
+              source={rate.source}
+              loading={rate.loading}
+              onRefresh={rate.refresh}
+              className="w-full"
+            />
+          </div>
         </div>
 
         <div className="bg-slate-50 rounded-xl p-3 text-xs space-y-2">

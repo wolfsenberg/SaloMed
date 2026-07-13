@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, CheckCircle, Wallet, AlertCircle, ArrowDownToLine, Zap } from 'lucide-react';
 import { connectWallet } from '@/lib/freighter';
 import { saveTx } from '@/lib/transactions';
-
-import { API_URL } from '@/lib/config';
+import LiveRateButton from '@/components/LiveRateButton';
+import { useXlmPhpRate } from '@/lib/use-xlm-php-rate';
 const QUICK_AMOUNTS = [1, 5, 10, 25, 50];
 
 interface Props {
@@ -20,20 +20,13 @@ type Step = 'form' | 'connecting' | 'processing' | 'done';
 export default function FreighterTopUpModal({ address, onClose, onSuccess }: Props) {
   const [step, setStep]           = useState<Step>('form');
   const [amountXlm, setAmountXlm] = useState('');
-  const [phpRate, setPhpRate]     = useState(56);
   const [error, setError]         = useState<string | null>(null);
   const [txHash, setTxHash]       = useState<string | null>(null);
   const [signerAddress, setSignerAddress] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch(`${API_URL}/api/gcash-rate`)
-      .then(r => r.json())
-      .then((d: { php_per_usdc: number }) => setPhpRate(d.php_per_usdc))
-      .catch(() => {});
-  }, []);
+  const rate = useXlmPhpRate();
 
   const parsedXlm = parseFloat(amountXlm) || 0;
-  const parsedPhp = parsedXlm * phpRate;
+  const parsedPhp = parsedXlm * rate.phpPerXlm;
 
   async function handleTopUp() {
     if (parsedXlm <= 0) { setError('Enter a positive amount.'); return; }
@@ -142,6 +135,14 @@ export default function FreighterTopUpModal({ address, onClose, onSuccess }: Pro
                     ))}
                   </div>
                 </div>
+
+                <LiveRateButton
+                  phpPerXlm={rate.phpPerXlm}
+                  source={rate.source}
+                  loading={rate.loading}
+                  onRefresh={rate.refresh}
+                  className="w-full"
+                />
 
                 <div className="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
                   <ArrowDownToLine size={14} className="text-slate-400 shrink-0 mt-0.5" />

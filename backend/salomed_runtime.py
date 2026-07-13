@@ -88,7 +88,10 @@ class RuntimeSettings:
             network=os.getenv("STELLAR_NETWORK", "testnet").strip().lower(),
             expected_token_id=os.getenv("SALOMED_EXPECTED_TOKEN_ID", "").strip().upper(),
             admin_address=os.getenv("ADMIN_ADDRESS", "").strip().upper(),
-            php_per_asset=os.getenv("PHP_PER_USDC", "56.00").strip(),
+            php_per_asset=os.getenv(
+                "PHP_PER_XLM",
+                os.getenv("PHP_PER_ASSET", "11.34"),
+            ).strip(),
             admin_api_key=os.getenv("SALOMED_ADMIN_API_KEY", "").strip(),
             database_path=os.getenv(
                 "SALOMED_DB_PATH",

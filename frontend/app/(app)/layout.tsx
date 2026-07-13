@@ -15,7 +15,6 @@ import OnboardingSlides from '@/components/OnboardingSlides';
 import LanguageSelectionModal from '@/components/LanguageSelectionModal';
 import { connectWallet, isFreighterInstalled } from '@/lib/freighter';
 import { getVault, HealthVault, EMPTY_VAULT } from '@/lib/contract';
-import { API_URL } from '@/lib/config';
 import { LanguageProvider, useTranslation } from '@/lib/i18n/LanguageContext';
 import { Language } from '@/lib/i18n/translations';
 import { getRuntimeStatus, RuntimeStatus, ensureFeeFunds } from '@/lib/runtime';
@@ -71,7 +70,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
 function AppContent({ children: _ }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
-  const [phpRate, setPhpRate] = useState(56);
   const [address, setAddress] = useState<string | null>(null);
   const [vault, setVault] = useState<HealthVault>(EMPTY_VAULT);
   const [connecting, setConnecting] = useState(false);
@@ -159,10 +157,6 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
     getRuntimeStatus().then(setRuntime).catch(error => {
       setConnectError(error instanceof Error ? error.message : 'Runtime configuration unavailable.');
     });
-    fetch(`${API_URL}/api/gcash-rate`)
-      .then(r => r.json())
-      .then((d: { php_per_usdc: number }) => setPhpRate(d.php_per_usdc))
-      .catch(() => { });
 
     isFreighterInstalled().then(setHasFreighter);
   }, []);
@@ -457,7 +451,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
                     />
                   )}
                   {tab === 'loan' && (
-                    <LoanTab address={address} vault={vault} phpRate={phpRate} />
+                    <LoanTab address={address} vault={vault} />
                   )}
                   {tab === 'remittance' && (
                     <RemittanceForm
@@ -468,7 +462,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
                     />
                   )}
                   {tab === 'history' && (
-                    <TransactionsTab address={address} phpRate={phpRate} />
+                    <TransactionsTab address={address} />
                   )}
                 </motion.div>
               </AnimatePresence>

@@ -15,6 +15,8 @@ import { getRuntimeStatus, RuntimeStatus } from '@/lib/runtime';
 import { fmtPhp, fmtXlm } from '@/lib/format';
 import { explorerAccountUrl, explorerContractUrl, networkBadgeLabel } from '@/lib/stellar-links';
 import { CONTRACT_ID } from '@/lib/config';
+import LiveRateButton from '@/components/LiveRateButton';
+import { useXlmPhpRate } from '@/lib/use-xlm-php-rate';
 
 interface Props {
   address: string | null;
@@ -30,8 +32,6 @@ const TIER = {
   Silver: { gradient: 'gradient-silver', badge: 'bg-slate-100  text-slate-500',   rate: '5%' },
   Gold:   { gradient: 'gradient-gold',   badge: 'bg-yellow-100 text-yellow-700',  rate: '2%' },
 };
-
-import { API_URL } from '@/lib/config';
 
 function tierProgress(vault: HealthVault): number {
   if (vault.credit_tier === 'Gold')   return 1;
@@ -53,26 +53,15 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
   const [showFreighter, setShowFreighter] = useState(false);
   const [showInstaPay, setShowInstaPay]   = useState(false);
   const [showPhp, setShowPhp]             = useState(false);
-  const [phpRate, setPhpRate]             = useState(56);
-  const [rateSource, setRateSource]       = useState<'pdax_live' | 'configured_indicative' | 'fixed_demo'>('fixed_demo');
   const [runtime, setRuntime]             = useState<RuntimeStatus | null>(null);
+  const rate = useXlmPhpRate();
 
   useEffect(() => {
-    fetch(`${API_URL}/api/gcash-rate`)
-      .then(r => r.json())
-      .then((d: { php_per_usdc: number; source?: string }) => {
-        setPhpRate(d.php_per_usdc);
-        if (d.source === 'pdax_live') setRateSource('pdax_live');
-        else if (d.source === 'configured_indicative') setRateSource('configured_indicative');
-        else setRateSource('fixed_demo');
-      })
-      .catch(() => {});
-
     getRuntimeStatus().then(setRuntime).catch(() => setRuntime(null));
   }, []);
 
   const xlmValue  = Number(vault.balance) / 10_000_000;
-  const phpValue  = xlmValue * phpRate;
+  const phpValue  = xlmValue * rate.phpPerXlm;
 
   if (!address) {
     return (
@@ -161,9 +150,13 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
                 ? `≈ ${fmtXlm(xlmValue)} XLM`
                 : `≈ ₱${fmtPhp(phpValue)} PHP`}
               <ArrowLeftRight size={10} className="text-blue-400" />
-              {rateSource === 'pdax_live' ? (
+              {rate.source === 'pdax_live' ? (
                 <span className="text-[10px] font-bold text-white bg-white/25 px-1.5 py-0.5 rounded-full">
                   Live PDAX rate
+                </span>
+              ) : rate.source === 'coingecko_live' ? (
+                <span className="text-[10px] font-bold text-white bg-white/25 px-1.5 py-0.5 rounded-full">
+                  Live market rate
                 </span>
               ) : (
                 <span className="text-[10px] font-bold text-white/70 bg-white/15 px-1.5 py-0.5 rounded-full">
@@ -189,6 +182,16 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
               Explorer
             </a>
           )}
+        </div>
+
+        <div className="mt-3">
+          <LiveRateButton
+            phpPerXlm={rate.phpPerXlm}
+            source={rate.source}
+            loading={rate.loading}
+            onRefresh={rate.refresh}
+            className="w-full bg-white/15 border-white/20 text-white hover:bg-white/25"
+          />
         </div>
 
         {/* Actions row */}
@@ -305,8 +308,10 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
           'Earn 1 point for each full XLM paid to a whitelisted provider.',
           'Bronze: below 100 points; Silver: 100–499; Gold: 500 or more.',
           'Points cannot be converted, withdrawn, transferred, or spent.',
-          rateSource === 'pdax_live'
+          rate.source === 'pdax_live'
             ? 'PHP conversion uses the live PDAX rate.'
+            : rate.source === 'coingecko_live'
+              ? 'PHP conversion uses the live market rate.'
             : 'PHP display uses an indicative rate.',
         ].map(tip => (
           <div key={tip} className="flex gap-2 text-xs text-blue-600">

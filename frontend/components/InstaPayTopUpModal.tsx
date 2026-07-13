@@ -7,6 +7,8 @@ import { saveTx } from '@/lib/transactions';
 import { pdaxInitiateDeposit, pdaxConfirm, pdaxQuote, PdaxQuoteResult } from '@/lib/api';
 import { fmtAsset, fmtPhp } from '@/lib/format';
 import { explorerTxUrl, networkBadgeLabel } from '@/lib/stellar-links';
+import { getRuntimeStatus, RuntimeMode } from '@/lib/runtime';
+import LiveRateButton from '@/components/LiveRateButton';
 
 interface Props {
   beneficiaryAddress: string;
@@ -26,8 +28,11 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [identifier, setIdentifier]   = useState<string | null>(null);
   const [txHash, setTxHash]           = useState<string | null>(null);
-  const [creditedUsdc, setCreditedUsdc] = useState<number | null>(null);
+  const [creditedAsset, setCreditedAsset] = useState<number | null>(null);
   const [polling, setPolling]         = useState(false);
+  const [pdaxStatus, setPdaxStatus]   = useState('pending');
+  const [runtimeMode, setRuntimeMode] = useState<RuntimeMode | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
 
   const parsedPhp = parseFloat(amountPhp) || 0;
 
@@ -36,15 +41,52 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
     if (parsedPhp < 100) { setQuote(null); return; }
     let active = true;
     const id = setTimeout(() => {
-      pdaxQuote(parsedPhp, 'USDC')
+      pdaxQuote(parsedPhp, 'XLM')
         .then(q => { if (active) setQuote(q); })
         .catch(() => { if (active) setQuote(null); });
     }, 350);
     return () => { active = false; clearTimeout(id); };
   }, [parsedPhp]);
 
-  const usdcOut = quote ? quote.asset_amount : 0;
+  useEffect(() => {
+    getRuntimeStatus()
+      .then(status => setRuntimeMode(status.mode))
+      .catch(() => setRuntimeMode(null));
+  }, []);
+
+  const assetOut = quote ? quote.asset_amount : 0;
   const rateSource = quote?.source ?? 'indicative';
+  const canSimulateSettlement = runtimeMode === 'demo' || runtimeMode === 'stellar_testnet';
+
+  async function refreshQuote() {
+    if (parsedPhp < 100) return;
+    setQuoteLoading(true);
+    try {
+      setQuote(await pdaxQuote(parsedPhp, 'XLM'));
+    } catch {
+      setQuote(null);
+    } finally {
+      setQuoteLoading(false);
+    }
+  }
+
+  function finishCredit(tx: string | null, credited: number) {
+    setTxHash(tx);
+    setCreditedAsset(credited);
+    saveTx(beneficiaryAddress, {
+      type:      'topup',
+      amountXlm: credited,
+      amountPhp: parsedPhp,
+      gcashRef:  identifier ?? undefined,
+      txHash:    tx ?? undefined,
+      status:    'success',
+    });
+    window.dispatchEvent(new CustomEvent('salomed_tx_update', {
+      detail: { address: beneficiaryAddress.toUpperCase() },
+    }));
+    setStep('done');
+    setTimeout(() => onSuccess(), 1800);
+  }
 
   async function handleCreateDeposit() {
     if (parsedPhp < 100) { setError('Minimum top-up is PHP 100.'); return; }
@@ -54,6 +96,18 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
       const result = await pdaxInitiateDeposit(beneficiaryAddress, parsedPhp);
       setCheckoutUrl(result.checkout_url);
       setIdentifier(result.identifier);
+      setPdaxStatus(result.status ?? 'pending');
+      const quotedAsset = result.asset_amount ?? result.usdc_amount;
+      if (quotedAsset && result.rate) {
+        setQuote({
+          success: result.rate_source === 'pdax_live',
+          rate: result.rate,
+          asset: result.asset_code ?? 'XLM',
+          asset_amount: quotedAsset,
+          amount_php: parsedPhp,
+          source: result.rate_source ?? 'indicative',
+        });
+      }
       setStep('awaiting_payment');
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Could not create the InstaPay deposit.');
@@ -67,40 +121,39 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
     setPolling(true);
     setStep('crediting');
     try {
-      // 1) Try the real settlement path: if the PDAX InstaPay payment actually
-      //    completed, credit with the confirmed amount.
-      let result = await pdaxConfirm(identifier, beneficiaryAddress);
-      let tx: string | null = null;
-      let credited = usdcOut;
+      const result = await pdaxConfirm(identifier, beneficiaryAddress);
+      setPdaxStatus(result.pdax_status ?? 'pending');
 
       if (result.credited) {
-        tx = result.tx_hash ?? null;
-        credited = result.usdc_amount ?? usdcOut;
-      } else {
-        // 2) No confirmed PDAX settlement yet: fund the vault on-chain via a
-        //    user-signed deposit (Freighter opens; real tx hash). The vault
-        //    only increases after confirmed on-chain success.
-        const { depositToVault } = await import('@/lib/contract');
-        tx = await depositToVault(beneficiaryAddress, usdcOut, 'instapay');
+        finishCredit(result.tx_hash ?? null, result.asset_amount ?? result.usdc_amount ?? assetOut);
+        return;
       }
 
-      setTxHash(tx);
-      setCreditedUsdc(credited);
-      saveTx(beneficiaryAddress, {
-        type:      'topup',
-        amountXlm: credited,
-        amountPhp: parsedPhp,
-        gcashRef:  identifier,
-        txHash:    tx ?? undefined,
-        status:    'success',
-      });
-      window.dispatchEvent(new CustomEvent('salomed_tx_update', {
-        detail: { address: beneficiaryAddress.toUpperCase() },
-      }));
-      setStep('done');
-      setTimeout(() => onSuccess(), 1800);
+      setError(`PDAX status is ${result.pdax_status ?? 'pending'}. No vault credit yet.`);
+      setStep('awaiting_payment');
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'On-chain credit failed. It can be retried safely.');
+      setError(e instanceof Error ? e.message : 'Could not verify PDAX payment yet. It can be retried safely.');
+      setStep('awaiting_payment');
+    } finally {
+      setPolling(false);
+    }
+  }
+
+  async function handleSimulatePaid() {
+    if (assetOut <= 0) {
+      setError('No positive quoted vault amount is available yet.');
+      return;
+    }
+    setError(null);
+    setPolling(true);
+    setStep('crediting');
+    try {
+      const { depositToVault } = await import('@/lib/contract');
+      const tx = await depositToVault(beneficiaryAddress, assetOut, 'instapay');
+      setPdaxStatus('simulated_paid');
+      finishCredit(tx, assetOut);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Testnet credit failed. Please retry.');
       setStep('awaiting_payment');
     } finally {
       setPolling(false);
@@ -155,7 +208,7 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
                 className="space-y-4"
               >
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Fund your vault with pesos through PDAX InstaPay. Your payment is converted to XLM at the live PDAX rate and credited to your locked health vault on Stellar.
+                  Fund your vault with pesos through PDAX InstaPay. Your payment is converted to XLM at the live rate and credited to your locked health vault on Stellar.
                 </p>
 
                 <div className="space-y-2">
@@ -202,21 +255,33 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
                           <p className="text-xs text-blue-400">you receive</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-lg font-bold text-[#007DFF]">{fmtAsset(usdcOut)} XLM</p>
+                          <p className="text-lg font-bold text-[#007DFF]">{fmtAsset(assetOut)} XLM</p>
                           <span className={`inline-block text-[10px] font-semibold rounded-full px-2 py-0.5 ${
-                            rateSource === 'pdax_live'
+                            rateSource === 'pdax_live' || rateSource === 'coingecko_live'
                               ? 'text-blue-700 bg-blue-100'
                               : 'text-amber-700 bg-amber-100'
                           }`}>
                             {rateSource === 'pdax_live'
                               ? `Live PDAX rate · ₱${fmtPhp(quote?.rate ?? 0)}/XLM`
-                              : 'Indicative rate'}
+                              : rateSource === 'coingecko_live'
+                                ? `Live market rate · ₱${fmtPhp(quote?.rate ?? 0)}/XLM`
+                                : 'Indicative rate'}
                           </span>
                         </div>
                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
+
+                {parsedPhp >= 100 && (
+                  <LiveRateButton
+                    phpPerXlm={quote?.rate ?? 0}
+                    source={rateSource}
+                    loading={quoteLoading}
+                    onRefresh={refreshQuote}
+                    className="w-full"
+                  />
+                )}
 
                 <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-slate-400 shrink-0">
@@ -268,11 +333,14 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center">
                   <p className="text-xs text-blue-500 uppercase tracking-wide font-semibold mb-1">Complete your payment</p>
                   <p className="text-2xl font-bold text-blue-700">₱{fmtPhp(parsedPhp)}</p>
-                  <p className="text-xs text-blue-400 mt-1">= {fmtAsset(usdcOut)} XLM to your vault</p>
+                  <p className="text-xs text-blue-400 mt-1">= {fmtAsset(assetOut)} XLM to your vault</p>
+                  <p className="text-[10px] text-blue-400 mt-2 font-mono uppercase tracking-wide">
+                    PDAX status: {pdaxStatus}
+                  </p>
                 </div>
 
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Open the secure PDAX InstaPay checkout to pay. After paying, tap "I have paid" and we will credit your vault with XLM on Stellar.
+                  Open the secure PDAX InstaPay checkout to pay. "I have paid" checks PDAX first; your vault is credited only after a completed PDAX sandbox status.
                 </p>
 
                 {checkoutUrl && (
@@ -297,8 +365,18 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
                   disabled={polling}
                   className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-50 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
                 >
-                  <Zap size={15} /> I have paid, credit my vault
+                  <Zap size={15} /> I have paid, check PDAX
                 </button>
+
+                {canSimulateSettlement && (
+                  <button
+                    onClick={handleSimulatePaid}
+                    disabled={polling || assetOut <= 0}
+                    className="w-full py-3 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 active:scale-[0.98] disabled:opacity-50 text-amber-700 font-semibold text-xs transition-all"
+                  >
+                    Simulate paid and credit testnet vault
+                  </button>
+                )}
               </motion.div>
             )}
 
@@ -311,7 +389,7 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
                 <Loader2 size={40} className="text-[#007DFF] animate-spin" />
                 <div className="text-center">
                   <p className="font-semibold text-slate-800">Confirming payment and crediting vault…</p>
-                  <p className="text-xs text-slate-400 mt-1">Verifying with PDAX, then settling XLM on Stellar</p>
+                  <p className="text-xs text-slate-400 mt-1">Checking PDAX status, then settling XLM on Stellar</p>
                 </div>
               </motion.div>
             )}
@@ -326,7 +404,7 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
                 <div>
                   <p className="font-bold text-slate-900 text-lg">Vault credited!</p>
                   <p className="text-xs text-slate-500 mt-1">
-                    {fmtAsset(creditedUsdc ?? usdcOut)} XLM added to your locked health vault.
+                    {fmtAsset(creditedAsset ?? assetOut)} XLM added to your locked health vault.
                   </p>
                 </div>
 

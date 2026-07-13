@@ -6,6 +6,8 @@ import { Building2, Coins, X, CheckCircle, Loader2, AlertCircle, Globe, ArrowLef
 
 import { payHospital, calcPayment } from '@/lib/contract';
 import { saveTx } from '@/lib/transactions';
+import LiveRateButton from '@/components/LiveRateButton';
+import { useXlmPhpRate } from '@/lib/use-xlm-php-rate';
 
 interface Props {
   patientAddress: string;
@@ -27,7 +29,8 @@ export default function PayModal({ patientAddress, amountXlm, vault, onClose, on
   const [txHash, setTxHash] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [showPhp, setShowPhp] = useState(false);
-  const phpRate = 56; // demo rate
+  const rate = useXlmPhpRate();
+  const amountPhp = amountXlm * rate.phpPerXlm;
 
   const vaultBalance = vault ? Number(vault.balance) / 10_000_000 : Infinity;
   const isInsufficient = amountXlm > vaultBalance;
@@ -49,7 +52,7 @@ export default function PayModal({ patientAddress, amountXlm, vault, onClose, on
       saveTx(patientAddress, {
         type: 'payment',
         amountXlm,
-        amountPhp: amountXlm * 56, // demo rate
+        amountPhp,
         providerName: 'Whitelisted Hospital',
         providerType: 'hospital',
         payFrom: 'vault',
@@ -101,7 +104,7 @@ export default function PayModal({ patientAddress, amountXlm, vault, onClose, on
               <span className="text-[10px] font-bold uppercase tracking-wider">Transfer Amount</span>
             </div>
             <span className="text-2xl font-bold tabular-nums">
-              {showPhp ? (amountXlm * phpRate).toFixed(2) : amountXlm.toFixed(2)}
+              {showPhp ? amountPhp.toFixed(2) : amountXlm.toFixed(2)}
               <span className="text-sm font-normal text-blue-200 ml-1.5">{showPhp ? 'PHP' : 'XLM'}</span>
             </span>
           </div>
@@ -113,6 +116,14 @@ export default function PayModal({ patientAddress, amountXlm, vault, onClose, on
             <ArrowLeftRight size={16} />
           </button>
         </div>
+
+        <LiveRateButton
+          phpPerXlm={rate.phpPerXlm}
+          source={rate.source}
+          loading={rate.loading}
+          onRefresh={rate.refresh}
+          className="w-full"
+        />
 
         {/* Hospital address */}
         <div className="space-y-1.5">
@@ -181,7 +192,7 @@ export default function PayModal({ patientAddress, amountXlm, vault, onClose, on
               <div className="space-y-1">
                 <p className="text-emerald-900 font-bold text-base">Payment Sent!</p>
                 <p className="text-emerald-700 text-sm font-semibold">
-                  {amountXlm.toFixed(2)} XLM (≈ ₱{(amountXlm * phpRate).toFixed(2)})
+                  {amountXlm.toFixed(2)} XLM (≈ ₱{amountPhp.toFixed(2)})
                 </p>
                 <p className="text-emerald-600/70 text-[10px] tabular-nums break-all">
                   TX: {txHash?.slice(0, 32)}...

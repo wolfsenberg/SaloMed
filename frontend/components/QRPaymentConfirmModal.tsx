@@ -12,6 +12,8 @@ import { saveTx } from '@/lib/transactions';
 import { recordHistory } from '@/lib/runtime';
 import { fmtAsset, fmtPhp } from '@/lib/format';
 import { explorerTxUrl, networkBadgeLabel } from '@/lib/stellar-links';
+import LiveRateButton from '@/components/LiveRateButton';
+import { useXlmPhpRate } from '@/lib/use-xlm-php-rate';
 
 /** Shape decoded from a QR. `patient` is always overwritten by the connected wallet. */
 export interface SaloMedQRPayload {
@@ -55,16 +57,14 @@ interface Props {
   onSuccess: () => void;
 }
 
-import { API_URL } from '@/lib/config';
-
 export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError]           = useState<string | null>(null);
   const [txHash, setTxHash]         = useState<string | null>(null);
   const [done, setDone]             = useState(false);
 
-  const phpRate = 56; // fallback; could fetch from API
-  const phpValue = payload.amount_usdc * phpRate;
+  const rate = useXlmPhpRate();
+  const phpValue = payload.amount_usdc * rate.phpPerXlm;
 
   async function handleConfirm() {
     setError(null);
@@ -77,7 +77,7 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
       saveTx(payload.patient, {
         type: 'payment',
         amountXlm: payload.amount_usdc,
-        amountPhp: payload.amount_usdc * phpRate,
+        amountPhp: phpValue,
         providerName: payload.provider_name || undefined,
         providerType: payload.provider_type,
         payFrom: 'vault',
@@ -89,7 +89,7 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
         address: payload.patient,
         type: 'payment',
         amountAsset: payload.amount_usdc,
-        amountPhp: payload.amount_usdc * phpRate,
+        amountPhp: phpValue,
         direction: 'sent',
         counterparty: payload.provider_name || undefined,
         txHash: hash,
@@ -213,6 +213,15 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
                   <p className="text-xs text-blue-400 mt-1">
                     ≈ ₱{fmtPhp(phpValue)} PHP
                   </p>
+                  <div className="mt-3">
+                    <LiveRateButton
+                      phpPerXlm={rate.phpPerXlm}
+                      source={rate.source}
+                      loading={rate.loading}
+                      onRefresh={rate.refresh}
+                      className="w-full"
+                    />
+                  </div>
                 </div>
 
                 {/* Patient address (whose vault gets deducted) */}
