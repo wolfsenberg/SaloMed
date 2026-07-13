@@ -117,13 +117,14 @@ export default function PayModal({ patientAddress, amountXlm, vault, onClose, on
           </button>
         </div>
 
-        <LiveRateButton
-          phpPerXlm={rate.phpPerXlm}
-          source={rate.source}
-          loading={rate.loading}
-          onRefresh={rate.refresh}
-          className="w-full"
-        />
+        <div className="flex justify-end">
+          <LiveRateButton
+            phpPerXlm={rate.phpPerXlm}
+            source={rate.source}
+            loading={rate.loading}
+            onRefresh={rate.refresh}
+          />
+        </div>
 
         {/* Hospital address */}
         <div className="space-y-1.5">

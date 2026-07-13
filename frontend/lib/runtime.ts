@@ -247,7 +247,7 @@ export async function demoTopUp(
 }
 
 /**
- * Live PHP to asset conversion. Throws when the live PDAX rate is unavailable
+ * Live PHP to asset conversion. Throws when a live rate is unavailable
  * (Req 10.3: never settle a credit on a fixed/indicative fallback rate).
  */
 export async function convertPhpToAssetLive(amountPhp: number): Promise<number> {
@@ -255,14 +255,14 @@ export async function convertPhpToAssetLive(amountPhp: number): Promise<number> 
   const res = await apiJson<{ asset_amount: number; rate: number; source: string }>(
     `/api/pdax/quote?amount_php=${encodeURIComponent(amountPhp.toFixed(2))}&asset=${runtime.asset_code}`,
   );
-  if (res.source !== 'pdax_live' || !(res.asset_amount > 0)) {
-    throw new Error('Live PDAX rate unavailable; please try again in a moment.');
+  if (!['pdax_live', 'coingecko_live'].includes(res.source) || !(res.asset_amount > 0)) {
+    throw new Error('Live PHP/XLM rate unavailable; please try again in a moment.');
   }
   return res.asset_amount;
 }
 
 /**
- * Live asset to PHP conversion. Throws when the live PDAX rate is unavailable
+ * Live asset to PHP conversion. Throws when a live rate is unavailable
  * (Req 10.3: no fixed/indicative fallback for settlement figures).
  */
 export async function convertAssetToPhpLive(amountAsset: number): Promise<number> {
@@ -270,8 +270,8 @@ export async function convertAssetToPhpLive(amountAsset: number): Promise<number
   const res = await apiJson<{ rate: number; source: string }>(
     `/api/pdax/quote?amount_php=1000&asset=${runtime.asset_code}`,
   );
-  if (res.source !== 'pdax_live' || !(res.rate > 0)) {
-    throw new Error('Live PDAX rate unavailable; please try again in a moment.');
+  if (!['pdax_live', 'coingecko_live'].includes(res.source) || !(res.rate > 0)) {
+    throw new Error('Live PHP/XLM rate unavailable; please try again in a moment.');
   }
   return amountAsset * res.rate;
 }

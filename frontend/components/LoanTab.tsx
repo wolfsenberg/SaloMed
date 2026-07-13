@@ -209,13 +209,14 @@ export default function LoanTab({ address, vault }: Props) {
               ))}
             </div>
 
-            <LiveRateButton
-              phpPerXlm={xlmRate.phpPerXlm}
-              source={xlmRate.source}
-              loading={xlmRate.loading}
-              onRefresh={xlmRate.refresh}
-              className="w-full"
-            />
+            <div className="flex justify-end">
+              <LiveRateButton
+                phpPerXlm={xlmRate.phpPerXlm}
+                source={xlmRate.source}
+                loading={xlmRate.loading}
+                onRefresh={xlmRate.refresh}
+              />
+            </div>
 
             {/* How it works */}
             <div className="bg-white rounded-2xl shadow-card border border-slate-100 p-5 space-y-3">
@@ -312,13 +313,14 @@ export default function LoanTab({ address, vault }: Props) {
                 </p>
               )}
 
-              <LiveRateButton
-                phpPerXlm={xlmRate.phpPerXlm}
-                source={xlmRate.source}
-                loading={xlmRate.loading}
-                onRefresh={xlmRate.refresh}
-                className="w-full"
-              />
+              <div className="flex justify-end">
+                <LiveRateButton
+                  phpPerXlm={xlmRate.phpPerXlm}
+                  source={xlmRate.source}
+                  loading={xlmRate.loading}
+                  onRefresh={xlmRate.refresh}
+                />
+              </div>
 
               {/* Preset amounts */}
               <div className="flex gap-2 flex-wrap">

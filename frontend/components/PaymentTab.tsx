@@ -288,26 +288,19 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                   </p>
                   <p className="text-xs text-blue-300 mt-0.5">
                     ≈ ₱{(vaultXlm * rate.phpPerXlm).toFixed(2)} PHP
-                    <span className="ml-1.5 text-[10px] font-bold text-green-300">
-                      · {rate.source === 'pdax_live'
-                        ? 'Live PDAX rate'
-                        : rate.source === 'coingecko_live'
-                          ? 'Live market rate'
-                          : 'Indicative PHP rate'}
-                    </span>
                   </p>
                 </div>
               </div>
-              <p className="text-xs text-blue-300 font-mono mt-2 truncate">
-                {address.slice(0, 10)}…{address.slice(-10)}
-              </p>
-              <div className="mt-3">
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <p className="min-w-0 truncate text-xs font-mono text-blue-300">
+                  {address.slice(0, 10)}…{address.slice(-10)}
+                </p>
                 <LiveRateButton
                   phpPerXlm={rate.phpPerXlm}
                   source={rate.source}
                   loading={rate.loading}
                   onRefresh={rate.refresh}
-                  className="w-full bg-white/15 border-white/20 text-white hover:bg-white/25"
+                  className="shrink-0 !border-white/20 !bg-white/15 !text-white shadow-sm hover:!bg-white/25"
                 />
               </div>
             </div>
@@ -513,13 +506,14 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                 </div>
               )}
 
-              <LiveRateButton
-                phpPerXlm={rate.phpPerXlm}
-                source={rate.source}
-                loading={rate.loading}
-                onRefresh={rate.refresh}
-                className="w-full"
-              />
+              <div className="flex justify-end">
+                <LiveRateButton
+                  phpPerXlm={rate.phpPerXlm}
+                  source={rate.source}
+                  loading={rate.loading}
+                  onRefresh={rate.refresh}
+                />
+              </div>
 
               {/* Quick amounts */}
               <div className="flex gap-2">
@@ -834,13 +828,14 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                 )}
               </div>
 
-              <LiveRateButton
-                phpPerXlm={rate.phpPerXlm}
-                source={rate.source}
-                loading={rate.loading}
-                onRefresh={rate.refresh}
-                className="w-full"
-              />
+              <div className="flex justify-end">
+                <LiveRateButton
+                  phpPerXlm={rate.phpPerXlm}
+                  source={rate.source}
+                  loading={rate.loading}
+                  onRefresh={rate.refresh}
+                />
+              </div>
 
               {/* Quick amounts */}
               <div className="flex gap-2">

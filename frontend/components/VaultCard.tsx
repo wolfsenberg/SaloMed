@@ -15,7 +15,6 @@ import { getRuntimeStatus, RuntimeStatus } from '@/lib/runtime';
 import { fmtPhp, fmtXlm } from '@/lib/format';
 import { explorerAccountUrl, explorerContractUrl, networkBadgeLabel } from '@/lib/stellar-links';
 import { CONTRACT_ID } from '@/lib/config';
-import LiveRateButton from '@/components/LiveRateButton';
 import { useXlmPhpRate } from '@/lib/use-xlm-php-rate';
 
 interface Props {
@@ -150,48 +149,41 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
                 ? `≈ ${fmtXlm(xlmValue)} XLM`
                 : `≈ ₱${fmtPhp(phpValue)} PHP`}
               <ArrowLeftRight size={10} className="text-blue-400" />
-              {rate.source === 'pdax_live' ? (
-                <span className="text-[10px] font-bold text-white bg-white/25 px-1.5 py-0.5 rounded-full">
-                  Live PDAX rate
-                </span>
-              ) : rate.source === 'coingecko_live' ? (
-                <span className="text-[10px] font-bold text-white bg-white/25 px-1.5 py-0.5 rounded-full">
-                  Live market rate
-                </span>
-              ) : (
-                <span className="text-[10px] font-bold text-white/70 bg-white/15 px-1.5 py-0.5 rounded-full">
-                  Indicative rate
-                </span>
-              )}
             </p>
           </button>
         )}
 
-        <div className="flex items-center justify-between mt-1">
-          <p className="text-xs text-blue-300 font-mono truncate mr-2">
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <p className="min-w-0 truncate text-xs font-mono text-blue-300">
             {address.slice(0, 8)}…{address.slice(-8)}
           </p>
-          {runtime?.mode === 'stellar_testnet' && (
-            <a
-              href={explorerAccountUrl(address)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[10px] bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded flex items-center gap-1 transition-colors"
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={rate.refresh}
+              disabled={rate.loading}
+              className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-blue-100/90 transition-colors hover:bg-white/20 disabled:opacity-60"
+              title={`PHP/XLM rate: ₱${fmtPhp(rate.phpPerXlm)}`}
             >
-              <Globe size={10} />
-              Explorer
-            </a>
-          )}
-        </div>
-
-        <div className="mt-3">
-          <LiveRateButton
-            phpPerXlm={rate.phpPerXlm}
-            source={rate.source}
-            loading={rate.loading}
-            onRefresh={rate.refresh}
-            className="w-full bg-white/15 border-white/20 text-white hover:bg-white/25"
-          />
+              <RefreshCw size={9} className={rate.loading ? 'animate-spin' : ''} />
+              {rate.source === 'pdax_live'
+                ? 'Live PDAX'
+                : rate.source === 'coingecko_live'
+                  ? 'Live market'
+                  : 'Indicative'} · ₱{fmtPhp(rate.phpPerXlm)}/XLM
+            </button>
+            {runtime?.mode === 'stellar_testnet' && (
+              <a
+                href={explorerAccountUrl(address)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 rounded bg-white/10 px-2 py-0.5 text-[10px] transition-colors hover:bg-white/20"
+              >
+                <Globe size={10} />
+                Explorer
+              </a>
+            )}
+          </div>
         </div>
 
         {/* Actions row */}

@@ -136,13 +136,14 @@ export default function FreighterTopUpModal({ address, onClose, onSuccess }: Pro
                   </div>
                 </div>
 
-                <LiveRateButton
-                  phpPerXlm={rate.phpPerXlm}
-                  source={rate.source}
-                  loading={rate.loading}
-                  onRefresh={rate.refresh}
-                  className="w-full"
-                />
+                <div className="flex justify-end">
+                  <LiveRateButton
+                    phpPerXlm={rate.phpPerXlm}
+                    source={rate.source}
+                    loading={rate.loading}
+                    onRefresh={rate.refresh}
+                  />
+                </div>
 
                 <div className="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
                   <ArrowDownToLine size={14} className="text-slate-400 shrink-0 mt-0.5" />
@@ -155,9 +156,8 @@ export default function FreighterTopUpModal({ address, onClose, onSuccess }: Pro
                 <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl p-3">
                   <Zap size={13} className="text-blue-500 shrink-0 mt-0.5" />
                   <p className="text-xs text-blue-700 leading-relaxed">
-                    Freighter will open to confirm your wallet identity. The top-up is then
-                    executed on-chain via the SaloMed admin key. Make sure Freighter is set
-                    to <strong>Testnet</strong>.
+                    Freighter will open to confirm your wallet. Once approved, your vault
+                    balance updates after the secure network confirmation.
                   </p>
                 </div>
 

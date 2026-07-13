@@ -274,13 +274,14 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
                 </AnimatePresence>
 
                 {parsedPhp >= 100 && (
-                  <LiveRateButton
-                    phpPerXlm={quote?.rate ?? 0}
-                    source={rateSource}
-                    loading={quoteLoading}
-                    onRefresh={refreshQuote}
-                    className="w-full"
-                  />
+                  <div className="flex justify-end">
+                    <LiveRateButton
+                      phpPerXlm={quote?.rate ?? 0}
+                      source={rateSource}
+                      loading={quoteLoading}
+                      onRefresh={refreshQuote}
+                    />
+                  </div>
                 )}
 
                 <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">

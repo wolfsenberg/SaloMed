@@ -152,13 +152,12 @@ export default function BillScanner({ address, vault, onPaySuccess }: Props) {
                   {php(result.out_of_pocket_balance)}
                 </span>
               </div>
-              <div className="mt-3">
+              <div className="mt-3 flex flex-col items-end">
                 <LiveRateButton
                   phpPerXlm={rate.phpPerXlm}
                   source={rate.source}
                   loading={rate.loading}
                   onRefresh={rate.refresh}
-                  className="w-full"
                 />
                 <p className="text-xs text-slate-400 text-right mt-1">
                   ≈ {gapXlm.toFixed(7)} XLM

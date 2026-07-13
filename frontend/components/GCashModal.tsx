@@ -211,13 +211,14 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                   )}
                 </AnimatePresence>
 
-                <LiveRateButton
-                  phpPerXlm={rate.phpPerXlm}
-                  source={rate.source}
-                  loading={rate.loading}
-                  onRefresh={rate.refresh}
-                  className="w-full"
-                />
+                <div className="flex justify-end">
+                  <LiveRateButton
+                    phpPerXlm={rate.phpPerXlm}
+                    source={rate.source}
+                    loading={rate.loading}
+                    onRefresh={rate.refresh}
+                  />
+                </div>
 
                 <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
                   <ArrowDownToLine size={16} className="text-slate-400 shrink-0" />

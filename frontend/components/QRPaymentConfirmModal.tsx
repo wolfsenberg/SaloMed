@@ -213,13 +213,12 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
                   <p className="text-xs text-blue-400 mt-1">
                     ≈ ₱{fmtPhp(phpValue)} PHP
                   </p>
-                  <div className="mt-3">
+                  <div className="mt-3 flex justify-end">
                     <LiveRateButton
                       phpPerXlm={rate.phpPerXlm}
                       source={rate.source}
                       loading={rate.loading}
                       onRefresh={rate.refresh}
-                      className="w-full"
                     />
                   </div>
                 </div>

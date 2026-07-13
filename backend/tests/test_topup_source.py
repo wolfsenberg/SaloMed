@@ -90,6 +90,22 @@ def test_topup_success_records_source_and_hash(client, monkeypatch):
     assert rows[0]["tx_hash"] == HASH
 
 
+def test_topup_accepts_live_market_xlm_rate(client, monkeypatch):
+    monkeypatch.setattr(stellar_bridge, "is_bridge_configured", lambda: True)
+    monkeypatch.setattr(stellar_bridge, "credit_vault_usdc", lambda addr, amt: HASH)
+    monkeypatch.setattr(pdax_service, "get_php_to_asset_quote", _mock_quote(source="coingecko_live", rate=11.34))
+
+    resp = client.post("/api/v2/topups", json={
+        "beneficiary_address": BENEFICIARY, "amount_php": "500.00",
+        "idempotency_key": "topup-market-live", "source": "instapay"})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["transaction_id"] == HASH
+    assert body["source"] == "instapay"
+    assert float(body["amount_asset"]) == pytest.approx(66.44)
+
+
 def test_topup_bridge_error_leaves_no_row(client, monkeypatch):
     monkeypatch.setattr(stellar_bridge, "is_bridge_configured", lambda: True)
 

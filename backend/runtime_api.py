@@ -167,20 +167,20 @@ def create_runtime_router(settings: RuntimeSettings, demo_ledger: "DemoLedger | 
                             "message": "On-chain on-ramp requires SALOMED_SIGNER_SECRET + CONTRACT_ID."},
                 )
             # Strict live rate (Req 10.3): the credited amount MUST come from a
-            # live PDAX quote. No fixed/indicative fallback is allowed to settle
-            # a real credit; when the live rate is unavailable we reject the
-            # top-up and leave the vault unchanged.
+            # live executable/market quote. No fixed/indicative fallback is
+            # allowed to settle a real credit; when the live rate is unavailable
+            # we reject the top-up and leave the vault unchanged.
             quote = await pdax.get_php_to_asset_quote(
                 float(body.amount_php),
                 settings.asset_code,
                 fallback_rate=float(settings.php_per_asset_decimal),
             )
             asset_amount = float(quote.get("asset_amount") or 0)
-            if quote.get("source") != "pdax_live" or asset_amount <= 0:
+            if quote.get("source") not in {"pdax_live", "coingecko_live"} or asset_amount <= 0:
                 raise HTTPException(
                     status_code=503,
                     detail={"error": "RATE_UNAVAILABLE",
-                            "message": "Live PDAX rate unavailable; top-up cannot be completed."},
+                            "message": "Live PHP/XLM rate unavailable; top-up cannot be completed."},
                 )
             try:
                 tx_hash = stellar_bridge.credit_vault_usdc(body.beneficiary_address, asset_amount)

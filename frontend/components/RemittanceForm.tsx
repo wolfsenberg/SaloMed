@@ -185,13 +185,12 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
               {showPhp ? `= ${fmtAsset(amountAsset)} XLM` : `≈ ₱${fmtPhp(amountPhp)}`}
             </p>
           )}
-          <div className="mt-2">
+          <div className="mt-2 flex justify-end">
             <LiveRateButton
               phpPerXlm={rate.phpPerXlm}
               source={rate.source}
               loading={rate.loading}
               onRefresh={rate.refresh}
-              className="w-full"
             />
           </div>
         </div>
