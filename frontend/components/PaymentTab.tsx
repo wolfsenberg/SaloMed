@@ -65,14 +65,19 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
       .catch(() => {});
   }, []);
 
-  const parsedXlm    = parseFloat(amountXlm) || 0;
-  const parsedPhp    = parsedXlm * phpRate;
+  // The amount field stores the raw typed string in the CURRENTLY shown unit.
+  // We interpret it by mode instead of converting on every keystroke, so typing
+  // stays smooth (no float round-trip jank) and the on-chain XLM is exact.
+  const rawGenAmount = parseFloat(amountXlm) || 0;
+  const parsedXlm    = showPhp ? (phpRate > 0 ? rawGenAmount / phpRate : 0) : rawGenAmount;
+  const parsedPhp    = showPhp ? rawGenAmount : rawGenAmount * phpRate;
   const vaultXlm     = Number(vault.balance) / 10_000_000;
   const activeBalance  = vaultXlm;
   const pointsRate     = POINTS_RATE[providerType];
 
-  const manualParsed    = parseFloat(manualAmount) || 0;
-  const manualParsedPhp = manualParsed * phpRate;
+  const rawManualAmount = parseFloat(manualAmount) || 0;
+  const manualParsed    = showPhp ? (phpRate > 0 ? rawManualAmount / phpRate : 0) : rawManualAmount;
+  const manualParsedPhp = showPhp ? rawManualAmount : rawManualAmount * phpRate;
 
   const genBreakdown    = calcPayment(parsedXlm, providerType);
   const manualBreakdown = calcPayment(manualParsed, providerType);
@@ -475,12 +480,10 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">₱</span>
                     <input
-                      value={amountXlm ? String(parseFloat(amountXlm) * phpRate) : ''}
-                      onChange={e => {
-                        const php = parseFloat(e.target.value) || 0;
-                        setAmountXlm(php > 0 ? String(php / phpRate) : '');
-                      }}
-                      type="number" min="0" step="0.01" placeholder="0.00"
+                      value={amountXlm}
+                      onChange={e => setAmountXlm(e.target.value)}
+                      onWheel={e => e.currentTarget.blur()}
+                      type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00"
                       className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl pl-8 pr-16 py-3.5 text-xl font-bold text-slate-800 placeholder-slate-300 outline-none transition-all"
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">PHP</span>
@@ -495,7 +498,8 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     <input
                       value={amountXlm}
                       onChange={e => setAmountXlm(e.target.value)}
-                      type="number" min="0" step="0.01" placeholder="0.00"
+                      onWheel={e => e.currentTarget.blur()}
+                      type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00"
                       className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl px-4 pr-16 py-3.5 text-xl font-bold text-slate-800 placeholder-slate-300 outline-none transition-all"
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">XLM</span>
@@ -511,14 +515,14 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                 {QUICK_AMT.map(n => (
                   <button
                     key={n}
-                    onClick={() => setAmountXlm(String(n))}
+                    onClick={() => { setShowPhp(false); setAmountXlm(String(n)); }}
                     className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all border ${
-                      parsedXlm === n
+                      !showPhp && parsedXlm === n
                         ? 'bg-blue-600 border-blue-600 text-white'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-blue-300'
                     }`}
                   >
-                    {n}
+                    {n} XLM
                   </button>
                 ))}
               </div>
@@ -788,12 +792,10 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">₱</span>
                       <input
-                        value={manualAmount ? String(parseFloat(manualAmount) * phpRate) : ''}
-                        onChange={e => {
-                          const php = parseFloat(e.target.value) || 0;
-                          setManualAmount(php > 0 ? String(php / phpRate) : '');
-                        }}
-                        type="number" min="0" step="0.01" placeholder="0.00"
+                        value={manualAmount}
+                        onChange={e => setManualAmount(e.target.value)}
+                        onWheel={e => e.currentTarget.blur()}
+                        type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00"
                         className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl pl-8 pr-16 py-3 text-lg font-bold text-slate-800 placeholder-slate-300 outline-none transition-all"
                       />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">PHP</span>
@@ -808,7 +810,8 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                       <input
                         value={manualAmount}
                         onChange={e => setManualAmount(e.target.value)}
-                        type="number" min="0" step="0.01" placeholder="0.00"
+                        onWheel={e => e.currentTarget.blur()}
+                        type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00"
                         className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl px-4 pr-16 py-3 text-lg font-bold text-slate-800 placeholder-slate-300 outline-none transition-all"
                       />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">XLM</span>
@@ -825,14 +828,14 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                 {QUICK_AMT.map(n => (
                   <button
                     key={n}
-                    onClick={() => setManualAmount(String(n))}
+                    onClick={() => { setShowPhp(false); setManualAmount(String(n)); }}
                     className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all border ${
-                      manualParsed === n
+                      !showPhp && manualParsed === n
                         ? 'bg-blue-600 border-blue-600 text-white'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-blue-300'
                     }`}
                   >
-                    {n}
+                    {n} XLM
                   </button>
                 ))}
               </div>

@@ -312,13 +312,17 @@ async def get_php_to_asset_quote(amount_php: float, asset: str = "USDC",
     }
 
 
-async def get_xlm_php_rate(fallback_rate: float = 56.0) -> float:
+async def get_xlm_php_rate(fallback_rate: float = 56.0, asset: str = "XLM") -> float:
     """
-    Backwards-compatible shim: returns PHP per 1 USDC as a float using the live
-    PDAX quote, or the fallback if PDAX is unavailable. Retained for legacy
-    callers; new code should use get_php_to_asset_quote().
+    Returns the live PHP price of 1 unit of the vault asset (native XLM by
+    default) using the PDAX quote, or the fallback if PDAX is unavailable.
+
+    IMPORTANT: the SaloMed vault is denominated in native XLM, so this must quote
+    XLM (~7.5 PHP), not USDC (~62 PHP). Quoting the wrong asset makes every
+    PHP<->XLM conversion in the app (balances, payment amounts) off by the
+    XLM/USDC price ratio, which then mismatches the real on-chain XLM value.
     """
-    quote = await get_php_to_asset_quote(1000.0, "USDC", fallback_rate=fallback_rate)
+    quote = await get_php_to_asset_quote(1000.0, asset, fallback_rate=fallback_rate)
     return quote.get("rate", fallback_rate)
 
 

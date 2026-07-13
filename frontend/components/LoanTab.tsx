@@ -287,6 +287,7 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
                 <input
                   value={amountPhp}
                   onChange={e => setAmountPhp(e.target.value)}
+                  onWheel={e => e.currentTarget.blur()}
                   type="number" min="0" step={showXlm ? '0.01' : '100'} placeholder="0.00"
                   className={`w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl ${showXlm ? 'px-4' : 'pl-8'} pr-16 py-3.5 text-xl font-bold text-slate-800 placeholder-slate-300 outline-none transition-all`}
                 />

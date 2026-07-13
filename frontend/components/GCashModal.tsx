@@ -173,6 +173,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                     <input
                       value={amountPhp}
                       onChange={e => { setAmountPhp(e.target.value); setError(null); }}
+                      onWheel={e => e.currentTarget.blur()}
                       type="number" min="1" step="1" placeholder="0"
                       inputMode="numeric"
                       className="w-full bg-slate-50 border border-slate-200 focus:border-[#007DFF] focus:bg-white rounded-xl pl-8 pr-4 py-3 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all"

@@ -7,10 +7,11 @@ import { AlertCircle, ArrowLeftRight, CheckCircle, Globe, Loader2, Lock, Send } 
 import type { HealthVault } from '@/lib/contract';
 import { calcPadala, getVault, sendPadala } from '@/lib/contract';
 import { saveTx } from '@/lib/transactions';
-import { getRuntimeStatus, recordHistory } from '@/lib/runtime';
+import { recordHistory } from '@/lib/runtime';
 import { blocksForInsufficientBalance } from '@/lib/balance-guard';
 import { fmtAsset, fmtPhp } from '@/lib/format';
 import { explorerTxUrl, networkBadgeLabel } from '@/lib/stellar-links';
+import { API_URL } from '@/lib/config';
 
 
 interface Props {
@@ -33,9 +34,12 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
   const [txHash, setTxHash] = useState<string | null>(null);
 
   useEffect(() => {
-    getRuntimeStatus()
-      .then(runtime => {
-        setPhpRate(Number(runtime.php_per_asset));
+    // Live PHP-per-XLM rate so the padala amount and its PHP display match the
+    // real on-chain XLM value shown on Freighter and the Stellar Explorer.
+    fetch(`${API_URL}/api/gcash-rate`)
+      .then(r => r.json())
+      .then((d: { php_per_usdc: number }) => {
+        if (d?.php_per_usdc > 0) setPhpRate(d.php_per_usdc);
       })
       .catch(() => {});
   }, []);
@@ -176,9 +180,11 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
             <input
               value={amount}
               onChange={event => { setAmount(event.target.value); setError(null); }}
+              onWheel={event => event.currentTarget.blur()}
               type="number"
               min="0"
               step={showPhp ? '0.01' : '0.0000001'}
+              inputMode="decimal"
               placeholder="0.00"
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 pr-20 py-3 text-xl font-bold outline-none focus:border-blue-500"
             />

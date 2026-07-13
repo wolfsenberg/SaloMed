@@ -165,6 +165,7 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
                     <input
                       value={amountPhp}
                       onChange={e => { setAmountPhp(e.target.value); setError(null); }}
+                      onWheel={e => e.currentTarget.blur()}
                       type="number" min="100" step="100" placeholder="0"
                       inputMode="numeric"
                       className="w-full bg-slate-50 border border-slate-200 focus:border-[#007DFF] focus:bg-white rounded-xl pl-8 pr-4 py-3 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all"

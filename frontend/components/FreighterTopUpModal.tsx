@@ -117,6 +117,7 @@ export default function FreighterTopUpModal({ address, onClose, onSuccess }: Pro
                     <input
                       value={amountXlm}
                       onChange={e => { setAmountXlm(e.target.value); setError(null); }}
+                      onWheel={e => e.currentTarget.blur()}
                       type="number" min="0" step="0.0001" placeholder="0.0000"
                       className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl px-4 pr-16 py-3 text-xl font-bold text-slate-800 placeholder-slate-300 outline-none transition-all"
                     />

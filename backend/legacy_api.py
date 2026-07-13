@@ -46,19 +46,26 @@ def create_legacy_compatibility_router(settings: RuntimeSettings) -> APIRouter:
         # whole app shows a real conversion rather than a hardcoded value.
         import pdax_service as pdax
         fallback = float(settings.php_per_asset_decimal)
+        # Quote the configured vault asset (native XLM), NOT USDC. The frontend
+        # uses this rate to convert between PHP and the on-chain XLM amount, so
+        # it must be PHP-per-XLM for the displayed value to match Freighter and
+        # the Stellar Explorer.
+        asset = settings.asset_code
         if pdax._PDAX_CONFIGURED:
-            quote = await pdax.get_php_to_asset_quote(1000.0, "USDC", fallback_rate=fallback)
+            quote = await pdax.get_php_to_asset_quote(1000.0, asset, fallback_rate=fallback)
             if quote.get("source") == "pdax_live":
                 return {
                     "php_per_usdc": quote["rate"],
-                    "php_per_xlm": None,
+                    "php_per_xlm": quote["rate"],
+                    "asset_code": asset,
                     "source": "pdax_live",
                     "pdax_enabled": True,
                     "executable": False,
                 }
         return {
             "php_per_usdc": fallback,
-            "php_per_xlm": None,
+            "php_per_xlm": fallback,
+            "asset_code": asset,
             "source": "configured_indicative",
             "pdax_enabled": pdax._PDAX_CONFIGURED,
             "executable": False,
