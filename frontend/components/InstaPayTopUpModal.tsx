@@ -81,7 +81,7 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
         //    user-signed deposit (Freighter opens; real tx hash). The vault
         //    only increases after confirmed on-chain success.
         const { depositToVault } = await import('@/lib/contract');
-        tx = await depositToVault(beneficiaryAddress, usdcOut);
+        tx = await depositToVault(beneficiaryAddress, usdcOut, 'instapay');
       }
 
       setTxHash(tx);

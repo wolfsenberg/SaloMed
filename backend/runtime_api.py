@@ -12,6 +12,9 @@ class TopUpRequest(BaseModel):
     beneficiary_address: str
     amount_php: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
     idempotency_key: str = Field(min_length=8, max_length=128)
+    # Top-up method label: gcash | instapay | freighter. Unknown values are
+    # coerced to None so a bad label can never block a real credit.
+    source: str | None = Field(default=None, max_length=16)
 
 
 class PaymentRequest(BaseModel):
@@ -41,6 +44,19 @@ class HistoryRecordRequest(BaseModel):
     counterparty: str | None = Field(default=None, max_length=128)
     tx_hash: str | None = Field(default=None, max_length=128)
     status: str = Field(default="success", max_length=16)
+    source: str | None = Field(default=None, max_length=16)
+
+
+# Allowed top-up method labels. Anything else is stored as NULL (generic top-up).
+_ALLOWED_TOPUP_SOURCES = {"gcash", "instapay", "freighter"}
+
+
+def _normalize_topup_source(value: str | None) -> str | None:
+    """Coerce a top-up method label to the allow-list, else None."""
+    if not value:
+        return None
+    normalized = value.strip().lower()
+    return normalized if normalized in _ALLOWED_TOPUP_SOURCES else None
 
 
 def _ledger_call(function, *args):
@@ -129,18 +145,20 @@ def create_runtime_router(settings: RuntimeSettings, demo_ledger: "DemoLedger | 
             counterparty=body.counterparty,
             tx_hash=body.tx_hash,
             status=body.status,
+            source=body.source,
         )
         return {"recorded": True, "id": row["id"]}
 
     @router.post("/api/v2/topups", tags=["Vault v2"])
     async def topup(body: TopUpRequest):
         # Stellar modes: fund the vault on-chain via the admin bridge, so the
-        # user does not need to pre-hold USDC or a trustline (admin is the USDC
-        # issuer / on-ramp float). This is the fiat on-ramp credit path used by
-        # GCash / InstaPay demo top-ups.
+        # user does not need to pre-hold the asset or a trustline (admin is the
+        # on-ramp float). This is the fiat on-ramp credit path used by GCash /
+        # InstaPay / Freighter top-ups. The method label is recorded on the row.
+        method = _normalize_topup_source(body.source)
         if settings.mode is not RuntimeMode.DEMO:
             import stellar_bridge
-            from decimal import Decimal as _D
+            import pdax_service as pdax
 
             if not stellar_bridge.is_bridge_configured():
                 raise HTTPException(
@@ -148,18 +166,32 @@ def create_runtime_router(settings: RuntimeSettings, demo_ledger: "DemoLedger | 
                     detail={"error": "BRIDGE_NOT_CONFIGURED",
                             "message": "On-chain on-ramp requires SALOMED_SIGNER_SECRET + CONTRACT_ID."},
                 )
-            # Convert PHP to USDC using the configured/live rate.
-            usdc = (body.amount_php / settings.php_per_asset_decimal).quantize(_D("0.0000001"))
+            # Strict live rate (Req 10.3): the credited amount MUST come from a
+            # live PDAX quote. No fixed/indicative fallback is allowed to settle
+            # a real credit; when the live rate is unavailable we reject the
+            # top-up and leave the vault unchanged.
+            quote = await pdax.get_php_to_asset_quote(
+                float(body.amount_php),
+                settings.asset_code,
+                fallback_rate=float(settings.php_per_asset_decimal),
+            )
+            asset_amount = float(quote.get("asset_amount") or 0)
+            if quote.get("source") != "pdax_live" or asset_amount <= 0:
+                raise HTTPException(
+                    status_code=503,
+                    detail={"error": "RATE_UNAVAILABLE",
+                            "message": "Live PDAX rate unavailable; top-up cannot be completed."},
+                )
             try:
-                tx_hash = stellar_bridge.credit_vault_usdc(body.beneficiary_address, float(usdc))
+                tx_hash = stellar_bridge.credit_vault_usdc(body.beneficiary_address, asset_amount)
             except stellar_bridge.BridgeError as exc:
                 raise HTTPException(status_code=502,
                                     detail={"error": "ONCHAIN_CREDIT_FAILED", "message": str(exc)}) from exc
             import history_store
             history_store.record(
                 address=body.beneficiary_address, tx_type="topup",
-                amount_asset=float(usdc), amount_php=float(body.amount_php),
-                direction="received", tx_hash=tx_hash,
+                amount_asset=asset_amount, amount_php=float(body.amount_php),
+                direction="received", tx_hash=tx_hash, source=method,
             )
             return {
                 "success": True,
@@ -169,14 +201,16 @@ def create_runtime_router(settings: RuntimeSettings, demo_ledger: "DemoLedger | 
                 "status": "completed",
                 "beneficiary_address": body.beneficiary_address,
                 "amount_php": f"{body.amount_php:.2f}",
-                "amount_asset": f"{usdc:.7f}",
-                "asset_code": "USDC",
+                "amount_asset": f"{asset_amount:.7f}",
+                "asset_code": settings.asset_code,
+                "source": method,
             }
         return _ledger_call(
             demo_ledger.topup,
             body.beneficiary_address,
             body.amount_php,
             body.idempotency_key,
+            method,
         )
 
     @router.post("/api/v2/payments", tags=["Vault v2"])

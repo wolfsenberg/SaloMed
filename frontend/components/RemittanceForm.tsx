@@ -5,9 +5,10 @@ import { motion } from 'framer-motion';
 import { AlertCircle, ArrowLeftRight, CheckCircle, Globe, Loader2, Lock, Send } from 'lucide-react';
 
 import type { HealthVault } from '@/lib/contract';
-import { calcPadala, sendPadala } from '@/lib/contract';
+import { calcPadala, getVault, sendPadala } from '@/lib/contract';
 import { saveTx } from '@/lib/transactions';
 import { getRuntimeStatus, recordHistory } from '@/lib/runtime';
+import { blocksForInsufficientBalance } from '@/lib/balance-guard';
 import { fmtAsset, fmtPhp } from '@/lib/format';
 import { explorerTxUrl, networkBadgeLabel } from '@/lib/stellar-links';
 
@@ -56,11 +57,20 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
       setError('Sender and beneficiary must be different wallets.'); return;
     }
     if (amountAsset <= 0) { setError('Enter a positive amount.'); return; }
-    if (insufficient) { setError('Insufficient locked vault balance.'); return; }
 
     setSubmitting(true);
     setError(null);
     try {
+      // Live on-chain balance guard BEFORE signing: re-read the vault so a
+      // stale prop can never let a doomed padala open Freighter, and the vault
+      // is never driven negative.
+      const live = await getVault(ofwAddress);
+      const liveBalance = Number(live.balance) / 10_000_000;
+      if (blocksForInsufficientBalance(amountAsset, liveBalance)) {
+        setError('Insufficient locked vault balance.');
+        setSubmitting(false);
+        return;
+      }
       const recipient = beneficiary.trim().toUpperCase();
       const hash = await sendPadala(ofwAddress, recipient, amountAsset);
       setTxHash(hash);

@@ -7,6 +7,7 @@ import { loadTxs, Transaction } from '@/lib/transactions';
 import { getAddressHistory } from '@/lib/runtime';
 import { fmtAsset, fmtPhp } from '@/lib/format';
 import { explorerTxUrl, networkBadgeLabel } from '@/lib/stellar-links';
+import { topUpMethodLabel } from '@/lib/topup-label';
 
 
 interface Props {
@@ -39,6 +40,7 @@ export default function TransactionsTab({ address, phpRate: _phpRate }: Props) {
         counterpartyLabel: r.counterparty ?? undefined,
         txHash: r.tx_hash ?? undefined,
         status: (r.status as Transaction['status']) ?? 'success',
+        topUpSource: r.source ?? null,
       }) as unknown as Transaction);
     } catch {
       rows = [];
@@ -96,7 +98,7 @@ export default function TransactionsTab({ address, phpRate: _phpRate }: Props) {
           const label = transaction.providerName
             || transaction.recipientLabel
             || transaction.senderLabel
-            || (transaction.type === 'topup' ? 'Vault top-up' : transaction.status);
+            || (transaction.type === 'topup' ? topUpMethodLabel(transaction.topUpSource) : transaction.status);
           const explorer = transaction.txHash ? explorerTxUrl(transaction.txHash) : '';
           return (
             <div key={transaction.id} className="bg-white border border-slate-100 rounded-2xl p-4 flex gap-3 items-center shadow-card">

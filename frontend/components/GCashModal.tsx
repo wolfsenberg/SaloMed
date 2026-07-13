@@ -80,7 +80,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
       // deposit_remittance in Freighter (real tx hash); vault increases only
       // after confirmed on-chain success. Demo mode credits the durable ledger.
       const { depositToVault } = await import('@/lib/contract');
-      const hash = await depositToVault(beneficiaryAddress, result.amount_xlm);
+      const hash = await depositToVault(beneficiaryAddress, result.amount_xlm, 'gcash');
 
       // Backend already records the top-up in the address-keyed history index.
       setLedgerReference(hash);

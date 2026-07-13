@@ -42,7 +42,7 @@ export default function FreighterTopUpModal({ address, onClose, onSuccess }: Pro
     setStep('processing');
     try {
       const { depositToVault } = await import('@/lib/contract');
-      const hash = await depositToVault(address, parsedXlm);
+      const hash = await depositToVault(address, parsedXlm, 'freighter');
 
       // Backend already records the top-up in the address-keyed history index.
       setTxHash(hash);

@@ -235,7 +235,8 @@ class DemoLedger:
                     counterparty TEXT,
                     provider_id TEXT,
                     points_delta INTEGER NOT NULL DEFAULT 0,
-                    created_at INTEGER NOT NULL
+                    created_at INTEGER NOT NULL,
+                    source TEXT NULL
                 );
 
                 CREATE INDEX IF NOT EXISTS idx_transactions_address_created
@@ -260,6 +261,14 @@ class DemoLedger:
                 """,
                 SEED_PROVIDERS,
             )
+            # Idempotent migration: add the additive `source` column to
+            # already-existing local databases created before it was introduced.
+            columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(transactions)").fetchall()
+            }
+            if "source" not in columns:
+                connection.execute("ALTER TABLE transactions ADD COLUMN source TEXT")
 
     @staticmethod
     def _fingerprint(payload: dict[str, Any]) -> str:
@@ -358,6 +367,7 @@ class DemoLedger:
         beneficiary_address: str,
         amount_php: str | Decimal,
         idempotency_key: str,
+        source: str | None = None,
     ) -> dict[str, Any]:
         beneficiary = validate_stellar_address(beneficiary_address)
         centavos = php_to_centavos(amount_php)
@@ -381,9 +391,13 @@ class DemoLedger:
             )
             connection.execute(
                 """
-                INSERT INTO transactions VALUES (?, ?, ?, 'topup', 'received', ?, ?, 'success', NULL, NULL, 0, ?)
+                INSERT INTO transactions
+                    (transaction_id, operation_id, address, type, direction,
+                     amount_stroops, amount_php_centavos, status, counterparty,
+                     provider_id, points_delta, created_at, source)
+                VALUES (?, ?, ?, 'topup', 'received', ?, ?, 'success', NULL, NULL, 0, ?, ?)
                 """,
-                (transaction_id, idempotency_key, beneficiary, stroops, centavos, now),
+                (transaction_id, idempotency_key, beneficiary, stroops, centavos, now, source),
             )
             response = {
                 "success": True,
@@ -451,7 +465,11 @@ class DemoLedger:
             )
             connection.execute(
                 """
-                INSERT INTO transactions VALUES (?, ?, ?, 'payment', 'sent', ?, ?, 'success', ?, ?, ?, ?)
+                INSERT INTO transactions
+                    (transaction_id, operation_id, address, type, direction,
+                     amount_stroops, amount_php_centavos, status, counterparty,
+                     provider_id, points_delta, created_at, source)
+                VALUES (?, ?, ?, 'payment', 'sent', ?, ?, 'success', ?, ?, ?, ?, NULL)
                 """,
                 (
                     transaction_id,
@@ -533,7 +551,11 @@ class DemoLedger:
             )
             connection.executemany(
                 """
-                INSERT INTO transactions VALUES (?, ?, ?, 'padala', ?, ?, ?, 'success', ?, NULL, 0, ?)
+                INSERT INTO transactions
+                    (transaction_id, operation_id, address, type, direction,
+                     amount_stroops, amount_php_centavos, status, counterparty,
+                     provider_id, points_delta, created_at, source)
+                VALUES (?, ?, ?, 'padala', ?, ?, ?, 'success', ?, NULL, 0, ?, NULL)
                 """,
                 [
                     (sent_id, operation_id, sender, "sent", stroops, centavos, beneficiary, now),
@@ -562,7 +584,7 @@ class DemoLedger:
             rows = connection.execute(
                 """
                 SELECT transaction_id, type, direction, amount_stroops, amount_php_centavos,
-                       status, counterparty, provider_id, points_delta, created_at
+                       status, counterparty, provider_id, points_delta, created_at, source
                 FROM transactions
                 WHERE address=?
                 ORDER BY created_at DESC, transaction_id DESC
@@ -583,6 +605,7 @@ class DemoLedger:
                 "provider_id": row["provider_id"],
                 "points_delta": int(row["points_delta"]),
                 "created_at": int(row["created_at"]),
+                "source": row["source"],
                 "simulated": True,
             }
             for row in rows
@@ -644,7 +667,8 @@ class PostgresLedger:
                         counterparty TEXT,
                         provider_id TEXT,
                         points_delta BIGINT NOT NULL DEFAULT 0,
-                        created_at BIGINT NOT NULL
+                        created_at BIGINT NOT NULL,
+                        source TEXT NULL
                     );
                     CREATE INDEX IF NOT EXISTS idx_transactions_address_created
                     ON transactions(address, created_at DESC);
@@ -656,6 +680,11 @@ class PostgresLedger:
                         created_at BIGINT NOT NULL
                     );
                     """
+                )
+                # Idempotent migration: add the additive `source` column to
+                # already-deployed tables created before it was introduced.
+                cur.execute(
+                    "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS source TEXT"
                 )
                 cur.executemany(
                     """
@@ -753,7 +782,7 @@ class PostgresLedger:
             for r in rows
         ]
 
-    def topup(self, beneficiary_address: str, amount_php, idempotency_key: str) -> dict[str, Any]:
+    def topup(self, beneficiary_address: str, amount_php, idempotency_key: str, source: str | None = None) -> dict[str, Any]:
         beneficiary = validate_stellar_address(beneficiary_address)
         centavos = php_to_centavos(amount_php)
         php = Decimal(centavos) / 100
@@ -775,9 +804,13 @@ class PostgresLedger:
                 )
                 cur.execute(
                     """
-                    INSERT INTO transactions VALUES (%s, %s, %s, 'topup', 'received', %s, %s, 'success', NULL, NULL, 0, %s)
+                    INSERT INTO transactions
+                        (transaction_id, operation_id, address, type, direction,
+                         amount_stroops, amount_php_centavos, status, counterparty,
+                         provider_id, points_delta, created_at, source)
+                    VALUES (%s, %s, %s, 'topup', 'received', %s, %s, 'success', NULL, NULL, 0, %s, %s)
                     """,
-                    (transaction_id, idempotency_key, beneficiary, stroops, centavos, now),
+                    (transaction_id, idempotency_key, beneficiary, stroops, centavos, now, source),
                 )
                 response = {
                     "success": True,
@@ -832,7 +865,11 @@ class PostgresLedger:
                 )
                 cur.execute(
                     """
-                    INSERT INTO transactions VALUES (%s, %s, %s, 'payment', 'sent', %s, %s, 'success', %s, %s, %s, %s)
+                    INSERT INTO transactions
+                        (transaction_id, operation_id, address, type, direction,
+                         amount_stroops, amount_php_centavos, status, counterparty,
+                         provider_id, points_delta, created_at, source)
+                    VALUES (%s, %s, %s, 'payment', 'sent', %s, %s, 'success', %s, %s, %s, %s, NULL)
                     """,
                     (transaction_id, idempotency_key, patient, stroops, centavos, provider[0], provider_id, points, now),
                 )
@@ -892,7 +929,11 @@ class PostgresLedger:
                 )
                 cur.executemany(
                     """
-                    INSERT INTO transactions VALUES (%s, %s, %s, 'padala', %s, %s, %s, 'success', %s, NULL, 0, %s)
+                    INSERT INTO transactions
+                        (transaction_id, operation_id, address, type, direction,
+                         amount_stroops, amount_php_centavos, status, counterparty,
+                         provider_id, points_delta, created_at, source)
+                    VALUES (%s, %s, %s, 'padala', %s, %s, %s, 'success', %s, NULL, 0, %s, NULL)
                     """,
                     [
                         (f"{operation_id}-S", operation_id, sender, "sent", stroops, centavos, beneficiary, now),
@@ -922,7 +963,7 @@ class PostgresLedger:
                 cur.execute(
                     """
                     SELECT transaction_id, type, direction, amount_stroops, amount_php_centavos,
-                           status, counterparty, provider_id, points_delta, created_at
+                           status, counterparty, provider_id, points_delta, created_at, source
                     FROM transactions
                     WHERE address=%s
                     ORDER BY created_at DESC, transaction_id DESC
@@ -945,6 +986,7 @@ class PostgresLedger:
                 "provider_id": r[7],
                 "points_delta": int(r[8]),
                 "created_at": int(r[9]),
+                "source": r[10],
                 "simulated": True,
             }
             for r in rows

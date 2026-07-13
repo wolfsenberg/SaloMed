@@ -176,6 +176,19 @@ def create_pdax_router(settings: RuntimeSettings) -> APIRouter:
             raise HTTPException(status_code=502, detail={"error": "ONCHAIN_CREDIT_FAILED",
                                 "message": str(exc)}) from exc
         _credits.put(identifier, tx_hash)
+        # Record the InstaPay top-up in the address-keyed history index so both
+        # InstaPay branches (real PDAX settlement and admin-credit fallback)
+        # label identically as "Top-up via InstaPay" and stay Explorer-traceable.
+        try:
+            import history_store
+            history_store.record(
+                address=beneficiary, tx_type="topup",
+                amount_asset=float(usdc_amount),
+                amount_php=float(status_info.get("amount", 0) or 0),
+                direction="received", tx_hash=tx_hash, source="instapay",
+            )
+        except Exception:
+            pass
         return {"credited": True, "already": False, "tx_hash": tx_hash,
                 "usdc_amount": usdc_amount, "pdax_status": pdax_status}
 

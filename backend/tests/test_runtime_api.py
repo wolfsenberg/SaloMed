@@ -11,6 +11,8 @@ from salomed_runtime import DemoLedger, RuntimeMode, RuntimeSettings
 
 PATIENT = "GAXXWLECCE644QVYLKRHCDWDH5V7KMYG3GZEDPEB7C7LIQFPQ43ZBFEK"
 BENEFICIARY = "GCOHD2WKIEY4IP7AIWBIMAID2RFJ4E7ZXSM446EJWN46IBHFYTWQIGCJ"
+# A real whitelisted provider from SEED_PROVIDERS (Philippine General Hospital).
+PROVIDER = "GDGXGJTIGCXMQTAG362YFKCBZ4FARG33SDOKCZ4DOTFP4J63EPCYMRKH"
 
 
 def make_client(tmp_path: Path) -> TestClient:
@@ -24,6 +26,7 @@ def make_client(tmp_path: Path) -> TestClient:
         php_per_asset="56.00",
         admin_api_key="test-admin-key",
         database_path=str(tmp_path / "runtime.sqlite3"),
+        database_url="",
     )
     ledger = DemoLedger(settings.database_path, settings.php_per_asset_decimal)
     app = FastAPI()
@@ -58,6 +61,7 @@ def test_demo_topup_is_idempotent_and_updates_the_same_vault(tmp_path: Path) -> 
         "beneficiary_address": PATIENT,
         "amount_php": "560.00",
         "idempotency_key": "topup-001",
+        "source": "gcash",
     }
 
     first = client.post("/api/v2/topups", json=payload)
@@ -68,8 +72,29 @@ def test_demo_topup_is_idempotent_and_updates_the_same_vault(tmp_path: Path) -> 
     assert replay.status_code == 200
     assert replay.json()["transaction_id"] == first.json()["transaction_id"]
     assert replay.json()["replayed"] is True
+    # Credited exactly once despite two identical submissions.
     assert vault.json()["balance_stroops"] == 100_000_000
     assert vault.json()["balance_asset"] == "10.0000000"
+    # The top-up method label is persisted on the recorded row.
+    history = client.get(f"/api/v2/vaults/{PATIENT}/transactions").json()["transactions"]
+    assert len(history) == 1
+    assert history[0]["type"] == "topup"
+    assert history[0]["source"] == "gcash"
+
+
+def test_demo_topup_coerces_unknown_source_to_null(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+    client.post(
+        "/api/v2/topups",
+        json={
+            "beneficiary_address": PATIENT,
+            "amount_php": "56.00",
+            "idempotency_key": "topup-badsrc",
+            "source": "bank-robbery",
+        },
+    )
+    history = client.get(f"/api/v2/vaults/{PATIENT}/transactions").json()["transactions"]
+    assert history[0]["source"] is None
 
 
 def test_demo_payment_requires_whitelist_and_is_atomic(tmp_path: Path) -> None:
@@ -96,7 +121,7 @@ def test_demo_payment_requires_whitelist_and_is_atomic(tmp_path: Path) -> None:
         "/api/v2/payments",
         json={
             "patient_address": PATIENT,
-            "provider_id": "demo-pgh",
+            "provider_id": PROVIDER,
             "amount_asset": "4.0000000",
             "idempotency_key": "pay-0001",
         },
@@ -125,7 +150,7 @@ def test_demo_payment_rejects_insufficient_balance_without_mutation(tmp_path: Pa
         "/api/v2/payments",
         json={
             "patient_address": PATIENT,
-            "provider_id": "demo-pgh",
+            "provider_id": PROVIDER,
             "amount_asset": "2.0000000",
             "idempotency_key": "pay-too-large",
         },
@@ -182,19 +207,28 @@ def test_demo_history_comes_from_the_ledger(tmp_path: Path) -> None:
 
 def test_demo_balance_and_two_sided_history_survive_app_restart(tmp_path: Path) -> None:
     first_client = make_client(tmp_path)
-    first_client.post(
-        "/api/v2/topups",
-        json={
-            "beneficiary_address": PATIENT,
-            "amount_php": "560.00",
-            "idempotency_key": "topup-durable",
-        },
-    )
+    # Three top-up methods, each labelled with its source, plus a payment and a
+    # padala: all five flows must survive a store restart with balances re-read
+    # and history rows (including source labels) intact.
+    for amount, key, source in (
+        ("280.00", "topup-gcash", "gcash"),
+        ("140.00", "topup-instapay", "instapay"),
+        ("140.00", "topup-freighter", "freighter"),
+    ):
+        first_client.post(
+            "/api/v2/topups",
+            json={
+                "beneficiary_address": PATIENT,
+                "amount_php": amount,
+                "idempotency_key": key,
+                "source": source,
+            },
+        )
     first_client.post(
         "/api/v2/payments",
         json={
             "patient_address": PATIENT,
-            "provider_id": "demo-pgh",
+            "provider_id": PROVIDER,
             "amount_asset": "2.0000000",
             "idempotency_key": "payment-durable",
         },
@@ -226,6 +260,9 @@ def test_demo_balance_and_two_sided_history_survive_app_restart(tmp_path: Path) 
         ("payment", "sent"),
         ("padala", "sent"),
     }
+    # All three top-up method labels survived the restart, none lost or altered.
+    topup_sources = {row["source"] for row in patient_history if row["type"] == "topup"}
+    assert topup_sources == {"gcash", "instapay", "freighter"}
     assert [(row["type"], row["direction"]) for row in beneficiary_history] == [
         ("padala", "received")
     ]

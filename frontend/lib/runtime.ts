@@ -167,6 +167,7 @@ export interface HistoryRow {
   tx_hash: string | null;
   status: string;
   created_at: number;
+  source: string | null;
 }
 
 /** Record a transaction against a Stellar address (history follows the wallet). */
@@ -178,6 +179,7 @@ export async function recordHistory(row: {
   direction?: string;
   counterparty?: string;
   txHash?: string;
+  source?: string;
 }): Promise<void> {
   try {
     await apiJson('/api/v2/history/record', {
@@ -192,6 +194,7 @@ export async function recordHistory(row: {
         counterparty: row.counterparty ?? null,
         tx_hash: row.txHash ?? null,
         status: 'success',
+        source: row.source ?? null,
       }),
     });
   } catch {
@@ -221,7 +224,13 @@ export async function getRuntimeHistory(address: string): Promise<RuntimeTransac
   return response.transactions;
 }
 
-export async function demoTopUp(address: string, amountPhp: number): Promise<string> {
+export type TopUpSource = 'gcash' | 'instapay' | 'freighter';
+
+export async function demoTopUp(
+  address: string,
+  amountPhp: number,
+  source?: TopUpSource,
+): Promise<string> {
   const scope = `topup:${address}:${amountPhp.toFixed(2)}`;
   const result = await apiJson<{ transaction_id: string }>('/api/v2/topups', {
       method: 'POST',
@@ -230,10 +239,41 @@ export async function demoTopUp(address: string, amountPhp: number): Promise<str
         beneficiary_address: address,
         amount_php: amountPhp.toFixed(2),
         idempotency_key: retryableKey(scope, 'topup'),
+        source: source ?? null,
       }),
     });
   retryableKeys.delete(scope);
   return result.transaction_id;
+}
+
+/**
+ * Live PHP to asset conversion. Throws when the live PDAX rate is unavailable
+ * (Req 10.3: never settle a credit on a fixed/indicative fallback rate).
+ */
+export async function convertPhpToAssetLive(amountPhp: number): Promise<number> {
+  const runtime = await getRuntimeStatus();
+  const res = await apiJson<{ asset_amount: number; rate: number; source: string }>(
+    `/api/pdax/quote?amount_php=${encodeURIComponent(amountPhp.toFixed(2))}&asset=${runtime.asset_code}`,
+  );
+  if (res.source !== 'pdax_live' || !(res.asset_amount > 0)) {
+    throw new Error('Live PDAX rate unavailable; please try again in a moment.');
+  }
+  return res.asset_amount;
+}
+
+/**
+ * Live asset to PHP conversion. Throws when the live PDAX rate is unavailable
+ * (Req 10.3: no fixed/indicative fallback for settlement figures).
+ */
+export async function convertAssetToPhpLive(amountAsset: number): Promise<number> {
+  const runtime = await getRuntimeStatus();
+  const res = await apiJson<{ rate: number; source: string }>(
+    `/api/pdax/quote?amount_php=1000&asset=${runtime.asset_code}`,
+  );
+  if (res.source !== 'pdax_live' || !(res.rate > 0)) {
+    throw new Error('Live PDAX rate unavailable; please try again in a moment.');
+  }
+  return amountAsset * res.rate;
 }
 
 export async function demoPayment(

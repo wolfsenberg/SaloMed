@@ -48,6 +48,8 @@ export interface Transaction {
   status:           'success' | 'pending';
   direction?:       'sent' | 'received';
   senderLabel?:     string;
+  // top-up method label source: gcash | instapay | freighter
+  topUpSource?:     string | null;
 }
 
 const storageKey = (address: string) => `salomed_txs_${address.toUpperCase()}`;

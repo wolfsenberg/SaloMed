@@ -78,11 +78,16 @@ def _init() -> None:
                             counterparty TEXT,
                             tx_hash TEXT,
                             status TEXT NOT NULL DEFAULT 'success',
-                            created_at BIGINT NOT NULL
+                            created_at BIGINT NOT NULL,
+                            source TEXT NULL
                         );
                         CREATE INDEX IF NOT EXISTS idx_txhist_addr_created
                         ON tx_history(address, created_at DESC);
                         """
+                    )
+                    # Idempotent migration for already-deployed tables missing `source`.
+                    cur.execute(
+                        "ALTER TABLE tx_history ADD COLUMN IF NOT EXISTS source TEXT"
                     )
                 c.commit()
         else:
@@ -99,12 +104,17 @@ def _init() -> None:
                         counterparty TEXT,
                         tx_hash TEXT,
                         status TEXT NOT NULL DEFAULT 'success',
-                        created_at INTEGER NOT NULL
+                        created_at INTEGER NOT NULL,
+                        source TEXT NULL
                     );
                     CREATE INDEX IF NOT EXISTS idx_txhist_addr_created
                     ON tx_history(address, created_at DESC);
                     """
                 )
+                # Idempotent migration for already-deployed tables missing `source`.
+                cols = {r["name"] for r in c.execute("PRAGMA table_info(tx_history)").fetchall()}
+                if "source" not in cols:
+                    c.execute("ALTER TABLE tx_history ADD COLUMN source TEXT")
         _INITIALIZED = True
     except Exception:
         # Non-fatal: history recording should never break a transaction.
@@ -120,8 +130,14 @@ def record(
     counterparty: str | None = None,
     tx_hash: str | None = None,
     status: str = "success",
+    source: str | None = None,
 ) -> dict[str, Any]:
-    """Persist one transaction for `address`. Returns the stored row (best effort)."""
+    """Persist one transaction for `address`. Returns the stored row (best effort).
+
+    Append-only: this is INSERT-only and never updates, deletes, or upserts an
+    existing row. The optional `source` labels the top-up method (e.g. gcash,
+    instapay, freighter) and is stored in the dedicated `source` column.
+    """
     _init()
     addr = address.strip().upper()
     row = {
@@ -135,6 +151,7 @@ def record(
         "tx_hash": tx_hash,
         "status": status,
         "created_at": int(time.time()),
+        "source": source,
     }
     try:
         if _USE_PG:
@@ -143,12 +160,12 @@ def record(
                     cur.execute(
                         """
                         INSERT INTO tx_history
-                        (id,address,type,direction,amount_asset,amount_php,counterparty,tx_hash,status,created_at)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                        (id,address,type,direction,amount_asset,amount_php,counterparty,tx_hash,status,created_at,source)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                         """,
                         (row["id"], row["address"], row["type"], row["direction"],
                          row["amount_asset"], row["amount_php"], row["counterparty"],
-                         row["tx_hash"], row["status"], row["created_at"]),
+                         row["tx_hash"], row["status"], row["created_at"], row["source"]),
                     )
                 c.commit()
         else:
@@ -156,12 +173,12 @@ def record(
                 c.execute(
                     """
                     INSERT INTO tx_history
-                    (id,address,type,direction,amount_asset,amount_php,counterparty,tx_hash,status,created_at)
-                    VALUES (?,?,?,?,?,?,?,?,?,?)
+                    (id,address,type,direction,amount_asset,amount_php,counterparty,tx_hash,status,created_at,source)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?)
                     """,
                     (row["id"], row["address"], row["type"], row["direction"],
                      row["amount_asset"], row["amount_php"], row["counterparty"],
-                     row["tx_hash"], row["status"], row["created_at"]),
+                     row["tx_hash"], row["status"], row["created_at"], row["source"]),
                 )
     except Exception:
         pass
@@ -179,7 +196,7 @@ def history(address: str, limit: int = 50) -> list[dict[str, Any]]:
                 with c.cursor() as cur:
                     cur.execute(
                         """
-                        SELECT id,type,direction,amount_asset,amount_php,counterparty,tx_hash,status,created_at
+                        SELECT id,type,direction,amount_asset,amount_php,counterparty,tx_hash,status,created_at,source
                         FROM tx_history WHERE address=%s ORDER BY created_at DESC LIMIT %s
                         """,
                         (addr, limit),
@@ -187,13 +204,13 @@ def history(address: str, limit: int = 50) -> list[dict[str, Any]]:
                     rows = cur.fetchall()
                 c.commit()
             cols = ["id", "type", "direction", "amount_asset", "amount_php",
-                    "counterparty", "tx_hash", "status", "created_at"]
+                    "counterparty", "tx_hash", "status", "created_at", "source"]
             return [dict(zip(cols, r)) for r in rows]
         else:
             with _sqlite_conn() as c:
                 rows = c.execute(
                     """
-                    SELECT id,type,direction,amount_asset,amount_php,counterparty,tx_hash,status,created_at
+                    SELECT id,type,direction,amount_asset,amount_php,counterparty,tx_hash,status,created_at,source
                     FROM tx_history WHERE address=? ORDER BY created_at DESC LIMIT ?
                     """,
                     (addr, limit),

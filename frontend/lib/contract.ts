@@ -7,6 +7,7 @@ import {
   demoTopUp,
   getRuntimeStatus,
   getRuntimeVault,
+  type TopUpSource,
 } from './runtime';
 
 
@@ -85,14 +86,19 @@ export async function getVault(patientAddress: string): Promise<HealthVault> {
  * The vault balance therefore only increases after a confirmed on-chain tx,
  * and the contract always holds exactly what users deposited.
  */
-export async function depositToVault(userAddress: string, amountAsset: number): Promise<string> {
+export async function depositToVault(
+  userAddress: string,
+  amountAsset: number,
+  source?: TopUpSource,
+): Promise<string> {
   const runtime = await getRuntimeStatus();
   // Top-ups are funded by the SaloMed on-ramp float (admin) via the backend,
   // which signs a real on-chain deposit_remittance into the user's vault. This
   // is the reliable path: the user does not need to hold XLM or sign, and the
   // vault is credited with real, Explorer-traceable XLM. Returns a real tx hash
-  // in Stellar mode; demo mode credits the durable ledger.
-  return demoTopUp(userAddress, amountAsset * Number(runtime.php_per_asset));
+  // in Stellar mode; demo mode credits the durable ledger. The `source` records
+  // which top-up method was used so history can show "Top-up via ...".
+  return demoTopUp(userAddress, amountAsset * Number(runtime.php_per_asset), source);
 }
 
 /**
