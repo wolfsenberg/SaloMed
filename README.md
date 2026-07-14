@@ -36,11 +36,7 @@ Starting in the Philippines, SaloMed uses a PDAX-oriented InstaPay flow with liv
 
 **Mobile:** <img width="391" height="851" alt="SaloMed mobile app" src="https://github.com/user-attachments/assets/58b71aa2-e726-4df4-a780-c90721baf64b" />
 
-**Live App:** [https://salomedhealthalkansya.vercel.app/](https://salomedhealthalkansya.vercel.app/)
-
-**Video Demo:** [Google Drive](https://drive.google.com/file/d/1FdqfCqWRw6hjVrcqbt7UpLAgSdgnlXAR/view?usp=sharing)
-
-**Pitch Document:** [Google Docs](https://docs.google.com/document/d/134i9LdSE-X0jaV2Nr0X9SSptM7tY4yRtdCkYO2t2260/edit?usp=sharing)
+**Resources:** [Live App](https://salomedhealthalkansya.vercel.app/) | [Video Demo](https://drive.google.com/file/d/1FdqfCqWRw6hjVrcqbt7UpLAgSdgnlXAR/view?usp=sharing) | [Pitch Document](https://docs.google.com/document/d/134i9LdSE-X0jaV2Nr0X9SSptM7tY4yRtdCkYO2t2260/edit?usp=sharing)
 
 ## Table of Contents
 
