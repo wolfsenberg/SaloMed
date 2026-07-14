@@ -46,10 +46,10 @@ function tierProgress(points: number): number {
   return points / 100;
 }
 
-function tierNextLabel(points: number): string {
-  if (points >= 500) return 'Maximum tier reached';
-  if (points >= 100) return `${500 - points} pts to Gold`;
-  return `${100 - points} pts to Silver`;
+function tierNextLabel(points: number, t: (key: any, params?: Record<string, string | number>) => string): string {
+  if (points >= 500) return t('vault_max_tier');
+  if (points >= 100) return t('vault_points_to_gold', { points: 500 - points });
+  return t('vault_points_to_silver', { points: 100 - points });
 }
 
 const card = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } };
@@ -97,11 +97,11 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
             {connecting ? t('common_connecting') : t('common_connect_wallet')}
           </button>
           <p className="text-[11px] text-amber-600 text-center">
-            Connect the wallet that will sign transactions. Manual address-only sessions are disabled.
+            {t('vault_connect_notice')}
           </p>
 
           <p className="text-[11px] text-slate-400 text-center pt-1">
-            Secured on Stellar {networkBadgeLabel()}
+            {t('vault_secured_on_stellar')} {networkBadgeLabel()}
           </p>
         </div>
       </div>
@@ -131,7 +131,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
             className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-[10px] font-semibold text-blue-100/90 transition-colors hover:bg-white/20 disabled:opacity-60"
           >
             <RefreshCw size={10} className={loading ? 'animate-spin' : ''} />
-            Refresh
+            {t('vault_refresh')}
           </button>
         </div>
 
@@ -141,7 +141,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
           <button
             onClick={() => setShowPhp(v => !v)}
             className="group w-full text-left transition-transform active:scale-[0.99]"
-            title={showPhp ? 'Show XLM balance' : 'Show PHP balance'}
+            title={showPhp ? t('vault_show_xlm') : t('vault_show_php')}
           >
             <AnimatePresence mode="wait">
               <motion.div
@@ -171,7 +171,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
                 : `≈ ₱${fmtPhp(phpValue)} PHP`}
               <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-bold text-white transition-colors group-hover:bg-white/25">
                 <ArrowLeftRight size={11} />
-                {showPhp ? 'Show XLM' : 'Show PHP'}
+                {showPhp ? t('vault_show_xlm') : t('vault_show_php')}
               </span>
             </p>
           </button>
@@ -191,10 +191,10 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
             >
               <RefreshCw size={9} className={rate.loading ? 'animate-spin' : ''} />
               {rate.source === 'pdax_live'
-                ? 'Live PDAX'
+                ? t('vault_live_pdax')
                 : rate.source === 'coingecko_live'
-                  ? 'Live market'
-                  : 'Indicative'} · ₱{fmtPhp(rate.phpPerXlm)}/XLM
+                  ? t('vault_live_market')
+                  : t('vault_indicative')} · ₱{fmtPhp(rate.phpPerXlm)}/XLM
             </button>
             {runtime?.mode === 'stellar_testnet' && (
               <a
@@ -204,7 +204,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
                 className="flex items-center gap-1 rounded bg-white/10 px-2 py-0.5 text-[10px] transition-colors hover:bg-white/20"
               >
                 <Globe size={10} />
-                Explorer
+                {t('vault_explorer')}
               </a>
             )}
           </div>
@@ -228,7 +228,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
             )}
             {(runtime?.mode === 'pdax_uat' || runtime?.mode === 'pdax_prod') && (
               <div className="rounded-xl px-3 py-3 text-xs text-center bg-amber-300/20 border border-amber-200/30 text-amber-100">
-                PDAX top up is disabled until USDC settlement is implemented and verified.
+                {t('vault_pdax_disabled')}
               </div>
             )}
             {runtime?.mode === 'stellar_testnet' && (
@@ -285,18 +285,17 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
               transition={{ duration: 1, ease: 'easeOut', delay: 0.2 }}
             />
           </div>
-          <p className="text-xs text-slate-400 text-right">{tierNextLabel(vault.salo_points)}</p>
+          <p className="text-xs text-slate-400 text-right">{tierNextLabel(vault.salo_points, t)}</p>
         </div>
       </motion.div>
 
       {/* SaloPoints are non-monetary until a funded redemption mechanism exists. */}
       <motion.div variants={card} className="bg-white rounded-2xl shadow-card border border-slate-100 p-5">
         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-          <TrendingUp size={12} /> SaloPoints policy
+          <TrendingUp size={12} /> {t('vault_salopoints_policy_title')}
         </p>
         <p className="text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2 leading-relaxed">
-          Earn 1 SaloPoint for every full 1 XLM paid through the vault. Points determine your Salo tier only;
-          they are not money, cashback, or a spendable savings balance.
+          {t('vault_salopoints_policy_desc')}
         </p>
       </motion.div>
 
@@ -304,10 +303,10 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
       {/* Stats */}
       <motion.div variants={card} className="grid grid-cols-2 gap-3">
         {[
-          { label: 'Vault Asset', value: 'XLM', sub: 'Stellar Lumens', Icon: Coins },
-          { label: 'Points Rule', value: '1 / XLM', sub: 'per full XLM paid', Icon: Star },
-          { label: 'Vault Status', value: vault.balance > 0n ? t('vault_active') : t('vault_empty'), sub: t('vault_escrow'), Icon: ShieldCheck },
-          { label: 'Salo Tier',  value: saloTier,   sub: tierNextLabel(vault.salo_points), Icon: Award       },
+          { label: t('vault_asset_label'), value: 'XLM', sub: t('vault_asset_sub'), Icon: Coins },
+          { label: t('vault_points_rule_label'), value: '1 / XLM', sub: t('vault_points_rule_sub'), Icon: Star },
+          { label: t('vault_status'), value: vault.balance > 0n ? t('vault_active') : t('vault_empty'), sub: t('vault_escrow'), Icon: ShieldCheck },
+          { label: t('vault_salo_tier_label'),  value: saloTier,   sub: tierNextLabel(vault.salo_points, t), Icon: Award       },
         ].map(stat => (
           <div key={stat.label} className="bg-white rounded-2xl shadow-card border border-slate-100 p-4">
             <div className="flex items-center gap-1.5 mb-2">
@@ -323,17 +322,17 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
       {/* Points rules */}
       <motion.div variants={card} className="bg-blue-50 border border-blue-100 rounded-2xl p-4 space-y-2">
         <p className="text-xs font-bold text-blue-700 uppercase tracking-wide flex items-center gap-1.5">
-          <TrendingUp size={13} /> Points and tiers
+          <TrendingUp size={13} /> {t('vault_points_tiers_title')}
         </p>
         {[
-          'Earn 1 point for each full XLM paid to a whitelisted provider.',
-          'Bronze: below 100 points; Silver: 100 to 499; Gold: 500 or more.',
-          'Points cannot be converted, withdrawn, transferred, or spent.',
+          t('vault_points_tiers_tip1'),
+          t('vault_points_tiers_tip2'),
+          t('vault_points_tiers_tip3'),
           rate.source === 'pdax_live'
-            ? 'PHP conversion uses the live PDAX rate.'
+            ? t('vault_php_pdax_rate')
             : rate.source === 'coingecko_live'
-              ? 'PHP conversion uses the live market rate.'
-            : 'PHP display uses an indicative rate.',
+              ? t('vault_php_market_rate')
+            : t('vault_php_indicative_rate'),
         ].map(tip => (
           <div key={tip} className="flex gap-2 text-xs text-blue-600">
             <span className="shrink-0 mt-0.5 font-bold">-</span>
@@ -348,10 +347,10 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
           <ShieldCheck size={18} className="text-blue-500 shrink-0 mt-0.5" />
           <div className="space-y-1">
             <p className="text-xs font-bold text-blue-800 uppercase tracking-wide">
-              Purpose-Locked Health Fund
+              {t('vault_purpose_title')}
             </p>
             <p className="text-xs text-blue-700 leading-relaxed">
-              Funds in this vault are enforced by the Soroban smart contract on Stellar {networkBadgeLabel()} and can only be paid to contract-whitelisted healthcare providers.
+              {t('vault_purpose_desc', { network: networkBadgeLabel() })}
             </p>
             {runtime?.mode === 'stellar_testnet' && (
               <a
@@ -360,7 +359,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-[10px] text-blue-500 hover:text-blue-700 font-semibold mt-1"
               >
-                <Globe size={10} /> View smart contract on Stellar Expert
+                <Globe size={10} /> {t('vault_view_contract')}
               </a>
             )}
           </div>

@@ -8,6 +8,7 @@ import { getAddressHistory } from '@/lib/runtime';
 import { fmtAsset, fmtPhp } from '@/lib/format';
 import { explorerTxUrl } from '@/lib/stellar-links';
 import { topUpMethodLabel } from '@/lib/topup-label';
+import { useTranslation } from '@/lib/i18n/LanguageContext';
 
 interface Props {
   address: string | null;
@@ -15,28 +16,28 @@ interface Props {
 
 const activityStyle = {
   topup: {
-    label: 'Top up',
+    labelKey: 'history_tx_topup',
     Icon: ArrowDownLeft,
     icon: 'bg-emerald-50 text-emerald-600',
     amount: 'text-emerald-600',
     link: 'text-emerald-700 hover:text-emerald-800',
   },
   payment: {
-    label: 'Payment',
+    labelKey: 'history_tx_payment',
     Icon: ArrowUpRight,
     icon: 'bg-blue-50 text-blue-600',
     amount: 'text-blue-600',
     link: 'text-blue-600 hover:text-blue-800',
   },
   padala: {
-    label: 'Padala',
+    labelKey: 'history_tx_padala',
     Icon: Send,
     icon: 'bg-violet-50 text-violet-600',
     amount: 'text-violet-700',
     link: 'text-violet-700 hover:text-violet-800',
   },
   loan: {
-    label: 'Salo',
+    labelKey: 'history_tx_salo',
     Icon: HandCoins,
     icon: 'bg-amber-50 text-amber-600',
     amount: 'text-amber-700',
@@ -49,6 +50,7 @@ function statusLabel(status: Transaction['status']): string {
 }
 
 export default function TransactionsTab({ address }: Props) {
+  const { t } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const refreshVersion = useRef(0);
@@ -101,15 +103,15 @@ export default function TransactionsTab({ address }: Props) {
   }, [address]);
 
   if (!address) {
-    return <div className="min-h-[60vh] flex items-center justify-center text-sm text-slate-500">Connect your wallet to view history.</div>;
+    return <div className="min-h-[60vh] flex items-center justify-center text-sm text-slate-500">{t('history_connect')}</div>;
   }
 
   return (
     <div className="px-4 py-6 max-w-lg mx-auto space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">Vault Activity</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Recent movement in your health vault</p>
+          <h2 className="text-xl font-bold text-slate-900">{t('history_title')}</h2>
+          <p className="text-xs text-slate-400 mt-0.5">{t('history_subtitle')}</p>
         </div>
         <button onClick={refresh} disabled={loading} className="p-2 rounded-xl bg-white border border-slate-200 text-slate-500">
           <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
@@ -119,8 +121,8 @@ export default function TransactionsTab({ address }: Props) {
       {!loading && transactions.length === 0 && (
         <div className="bg-white border border-slate-100 rounded-2xl p-8 text-center">
           <Receipt size={30} className="text-slate-300 mx-auto mb-2" />
-          <p className="text-sm text-slate-500">No vault transactions yet.</p>
-          <p className="text-xs text-slate-400 mt-1">Top up your vault to get started.</p>
+          <p className="text-sm text-slate-500">{t('history_empty_title')}</p>
+          <p className="text-xs text-slate-400 mt-1">{t('history_empty_desc')}</p>
         </div>
       )}
 
@@ -142,7 +144,7 @@ export default function TransactionsTab({ address }: Props) {
               </div>
               <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-slate-800">{style.label}</p>
+                  <p className="text-sm font-bold text-slate-800">{t(style.labelKey as any)}</p>
                   <p className="mt-1 truncate text-[11px] text-slate-400">{label}</p>
                   <div className="mt-1 flex items-center gap-2">
                     {explorer && (
@@ -152,7 +154,7 @@ export default function TransactionsTab({ address }: Props) {
                         rel="noopener noreferrer"
                         className={`inline-flex items-center gap-1 text-[10px] font-semibold ${style.link}`}
                       >
-                        <ExternalLink size={10} /> Verify on Stellar
+                        <ExternalLink size={10} /> {t('history_verify')}
                       </a>
                     )}
                   </div>

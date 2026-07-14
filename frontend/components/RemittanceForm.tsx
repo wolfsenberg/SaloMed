@@ -14,6 +14,7 @@ import { explorerTxUrl, networkBadgeLabel } from '@/lib/stellar-links';
 import LiveRateButton from '@/components/LiveRateButton';
 import { useXlmPhpRate } from '@/lib/use-xlm-php-rate';
 import InstaPayTopUpModal from '@/components/InstaPayTopUpModal';
+import { useTranslation } from '@/lib/i18n/LanguageContext';
 
 
 interface Props {
@@ -38,6 +39,7 @@ function storageKey(address: string) {
 }
 
 export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchTab }: Props) {
+  const { t } = useTranslation();
   const [beneficiary, setBeneficiary] = useState('');
   const [beneficiaryLabel, setBeneficiaryLabel] = useState('');
   const [savedBeneficiaries, setSavedBeneficiaries] = useState<SavedBeneficiary[]>([]);
@@ -156,7 +158,7 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 gap-4 text-center">
         <Lock size={36} className="text-blue-400" />
-        <h2 className="text-lg font-bold text-slate-800">Connect your wallet to send Health Padala</h2>
+        <h2 className="text-lg font-bold text-slate-800">{t('remit_connect_health')}</h2>
       </div>
     );
   }
@@ -165,14 +167,14 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-[60vh] flex flex-col items-center justify-center px-6 gap-4 text-center">
         <CheckCircle size={52} className="text-emerald-500" />
-        <h2 className="text-xl font-bold text-slate-900">Health Padala sent</h2>
+        <h2 className="text-xl font-bold text-slate-900">{t('remit_sent_title')}</h2>
         <p className="text-sm text-slate-500">
-          {fmtAsset(amountAsset)} XLM was moved into the beneficiary&apos;s locked health vault.
+          {t('remit_sent_desc', { amount: fmtAsset(amountAsset) })}
         </p>
         <span className="inline-block text-[10px] font-semibold text-blue-700 bg-blue-50 rounded-full px-2 py-0.5">
           Stellar {networkBadgeLabel()}
         </span>
-        <p className="text-[10px] uppercase tracking-wide text-slate-400">Transaction hash</p>
+        <p className="text-[10px] uppercase tracking-wide text-slate-400">{t('remit_tx_hash')}</p>
         {explorerTxUrl(txHash) ? (
           <a
             href={explorerTxUrl(txHash)}
@@ -192,10 +194,10 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
   return (
     <div className="px-4 py-6 max-w-lg mx-auto space-y-4">
       <div className="gradient-brand rounded-2xl p-5 text-white">
-        <p className="text-xs font-semibold uppercase tracking-widest text-blue-200">Purpose-bound remittance</p>
-        <h2 className="text-xl font-bold mt-1">Health Padala</h2>
+        <p className="text-xs font-semibold uppercase tracking-widest text-blue-200">{t('remit_hero_tag')}</p>
+        <h2 className="text-xl font-bold mt-1">{t('remit_hero_title')}</h2>
         <p className="text-sm text-blue-100 mt-1">
-          Send from your locked vault, or fund a family health vault directly through InstaPay.
+          {t('remit_hero_desc')}
         </p>
       </div>
 
@@ -203,7 +205,7 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
         {savedBeneficiaries.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
-              <Users size={12} /> Saved family vaults
+              <Users size={12} /> {t('remit_saved_family')}
             </p>
             <div className="flex gap-2 overflow-x-auto pb-1">
               {savedBeneficiaries.map(item => (
@@ -222,7 +224,7 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
         )}
 
         <div>
-          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Beneficiary Stellar address</label>
+          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('remit_beneficiary_address')}</label>
           <div className="relative mt-2">
             <Globe size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -236,16 +238,16 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
           <input
             value={beneficiaryLabel}
             onChange={event => setBeneficiaryLabel(event.target.value)}
-            placeholder="Optional label, e.g. Mama, Papa, Patient"
+            placeholder={t('remit_optional_label')}
             className="mt-2 w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500"
           />
         </div>
 
         <div>
           <div className="flex items-center justify-between">
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Amount</label>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('remit_amount_label')}</label>
             <button onClick={() => setShowPhp(value => !value)} className="text-xs font-semibold text-blue-600 flex items-center gap-1">
-              <ArrowLeftRight size={11} /> {showPhp ? 'Enter XLM' : 'Enter PHP'}
+              <ArrowLeftRight size={11} /> {showPhp ? t('remit_enter_xlm') : t('remit_enter_php')}
             </button>
           </div>
           <div className="relative mt-2">
@@ -278,10 +280,10 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
         </div>
 
         <div className="bg-slate-50 rounded-xl p-3 text-xs space-y-2">
-          <div className="flex justify-between"><span>Locked vault balance</span><strong>{fmtAsset(vaultBalance)} XLM</strong></div>
-          <div className="flex justify-between"><span>Family padala fee</span><strong>Free</strong></div>
-          <div className="flex justify-between"><span>Beneficiary receives</span><strong>{fmtAsset(breakdown.recipientReceives)} XLM</strong></div>
-          <p className="text-slate-400">Padala is kept fee-free for the pilot and does not award or redeem SaloPoints.</p>
+          <div className="flex justify-between"><span>{t('remit_locked_balance')}</span><strong>{fmtAsset(vaultBalance)} XLM</strong></div>
+          <div className="flex justify-between"><span>{t('remit_family_fee')}</span><strong>{t('remit_free')}</strong></div>
+          <div className="flex justify-between"><span>{t('remit_beneficiary_receives')}</span><strong>{fmtAsset(breakdown.recipientReceives)} XLM</strong></div>
+          <p className="text-slate-400">{t('remit_fee_note')}</p>
         </div>
 
         {canFundBeneficiary && (
@@ -289,9 +291,9 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
             <div className="flex items-start gap-2">
               <CreditCard size={15} className="text-blue-600 shrink-0 mt-0.5" />
               <div>
-                <p className="text-xs font-bold text-blue-800">Fund this family vault via InstaPay</p>
+                <p className="text-xs font-bold text-blue-800">{t('remit_fund_title')}</p>
                 <p className="text-xs text-blue-600 leading-relaxed">
-                  Pay in PHP through PDAX InstaPay. The beneficiary receives locked XLM in their health vault.
+                  {t('remit_fund_desc')}
                 </p>
               </div>
             </div>
@@ -303,14 +305,14 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
               }}
               className="w-full rounded-lg bg-white px-3 py-2 text-xs font-bold text-blue-700 border border-blue-100 hover:bg-blue-100"
             >
-              Fund family vault via InstaPay
+              {t('remit_fund_button')}
             </button>
           </div>
         )}
 
         {insufficient && (
           <button onClick={() => onSwitchTab('vault', { scrollTop: true })} className="w-full text-xs font-semibold text-amber-700 bg-amber-50 rounded-xl p-3">
-            Insufficient balance. Add funds in Vault
+            {t('remit_insufficient_add')}
           </button>
         )}
         {error && <p className="text-xs text-red-600 flex items-center gap-1.5"><AlertCircle size={13} />{error}</p>}
@@ -320,7 +322,7 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
           disabled={submitting || amountAsset <= 0 || insufficient}
           className="w-full py-3.5 rounded-xl bg-blue-600 text-white font-semibold text-sm disabled:opacity-40 flex items-center justify-center gap-2"
         >
-          {submitting ? <><Loader2 size={15} className="animate-spin" /> Processing…</> : <><Send size={15} /> Send locked XLM</>}
+          {submitting ? <><Loader2 size={15} className="animate-spin" /> {t('remit_processing')}</> : <><Send size={15} /> {t('remit_send_locked')}</>}
         </button>
       </div>
 
