@@ -33,8 +33,10 @@ export interface Transaction {
   amountPhp:        number;
   // topup
   gcashRef?:        string;
+  gcashNumber?:     string;
   // payment
   providerName?:    string;
+  providerAddress?: string;
   providerType?:    'hospital' | 'pharmacy';
   payFrom?:         'vault' | 'savings';
   // padala
@@ -50,6 +52,7 @@ export interface Transaction {
   status:           'success' | 'pending';
   direction?:       'sent' | 'received';
   senderLabel?:     string;
+  counterpartyLabel?: string;
   // top-up method label source: gcash | instapay | freighter
   topUpSource?:     string | null;
 }

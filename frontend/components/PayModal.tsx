@@ -54,6 +54,7 @@ export default function PayModal({ patientAddress, amountXlm, vault, onClose, on
         amountXlm,
         amountPhp,
         providerName: 'Whitelisted Hospital',
+        providerAddress: hospitalAddress.trim(),
         providerType: 'hospital',
         payFrom: 'vault',
         ptsEarned: breakdown.ptsEarned,

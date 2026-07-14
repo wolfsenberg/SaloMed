@@ -109,7 +109,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
       setLastPaidPhp(parsedPhp);
       saveTx(address, {
         type: 'payment', amountXlm: parsedXlm, amountPhp: parsedPhp,
-        providerName: providerName || undefined, providerType, payFrom,
+        providerName: providerName || undefined, providerAddress: manualAddress.trim(), providerType, payFrom,
         ptsEarned: genBreakdown.ptsEarned, txHash, status: 'success',
       });
       await recordHistory({
@@ -162,6 +162,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
         amountXlm:    manualParsed,
         amountPhp:    manualParsedPhp,
         providerName: providerName || undefined,
+        providerAddress: manualAddress.trim(),
         providerType,
         payFrom,
         ptsEarned:    manualBreakdown.ptsEarned,

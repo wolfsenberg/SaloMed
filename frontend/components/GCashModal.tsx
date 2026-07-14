@@ -77,6 +77,8 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
         amountXlm: result.amount_xlm,
         amountPhp: result.amount_php,
         gcashRef:  result.reference_id,
+        gcashNumber,
+        topUpSource: 'gcash',
         txHash:    hash,
         status:    'success',
       });

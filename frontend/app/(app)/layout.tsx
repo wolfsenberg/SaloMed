@@ -89,6 +89,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
   const contentRef = useRef<HTMLDivElement | null>(null);
 
   const { t, language, setLanguage, hasChosenLanguage } = useTranslation();
+  const showFreighterInstallBanner = !address && !hasFreighter && !freighterBannerDismissed;
 
   // Sync initial tab from URL on mount, then lock down popstate so that
   // html5-qrcode (or any other lib) pushing/popping history doesn't navigate away.
@@ -284,7 +285,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
       </AnimatePresence>
 
       <div className={`h-dvh flex flex-col w-full overflow-hidden ${forceMobile ? 'bg-slate-50 max-w-lg mx-auto shadow-2xl relative' : 'md:flex-col bg-slate-50'}`}>
-        {!hasFreighter && !freighterBannerDismissed && (
+        {showFreighterInstallBanner && (
           <div className="w-full bg-blue-600 text-white text-xs font-semibold px-4 py-2.5 flex items-center justify-center gap-2 text-center z-[60] shrink-0">
             <Info size={14} className="shrink-0" />
             Please install the Freighter wallet to use SaloMed.{' '}
@@ -511,7 +512,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
           </div>
 
           {/* Floating UI on the right */}
-          <div className={`fixed right-4 flex flex-col gap-2 z-50 items-end transition-all duration-300 ${!hasFreighter && !freighterBannerDismissed ? 'top-14' : 'top-4'}`}>
+          <div className={`fixed right-4 flex flex-col gap-2 z-50 items-end transition-all duration-300 ${showFreighterInstallBanner ? 'top-14' : 'top-4'}`}>
             {/* View Toggle */}
             <button
               onClick={() => setForceMobile(!forceMobile)}

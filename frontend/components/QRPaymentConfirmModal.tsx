@@ -79,6 +79,7 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
         amountXlm: payload.amount_usdc,
         amountPhp: phpValue,
         providerName: payload.provider_name || undefined,
+        providerAddress: payload.hospital,
         providerType: payload.provider_type,
         payFrom: 'vault',
         ptsEarned: breakdown.ptsEarned,

@@ -77,6 +77,7 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
       amountXlm: credited,
       amountPhp: parsedPhp,
       gcashRef:  identifier ?? undefined,
+      topUpSource: 'instapay',
       txHash:    tx ?? undefined,
       status:    'success',
     });

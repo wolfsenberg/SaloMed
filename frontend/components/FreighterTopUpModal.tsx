@@ -43,6 +43,7 @@ export default function FreighterTopUpModal({ address, onClose, onSuccess }: Pro
         type:      'topup',
         amountXlm: parsedXlm,
         amountPhp: parsedPhp,
+        topUpSource: 'freighter',
         txHash:    hash,
         status:    'success',
       });
