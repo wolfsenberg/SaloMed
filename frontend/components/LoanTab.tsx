@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Award, Percent, Star, CheckCircle, Loader2, Info,
@@ -11,7 +11,7 @@ import { loadTxs, Transaction, saveTx } from '@/lib/transactions';
 import { useTranslation } from '@/lib/i18n/LanguageContext';
 import LiveRateButton from '@/components/LiveRateButton';
 import { useXlmPhpRate } from '@/lib/use-xlm-php-rate';
-import { recordSaloRequest } from '@/lib/salo-requests';
+import { acceptSaloTerms, getPatientSaloRequests, recordSaloRequest, type SaloRequestRow } from '@/lib/salo-requests';
 
 interface Props {
   address: string | null;
@@ -36,6 +36,12 @@ function monthlyPayment(principal: number, annualRate: number, months: number): 
 const php = (n: number) =>
   '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+function saloStatusLabel(status: string): string {
+  if (status === 'terms_accepted') return 'Terms accepted';
+  if (status === 'released') return 'Released';
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
 type Step = 'overview' | 'apply' | 'done';
 
 export default function LoanTab({ address, vault }: Props) {
@@ -45,6 +51,8 @@ export default function LoanTab({ address, vault }: Props) {
   const [showXlm, setShowXlm]       = useState(false);
   const [selectedTerm, setSelectedTerm] = useState(6);
   const [submitting, setSubmitting] = useState(false);
+  const [saloRequests, setSaloRequests] = useState<SaloRequestRow[]>([]);
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const xlmRate = useXlmPhpRate();
 
   const rate       = TIER_RATE[vault.credit_tier];
@@ -59,6 +67,35 @@ export default function LoanTab({ address, vault }: Props) {
   const allTxs      = address ? loadTxs(address) : [];
   const pendingLoans = allTxs.filter(t => t.type === 'loan' && t.status === 'pending');
   const loanLimitReached = pendingLoans.length >= 2;
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!address) {
+      setSaloRequests([]);
+      return;
+    }
+    getPatientSaloRequests(address)
+      .then(rows => {
+        if (!cancelled) setSaloRequests(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setSaloRequests([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [address]);
+
+  async function handleAcceptTerms(requestId: string) {
+    if (!address) return;
+    setAcceptingId(requestId);
+    try {
+      const updated = await acceptSaloTerms(requestId, address);
+      setSaloRequests(current => current.map(row => row.id === requestId ? updated : row));
+    } finally {
+      setAcceptingId(null);
+    }
+  }
 
   async function handleApply() {
     setSubmitting(true);
@@ -84,6 +121,10 @@ export default function LoanTab({ address, vault }: Props) {
         saloPoints: vault.salo_points,
         creditTier: vault.credit_tier,
         pendingRequests: pendingLoans.length,
+      }).then(recorded => {
+        if (recorded) {
+          setSaloRequests(current => [recorded, ...current.filter(row => row.id !== recorded.id)]);
+        }
       });
     }
     setStep('done');
@@ -162,6 +203,77 @@ export default function LoanTab({ address, vault }: Props) {
                   </div>
                 )}
               </motion.div>
+            )}
+
+            {saloRequests.length > 0 && (
+              <div className="bg-white rounded-2xl shadow-card border border-slate-100 p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800">Salo workflow</h3>
+                    <p className="text-xs text-slate-400">Approval, terms, release, and repayment tracking</p>
+                  </div>
+                  <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-blue-700">
+                    {saloRequests.length} total
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {saloRequests.slice(0, 3).map(request => (
+                    <div key={request.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-bold text-slate-900">{php(Number(request.amount_php))}</p>
+                          <p className="text-xs text-slate-400">
+                            {request.term_months} months | {Number(request.interest_rate).toFixed(0)}% p.a.
+                          </p>
+                        </div>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                          request.status === 'released'
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : request.status === 'rejected'
+                              ? 'bg-red-50 text-red-700'
+                              : 'bg-amber-50 text-amber-700'
+                        }`}>
+                          {saloStatusLabel(request.status)}
+                        </span>
+                      </div>
+
+                      {request.status === 'approved' && (
+                        <div className="mt-3 space-y-2">
+                          <div className="rounded-lg bg-white px-3 py-2 text-xs text-slate-500">
+                            Review and accept the Salo terms before SaloMed can mark the support as released.
+                          </div>
+                          <button
+                            onClick={() => handleAcceptTerms(request.id)}
+                            disabled={acceptingId === request.id}
+                            className="w-full rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                          >
+                            {acceptingId === request.id ? 'Accepting...' : 'Accept terms'}
+                          </button>
+                        </div>
+                      )}
+
+                      {request.status === 'terms_accepted' && (
+                        <p className="mt-3 rounded-lg bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700">
+                          Terms accepted. Waiting for SaloMed release.
+                        </p>
+                      )}
+
+                      {request.status === 'released' && request.repayment_schedule?.length ? (
+                        <div className="mt-3 space-y-1">
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Repayment schedule</p>
+                          {request.repayment_schedule.slice(0, 3).map(item => (
+                            <div key={item.number} className="flex items-center justify-between text-xs">
+                              <span className="text-slate-500">Month {item.number}</span>
+                              <span className="font-bold text-slate-800">{php(Number(item.amount_php))}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
 
             {/* Salo tier card */}

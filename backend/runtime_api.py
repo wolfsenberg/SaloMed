@@ -90,6 +90,14 @@ class SaloRequestDecisionRequest(BaseModel):
     reviewer: str = Field(default="SaloMed Admin", max_length=64)
 
 
+class SaloTermsAcceptRequest(BaseModel):
+    patient_address: str = Field(min_length=56, max_length=56)
+
+
+class SaloReleaseRequest(BaseModel):
+    reviewer: str = Field(default="SaloMed Admin", max_length=64)
+
+
 class AdminLoginRequest(BaseModel):
     username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=128)
@@ -272,6 +280,11 @@ def create_runtime_router(settings: RuntimeSettings, demo_ledger: "DemoLedger | 
         import salo_request_store
         return {"requests": salo_request_store.list_requests(status, limit)}
 
+    @router.get("/api/v2/salo/requests/patient/{patient_address}", tags=["Runtime"])
+    async def patient_salo_requests(patient_address: str, limit: int = Query(20, ge=1, le=50)):
+        import salo_request_store
+        return {"requests": salo_request_store.requests_for_patient(patient_address, limit)}
+
     @router.post("/api/v2/salo/requests/{request_id}/decision", tags=["Runtime"])
     async def decide_salo_request(
         request_id: str,
@@ -285,6 +298,44 @@ def create_runtime_router(settings: RuntimeSettings, demo_ledger: "DemoLedger | 
             raise HTTPException(
                 status_code=422,
                 detail={"error": "INVALID_SALO_STATUS", "message": str(exc)},
+            ) from exc
+        if not row:
+            raise HTTPException(
+                status_code=404,
+                detail={"error": "SALO_REQUEST_NOT_FOUND", "message": "Salo request not found"},
+            )
+        return {"updated": True, "request": row}
+
+    @router.post("/api/v2/salo/requests/{request_id}/accept-terms", tags=["Runtime"])
+    async def accept_salo_terms(request_id: str, body: SaloTermsAcceptRequest):
+        import salo_request_store
+        try:
+            row = salo_request_store.accept_terms(request_id, body.patient_address)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail={"error": "SALO_TERMS_NOT_READY", "message": str(exc)},
+            ) from exc
+        if not row:
+            raise HTTPException(
+                status_code=404,
+                detail={"error": "SALO_REQUEST_NOT_FOUND", "message": "Salo request not found"},
+            )
+        return {"updated": True, "request": row}
+
+    @router.post("/api/v2/salo/requests/{request_id}/release", tags=["Runtime"])
+    async def release_salo_request(
+        request_id: str,
+        body: SaloReleaseRequest,
+        _admin: dict = Depends(_require_admin),
+    ):
+        import salo_request_store
+        try:
+            row = salo_request_store.release(request_id, body.reviewer)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail={"error": "SALO_RELEASE_NOT_READY", "message": str(exc)},
             ) from exc
         if not row:
             raise HTTPException(

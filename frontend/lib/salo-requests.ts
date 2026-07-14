@@ -10,11 +10,15 @@ export interface SaloRequestRow {
   interest_rate: number;
   salo_points: number;
   credit_tier: string;
-  status: 'pending' | 'approved' | 'rejected' | string;
+  status: 'pending' | 'approved' | 'rejected' | 'terms_accepted' | 'released' | string;
   review_decision: string;
   reason_codes: string[];
+  audit_trail?: Array<{ action: string; actor: string; at: number }>;
+  repayment_schedule?: Array<{ number: number; due_at: number; amount_php: number; status: string }>;
   reviewer?: string | null;
   reviewed_at?: number | null;
+  accepted_at?: number | null;
+  released_at?: number | null;
   created_at: number;
   updated_at: number;
 }
@@ -90,6 +94,13 @@ export async function getSaloRequests(status = 'all', token?: string): Promise<S
   return response.requests ?? [];
 }
 
+export async function getPatientSaloRequests(patientAddress: string): Promise<SaloRequestRow[]> {
+  const response = await apiJson<{ requests: SaloRequestRow[] }>(
+    `/api/v2/salo/requests/patient/${encodeURIComponent(patientAddress)}`,
+  );
+  return response.requests ?? [];
+}
+
 export async function decideSaloRequest(
   requestId: string,
   status: 'approved' | 'rejected' | 'pending',
@@ -101,6 +112,33 @@ export async function decideSaloRequest(
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
       body: JSON.stringify({ status, reviewer: 'SaloMed Admin' }),
+    },
+  );
+  return response.request;
+}
+
+export async function acceptSaloTerms(
+  requestId: string,
+  patientAddress: string,
+): Promise<SaloRequestRow> {
+  const response = await apiJson<{ request: SaloRequestRow }>(
+    `/api/v2/salo/requests/${encodeURIComponent(requestId)}/accept-terms`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ patient_address: patientAddress }),
+    },
+  );
+  return response.request;
+}
+
+export async function releaseSaloRequest(requestId: string, token?: string): Promise<SaloRequestRow> {
+  const response = await apiJson<{ request: SaloRequestRow }>(
+    `/api/v2/salo/requests/${encodeURIComponent(requestId)}/release`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+      body: JSON.stringify({ reviewer: 'SaloMed Admin' }),
     },
   );
   return response.request;

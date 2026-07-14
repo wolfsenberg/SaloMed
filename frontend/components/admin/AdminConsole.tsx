@@ -14,9 +14,9 @@ import {
 } from 'lucide-react';
 
 import { fmtAsset, fmtPhp } from '@/lib/format';
-import { adminLogin, decideSaloRequest, getSaloRequests, type SaloRequestRow } from '@/lib/salo-requests';
+import { adminLogin, decideSaloRequest, getSaloRequests, releaseSaloRequest, type SaloRequestRow } from '@/lib/salo-requests';
 
-type Filter = 'all' | 'pending' | 'approved' | 'rejected';
+type Filter = 'all' | 'pending' | 'approved' | 'terms_accepted' | 'released' | 'rejected';
 
 function php(value: number): string {
   return `\u20b1${fmtPhp(value)}`;
@@ -27,9 +27,16 @@ function shortAddress(value: string): string {
 }
 
 function statusStyle(status: string): string {
+  if (status === 'released') return 'bg-emerald-50 text-emerald-700';
+  if (status === 'terms_accepted') return 'bg-blue-50 text-blue-700';
   if (status === 'approved') return 'bg-emerald-50 text-emerald-700';
   if (status === 'rejected') return 'bg-red-50 text-red-700';
   return 'bg-amber-50 text-amber-700';
+}
+
+function statusLabel(status: string): string {
+  if (status === 'terms_accepted') return 'Terms accepted';
+  return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
 function reasonLabel(code: string): string {
@@ -61,6 +68,8 @@ export default function AdminConsole() {
     all: requests.length,
     pending: requests.filter(request => request.status === 'pending').length,
     approved: requests.filter(request => request.status === 'approved').length,
+    accepted: requests.filter(request => request.status === 'terms_accepted').length,
+    released: requests.filter(request => request.status === 'released').length,
     rejected: requests.filter(request => request.status === 'rejected').length,
     value: requests.reduce((sum, request) => sum + Number(request.amount_php), 0),
   }), [requests]);
@@ -100,6 +109,17 @@ export default function AdminConsole() {
     setActingId(requestId);
     try {
       const updated = await decideSaloRequest(requestId, status, adminToken);
+      setRequests(current => current.map(row => row.id === requestId ? updated : row));
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function release(requestId: string) {
+    if (!adminToken) return;
+    setActingId(requestId);
+    try {
+      const updated = await releaseSaloRequest(requestId, adminToken);
       setRequests(current => current.map(row => row.id === requestId ? updated : row));
     } finally {
       setActingId(null);
@@ -233,11 +253,12 @@ export default function AdminConsole() {
       </header>
 
       <section className="mx-auto max-w-6xl space-y-5 px-4 py-6">
-        <div className="grid gap-3 md:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-5">
           {[
             { label: 'Pending', value: totals.pending, sub: 'Needs SaloMed review' },
-            { label: 'Approved', value: totals.approved, sub: 'Ready for release workflow' },
-            { label: 'Rejected', value: totals.rejected, sub: 'Declined after review' },
+            { label: 'Approved', value: totals.approved, sub: 'Waiting for patient terms' },
+            { label: 'Accepted', value: totals.accepted, sub: 'Ready to release' },
+            { label: 'Released', value: totals.released, sub: `${totals.rejected} declined` },
             { label: 'Requested value', value: php(totals.value), sub: `${totals.all} total requests` },
           ].map(item => (
             <div key={item.label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-card">
@@ -255,17 +276,17 @@ export default function AdminConsole() {
               <p className="text-xs text-slate-400">Cross-user requests recorded from the patient Salo flow</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {(['all', 'pending', 'approved', 'rejected'] as Filter[]).map(item => (
+              {(['all', 'pending', 'approved', 'terms_accepted', 'released', 'rejected'] as Filter[]).map(item => (
                 <button
                   key={item}
                   onClick={() => setFilter(item)}
-                  className={`rounded-lg px-3 py-2 text-xs font-bold capitalize ${
+                  className={`rounded-lg px-3 py-2 text-xs font-bold ${
                     filter === item
                       ? 'bg-blue-600 text-white'
                       : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
                   }`}
                 >
-                  {item}
+                  {item === 'all' ? 'All' : statusLabel(item)}
                 </button>
               ))}
             </div>
@@ -288,8 +309,8 @@ export default function AdminConsole() {
                   <div className="min-w-0 space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-bold text-slate-900">{request.id}</p>
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${statusStyle(request.status)}`}>
-                        {request.status}
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${statusStyle(request.status)}`}>
+                        {statusLabel(request.status)}
                       </span>
                       <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
                         {request.credit_tier}
@@ -331,25 +352,52 @@ export default function AdminConsole() {
                       Submitted {new Date(request.created_at * 1000).toLocaleString()}
                       {request.reviewer ? ` | Reviewed by ${request.reviewer}` : ''}
                     </p>
+
+                    {request.status === 'released' && request.repayment_schedule?.length ? (
+                      <div className="rounded-xl bg-slate-50 p-3">
+                        <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">Repayment schedule</p>
+                        <div className="grid gap-1 sm:grid-cols-3">
+                          {request.repayment_schedule.slice(0, 3).map(item => (
+                            <div key={item.number} className="flex items-center justify-between rounded-lg bg-white px-2 py-1 text-[11px]">
+                              <span className="text-slate-400">Month {item.number}</span>
+                              <span className="font-bold text-slate-700">{php(Number(item.amount_php))}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="flex items-center gap-2 lg:justify-end">
-                    <button
-                      onClick={() => decide(request.id, 'approved')}
-                      disabled={actingId === request.id || request.status === 'approved'}
-                      className="inline-flex flex-1 items-center justify-center gap-1 rounded-xl bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 lg:flex-none"
-                    >
-                      <CheckCircle2 size={14} />
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => decide(request.id, 'rejected')}
-                      disabled={actingId === request.id || request.status === 'rejected'}
-                      className="inline-flex flex-1 items-center justify-center gap-1 rounded-xl border border-red-100 bg-red-50 px-3 py-2.5 text-xs font-bold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 lg:flex-none"
-                    >
-                      <XCircle size={14} />
-                      Reject
-                    </button>
+                    {request.status === 'terms_accepted' ? (
+                      <button
+                        onClick={() => release(request.id)}
+                        disabled={actingId === request.id}
+                        className="inline-flex flex-1 items-center justify-center gap-1 rounded-xl bg-blue-600 px-3 py-2.5 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 lg:flex-none"
+                      >
+                        <CheckCircle2 size={14} />
+                        Mark released
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => decide(request.id, 'approved')}
+                          disabled={actingId === request.id || request.status !== 'pending'}
+                          className="inline-flex flex-1 items-center justify-center gap-1 rounded-xl bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 lg:flex-none"
+                        >
+                          <CheckCircle2 size={14} />
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => decide(request.id, 'rejected')}
+                          disabled={actingId === request.id || request.status !== 'pending'}
+                          className="inline-flex flex-1 items-center justify-center gap-1 rounded-xl border border-red-100 bg-red-50 px-3 py-2.5 text-xs font-bold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 lg:flex-none"
+                        >
+                          <XCircle size={14} />
+                          Reject
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
