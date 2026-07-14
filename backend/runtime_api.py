@@ -48,6 +48,17 @@ class HistoryRecordRequest(BaseModel):
     source: str | None = Field(default=None, max_length=16)
 
 
+class ProviderPaymentRecordRequest(BaseModel):
+    patient_address: str = Field(min_length=56, max_length=56)
+    provider_address: str = Field(min_length=56, max_length=56)
+    provider_name: str = Field(min_length=1, max_length=128)
+    provider_type: str = Field(min_length=1, max_length=32)
+    amount_asset: Decimal = Field(ge=0, max_digits=20, decimal_places=7)
+    amount_php: Decimal = Field(ge=0, max_digits=20, decimal_places=2)
+    tx_hash: str | None = Field(default=None, max_length=128)
+    status: str = Field(default="success", max_length=16)
+
+
 class SaloUnderwriteRequest(BaseModel):
     address: str = Field(min_length=56, max_length=56)
     amount_php: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
@@ -193,6 +204,30 @@ def create_runtime_router(settings: RuntimeSettings, demo_ledger: "DemoLedger | 
         )
         return {"recorded": True, "id": row["id"]}
 
+    @router.post("/api/v2/provider-payments/record", tags=["Vault v2"])
+    async def record_provider_payment(body: ProviderPaymentRecordRequest):
+        """Record a provider-keyed payment so provider portals work across users."""
+        import provider_payment_store
+        row = provider_payment_store.record(
+            patient_address=body.patient_address,
+            provider_address=body.provider_address,
+            provider_name=body.provider_name,
+            provider_type=body.provider_type,
+            amount_asset=float(body.amount_asset),
+            amount_php=float(body.amount_php),
+            tx_hash=body.tx_hash,
+            status=body.status,
+        )
+        return {"recorded": True, "payment": row}
+
+    @router.get("/api/v2/providers/{provider_address}/transactions", tags=["Runtime"])
+    async def provider_transactions(provider_address: str, limit: int = Query(100, ge=1, le=200)):
+        import provider_payment_store
+        return {
+            "provider_address": provider_address.strip().upper(),
+            "transactions": provider_payment_store.payments_for_provider(provider_address, limit),
+        }
+
     @router.post("/api/v2/topups", tags=["Vault v2"])
     async def topup(body: TopUpRequest):
         # Stellar modes: fund the vault on-chain via the admin bridge, so the
@@ -292,6 +327,20 @@ def create_runtime_router(settings: RuntimeSettings, demo_ledger: "DemoLedger | 
             body.amount_asset,
             body.idempotency_key,
         )
+        try:
+            import provider_payment_store
+            provider_payment_store.record(
+                patient_address=body.patient_address,
+                provider_address=body.provider_id,
+                provider_name=response.get("provider_name") or "Whitelisted provider",
+                provider_type=response.get("provider_type") or "provider",
+                amount_asset=float(body.amount_asset),
+                amount_php=float(amount_php),
+                tx_hash=response.get("transaction_id"),
+                status=response.get("status", "success"),
+            )
+        except Exception:
+            pass
         response["review"] = review
         return response
 

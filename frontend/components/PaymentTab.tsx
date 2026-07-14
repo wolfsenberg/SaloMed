@@ -11,7 +11,7 @@ import {
 import type { HealthVault } from '@/lib/contract';
 import { POINTS_RATE, calcPayment, payHospital } from '@/lib/contract';
 import { saveTx } from '@/lib/transactions';
-import { recordHistory } from '@/lib/runtime';
+import { recordHistory, recordProviderPayment } from '@/lib/runtime';
 import QRScannerModal from '@/components/QRScannerModal';
 import ProviderCombobox from '@/components/ProviderCombobox';
 import { useTranslation } from '@/lib/i18n/LanguageContext';
@@ -116,6 +116,15 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
         address, type: 'payment', amountAsset: parsedXlm, amountPhp: parsedPhp,
         direction: 'sent', counterparty: providerName || undefined, txHash,
       });
+      void recordProviderPayment({
+        patientAddress: address,
+        providerAddress: manualAddress.trim(),
+        providerName: providerName || 'Whitelisted provider',
+        providerType,
+        amountAsset: parsedXlm,
+        amountPhp: parsedPhp,
+        txHash,
+      });
       window.dispatchEvent(new CustomEvent('salomed_tx_update', { detail: { address: address.toUpperCase() } }));
       setDone(true);
       setTimeout(onSuccess, 2500);
@@ -172,6 +181,15 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
       await recordHistory({
         address, type: 'payment', amountAsset: manualParsed, amountPhp: manualParsedPhp,
         direction: 'sent', counterparty: providerName || undefined, txHash,
+      });
+      void recordProviderPayment({
+        patientAddress: address,
+        providerAddress: manualAddress.trim(),
+        providerName: providerName || 'Whitelisted provider',
+        providerType,
+        amountAsset: manualParsed,
+        amountPhp: manualParsedPhp,
+        txHash,
       });
       window.dispatchEvent(new CustomEvent('salomed_tx_update', { detail: { address: address.toUpperCase() } }));
       setDone(true);

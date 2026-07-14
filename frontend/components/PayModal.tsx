@@ -6,6 +6,7 @@ import { Building2, Coins, X, CheckCircle, Loader2, AlertCircle, Globe, ArrowLef
 
 import { payHospital, calcPayment } from '@/lib/contract';
 import { saveTx } from '@/lib/transactions';
+import { recordProviderPayment } from '@/lib/runtime';
 import LiveRateButton from '@/components/LiveRateButton';
 import { useXlmPhpRate } from '@/lib/use-xlm-php-rate';
 
@@ -60,6 +61,15 @@ export default function PayModal({ patientAddress, amountXlm, vault, onClose, on
         ptsEarned: breakdown.ptsEarned,
         txHash: hash,
         status: 'success',
+      });
+      void recordProviderPayment({
+        patientAddress,
+        providerAddress: hospitalAddress.trim(),
+        providerName: 'Whitelisted Hospital',
+        providerType: 'hospital',
+        amountAsset: amountXlm,
+        amountPhp,
+        txHash: hash,
       });
 
       setDone(true);

@@ -170,6 +170,19 @@ export interface HistoryRow {
   source: string | null;
 }
 
+export interface ProviderPaymentRow {
+  id: string;
+  patient_address: string;
+  provider_address: string;
+  provider_name: string;
+  provider_type: 'hospital' | 'pharmacy' | string;
+  amount_asset: number;
+  amount_php: number;
+  tx_hash: string | null;
+  status: 'success' | 'pending' | 'failed' | string;
+  created_at: number;
+}
+
 /** Record a transaction against a Stellar address (history follows the wallet). */
 export async function recordHistory(row: {
   address: string;
@@ -202,10 +215,49 @@ export async function recordHistory(row: {
   }
 }
 
+/** Record a provider-keyed payment so provider portals work across users. */
+export async function recordProviderPayment(row: {
+  patientAddress: string;
+  providerAddress: string;
+  providerName: string;
+  providerType: 'hospital' | 'pharmacy' | string;
+  amountAsset: number;
+  amountPhp: number;
+  txHash?: string;
+  status?: string;
+}): Promise<void> {
+  try {
+    await apiJson('/api/v2/provider-payments/record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        patient_address: row.patientAddress,
+        provider_address: row.providerAddress,
+        provider_name: row.providerName,
+        provider_type: row.providerType,
+        amount_asset: row.amountAsset.toFixed(7),
+        amount_php: row.amountPhp.toFixed(2),
+        tx_hash: row.txHash ?? null,
+        status: row.status ?? 'success',
+      }),
+    });
+  } catch {
+    // Non-fatal: patient history and on-chain verification still work.
+  }
+}
+
 /** Read address-keyed history from the backend index (cross-device). */
 export async function getAddressHistory(address: string): Promise<HistoryRow[]> {
   const res = await apiJson<{ transactions: HistoryRow[] }>(
     `/api/v2/vaults/${encodeURIComponent(address)}/transactions`,
+  );
+  return res.transactions ?? [];
+}
+
+/** Read provider-keyed payments from the backend index (cross-user provider portal). */
+export async function getProviderPayments(providerAddress: string): Promise<ProviderPaymentRow[]> {
+  const res = await apiJson<{ transactions: ProviderPaymentRow[] }>(
+    `/api/v2/providers/${encodeURIComponent(providerAddress)}/transactions`,
   );
   return res.transactions ?? [];
 }

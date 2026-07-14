@@ -9,7 +9,7 @@ import {
 
 import { payHospital, calcPayment } from '@/lib/contract';
 import { saveTx } from '@/lib/transactions';
-import { recordHistory } from '@/lib/runtime';
+import { recordHistory, recordProviderPayment } from '@/lib/runtime';
 import { fmtAsset, fmtPhp } from '@/lib/format';
 import { explorerTxUrl, networkBadgeLabel } from '@/lib/stellar-links';
 import LiveRateButton from '@/components/LiveRateButton';
@@ -93,6 +93,15 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
         amountPhp: phpValue,
         direction: 'sent',
         counterparty: payload.provider_name || undefined,
+        txHash: hash,
+      });
+      void recordProviderPayment({
+        patientAddress: payload.patient,
+        providerAddress: payload.hospital,
+        providerName: payload.provider_name || 'Whitelisted provider',
+        providerType: payload.provider_type,
+        amountAsset: payload.amount_usdc,
+        amountPhp: phpValue,
         txHash: hash,
       });
 

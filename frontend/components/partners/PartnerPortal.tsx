@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Building2,
   CheckCircle2,
@@ -15,11 +15,24 @@ import {
 } from 'lucide-react';
 
 import { fmtAsset, fmtPhp } from '@/lib/format';
+import { getProviderPayments, ProviderPaymentRow } from '@/lib/provider-payments';
 import { explorerTxUrl } from '@/lib/stellar-links';
 import { HOSPITALS, PHARMACIES, Provider } from '@/lib/whitelist';
 import type { Transaction } from '@/lib/transactions';
 
 type ProviderLogin = Provider & { kindLabel: string };
+type PortalPayment = {
+  id: string;
+  patientAddress: string;
+  providerAddress: string;
+  providerName: string;
+  providerType: string;
+  amountXlm: number;
+  amountPhp: number;
+  txHash?: string | null;
+  status: string;
+  timestamp: number;
+};
 
 const PROVIDERS: ProviderLogin[] = [
   ...HOSPITALS.map(provider => ({ ...provider, kindLabel: 'Hospital' })),
@@ -61,31 +74,90 @@ function matchesProvider(transaction: Transaction, provider: Provider): boolean 
   return providerAddress === target || transaction.providerName === provider.name;
 }
 
+function fromProviderRow(row: ProviderPaymentRow): PortalPayment {
+  return {
+    id: row.id,
+    patientAddress: row.patient_address,
+    providerAddress: row.provider_address,
+    providerName: row.provider_name,
+    providerType: row.provider_type,
+    amountXlm: Number(row.amount_asset),
+    amountPhp: Number(row.amount_php),
+    txHash: row.tx_hash,
+    status: row.status,
+    timestamp: Number(row.created_at) * 1000,
+  };
+}
+
+function fromLocalTransaction(transaction: Transaction, provider: Provider): PortalPayment {
+  return {
+    id: transaction.id,
+    patientAddress: 'Patient vault',
+    providerAddress: transaction.providerAddress ?? provider.paymentTarget,
+    providerName: transaction.providerName ?? provider.name,
+    providerType: transaction.providerType ?? provider.type,
+    amountXlm: transaction.amountXlm,
+    amountPhp: transaction.amountPhp,
+    txHash: transaction.txHash,
+    status: transaction.status,
+    timestamp: transaction.timestamp,
+  };
+}
+
 export default function PartnerPortal() {
   const [selectedTarget, setSelectedTarget] = useState(PROVIDERS[0]?.paymentTarget ?? '');
   const [password, setPassword] = useState('');
   const [provider, setProvider] = useState<ProviderLogin | null>(null);
   const [error, setError] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [providerPayments, setProviderPayments] = useState<PortalPayment[]>([]);
+  const [loadingPayments, setLoadingPayments] = useState(false);
 
   const selectedProvider = PROVIDERS.find(item => item.paymentTarget === selectedTarget) ?? PROVIDERS[0];
   const payments = useMemo(() => {
     if (!provider) return [];
-    refreshKey;
-    return loadAllLocalTransactions().filter(transaction => matchesProvider(transaction, provider));
-  }, [provider, refreshKey]);
+    const localPayments = loadAllLocalTransactions()
+      .filter(transaction => matchesProvider(transaction, provider))
+      .map(transaction => fromLocalTransaction(transaction, provider));
+    if (providerPayments.length === 0) return localPayments;
+    const seen = new Set(providerPayments.map(payment => payment.txHash || payment.id));
+    const mergedLocal = localPayments.filter(payment => !seen.has(payment.txHash || payment.id));
+    return [...providerPayments, ...mergedLocal].sort((a, b) => b.timestamp - a.timestamp);
+  }, [provider, providerPayments, refreshKey]);
 
   const totalPhp = payments.reduce((sum, row) => sum + row.amountPhp, 0);
   const totalXlm = payments.reduce((sum, row) => sum + row.amountXlm, 0);
   const latestPayment = payments[0];
 
+  useEffect(() => {
+    if (!provider) return;
+    let active = true;
+    setLoadingPayments(true);
+    getProviderPayments(provider.paymentTarget)
+      .then(rows => {
+        if (!active) return;
+        setProviderPayments(rows.map(fromProviderRow));
+      })
+      .catch(() => {
+        if (!active) return;
+        setProviderPayments([]);
+      })
+      .finally(() => {
+        if (active) setLoadingPayments(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [provider, refreshKey]);
+
   function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedProvider) return;
     if (password.trim() !== passwordFor(selectedProvider)) {
-      setError('Password must be the lowercase provider name with underscores, followed by _123.');
+      setError('Invalid provider credentials.');
       return;
     }
+    setProviderPayments([]);
     setProvider(selectedProvider);
     setError('');
     setPassword('');
@@ -166,7 +238,7 @@ export default function PartnerPortal() {
                     setError('');
                   }}
                   type="password"
-                  placeholder={selectedProvider ? passwordFor(selectedProvider) : 'provider_name_123'}
+                  placeholder="Enter password"
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-300 focus:border-blue-500 focus:bg-white"
                 />
               </label>
@@ -210,7 +282,10 @@ export default function PartnerPortal() {
               Refresh
             </button>
             <button
-              onClick={() => setProvider(null)}
+              onClick={() => {
+                setProviderPayments([]);
+                setProvider(null);
+              }}
               className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-800"
             >
               <LogOut size={14} />
@@ -241,9 +316,9 @@ export default function PartnerPortal() {
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
               <div>
                 <h2 className="text-base font-bold text-slate-950">Incoming SaloMed payments</h2>
-                <p className="text-xs text-slate-400">Filtered by whitelisted provider address or provider name</p>
+              <p className="text-xs text-slate-400">Filtered by whitelisted provider address or provider name</p>
               </div>
-              <ReceiptText size={19} className="text-blue-600" />
+              {loadingPayments ? <RefreshCw size={19} className="animate-spin text-blue-600" /> : <ReceiptText size={19} className="text-blue-600" />}
             </div>
 
             {payments.length === 0 ? (
@@ -267,7 +342,7 @@ export default function PartnerPortal() {
                           {fmtAsset(payment.amountXlm)} XLM
                         </span>
                         <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-                          {payment.status === 'success' ? 'Settled' : 'Pending'}
+                        {payment.status === 'success' ? 'Settled' : 'Pending'}
                         </span>
                       </div>
                       <p className="mt-1 truncate text-xs text-slate-400">
