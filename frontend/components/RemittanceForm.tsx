@@ -43,7 +43,7 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
   const [savedBeneficiaries, setSavedBeneficiaries] = useState<SavedBeneficiary[]>([]);
   const [showInstaPay, setShowInstaPay] = useState(false);
   const [amount, setAmount] = useState('');
-  const [showPhp, setShowPhp] = useState(false);
+  const [showPhp, setShowPhp] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);

@@ -151,9 +151,12 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
                   <h4 className="font-bold text-slate-900">Payment Processed!</h4>
                   <p className="text-sm text-slate-500">
                     <span className="font-semibold text-slate-700">
-                      {fmtAsset(payload.amount_usdc)} XLM
+                      ₱{fmtPhp(phpValue)} PHP
                     </span>{' '}
                     deducted from vault
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    ≈ {fmtAsset(payload.amount_usdc)} XLM
                   </p>
                   <p className="text-xs text-slate-400">
                     Paid to {payload.provider_name || 'Provider'}
@@ -207,11 +210,11 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
                     Amount to Deduct
                   </p>
                   <p className="text-3xl font-bold text-blue-700">
-                    {fmtAsset(payload.amount_usdc)}{' '}
-                    <span className="text-lg font-normal text-blue-400">XLM</span>
+                    ₱{fmtPhp(phpValue)}{' '}
+                    <span className="text-lg font-normal text-blue-400">PHP</span>
                   </p>
                   <p className="text-xs text-blue-400 mt-1">
-                    ≈ ₱{fmtPhp(phpValue)} PHP
+                    ≈ {fmtAsset(payload.amount_usdc)} XLM
                   </p>
                   <div className="mt-3 flex justify-end">
                     <LiveRateButton

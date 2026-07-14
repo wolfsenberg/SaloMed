@@ -29,7 +29,8 @@ type View         = 'home' | 'generate' | 'manual';
 type ProviderType = 'hospital' | 'pharmacy';
 type PayFrom      = 'vault';
 
-const QUICK_AMT = [1, 5, 10, 25, 50];
+const QUICK_XLM_AMT = [1, 5, 10, 25, 50];
+const QUICK_PHP_AMT = [50, 100, 250, 500, 1000];
 
 export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: Props) {
   const { t } = useTranslation();
@@ -41,7 +42,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
   const [scannerOrigin, setScannerOrigin] = useState<View>('home');
   const [genSubmitting, setGenSubmitting] = useState(false);
   const [amountXlm, setAmountXlm]         = useState('');
-  const [showPhp, setShowPhp]             = useState(false);
+  const [showPhp, setShowPhp]             = useState(true);
   const [copied, setCopied]               = useState(false);
   const rate = useXlmPhpRate();
 
@@ -276,18 +277,18 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                 <p className="text-xs font-semibold uppercase tracking-widest text-blue-200 flex items-center gap-1.5">
                   <Sparkles size={11} /> {t('pay_available_balance')}
                 </p>
-                <span className="text-[10px] font-bold bg-white/20 text-white/90 border border-white/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-blue-100/90 transition-colors">
                   <ShieldCheck size={9} /> Healthcare Only
                 </span>
               </div>
               <div className="flex items-end justify-between">
                 <div>
                   <p className="text-3xl font-bold tabular-nums">
-                    {vaultXlm.toFixed(2)}
-                    <span className="text-lg font-normal text-blue-200 ml-2">XLM</span>
+                    ₱{(vaultXlm * rate.phpPerXlm).toFixed(2)}
+                    <span className="text-lg font-normal text-blue-200 ml-2">PHP</span>
                   </p>
                   <p className="text-xs text-blue-300 mt-0.5">
-                    ≈ ₱{(vaultXlm * rate.phpPerXlm).toFixed(2)} PHP
+                    ≈ {vaultXlm.toFixed(2)} XLM
                   </p>
                 </div>
               </div>
@@ -300,7 +301,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                   source={rate.source}
                   loading={rate.loading}
                   onRefresh={rate.refresh}
-                  className="shrink-0 !border-white/20 !bg-white/15 !text-white shadow-sm hover:!bg-white/25"
+                  className="shrink-0 !border-0 !bg-white/10 !text-blue-100/90 shadow-none hover:!bg-white/20"
                 />
               </div>
             </div>
@@ -517,17 +518,17 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
 
               {/* Quick amounts */}
               <div className="flex gap-2">
-                {QUICK_AMT.map(n => (
+                {(showPhp ? QUICK_PHP_AMT : QUICK_XLM_AMT).map(n => (
                   <button
                     key={n}
-                    onClick={() => { setShowPhp(false); setAmountXlm(String(n)); }}
+                    onClick={() => { setAmountXlm(String(n)); }}
                     className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all border ${
-                      !showPhp && parsedXlm === n
+                      rawGenAmount === n
                         ? 'bg-blue-600 border-blue-600 text-white'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-blue-300'
                     }`}
                   >
-                    {n} XLM
+                    {showPhp ? `₱${n}` : `${n} XLM`}
                   </button>
                 ))}
               </div>
@@ -847,17 +848,17 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
 
               {/* Quick amounts */}
               <div className="flex gap-2">
-                {QUICK_AMT.map(n => (
+                {(showPhp ? QUICK_PHP_AMT : QUICK_XLM_AMT).map(n => (
                   <button
                     key={n}
-                    onClick={() => { setShowPhp(false); setManualAmount(String(n)); }}
+                    onClick={() => { setManualAmount(String(n)); }}
                     className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all border ${
-                      !showPhp && manualParsed === n
+                      rawManualAmount === n
                         ? 'bg-blue-600 border-blue-600 text-white'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-blue-300'
                     }`}
                   >
-                    {n} XLM
+                    {showPhp ? `₱${n}` : `${n} XLM`}
                   </button>
                 ))}
               </div>

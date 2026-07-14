@@ -197,7 +197,7 @@ export default function LoanTab({ address, vault }: Props) {
             {/* Stats row */}
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: 'Vault Balance', value: `${vaultXlm.toFixed(2)} XLM`, sub: `≈ ₱${(vaultXlm * xlmRate.phpPerXlm).toFixed(0)}`, Icon: Coins },
+                { label: 'Vault Balance', value: php(vaultXlm * xlmRate.phpPerXlm), sub: `≈ ${vaultXlm.toFixed(2)} XLM`, Icon: Coins },
                 { label: 'SaloPoints',   value: vault.salo_points.toLocaleString(), sub: 'earned', Icon: Star },
                 { label: 'Rate',          value: `${rate}% p.a.`,  sub: vault.credit_tier, Icon: Percent },
               ].map(s => (

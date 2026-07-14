@@ -32,16 +32,24 @@ const TIER = {
   Gold:   { gradient: 'gradient-gold',   badge: 'bg-yellow-100 text-yellow-700',  rate: '2%' },
 };
 
-function tierProgress(vault: HealthVault): number {
-  if (vault.credit_tier === 'Gold')   return 1;
-  if (vault.credit_tier === 'Silver') return (vault.salo_points - 100) / 400;
-  return vault.salo_points / 100;
+type SaloTier = keyof typeof TIER;
+
+function saloTierFromPoints(points: number): SaloTier {
+  if (points >= 500) return 'Gold';
+  if (points >= 100) return 'Silver';
+  return 'Bronze';
 }
 
-function tierNextLabel(vault: HealthVault): string {
-  if (vault.credit_tier === 'Gold')   return 'Maximum tier reached';
-  if (vault.credit_tier === 'Silver') return `${500 - vault.salo_points} pts to Gold`;
-  return `${100 - vault.salo_points} pts to Silver`;
+function tierProgress(points: number): number {
+  if (points >= 500) return 1;
+  if (points >= 100) return (points - 100) / 400;
+  return points / 100;
+}
+
+function tierNextLabel(points: number): string {
+  if (points >= 500) return 'Maximum tier reached';
+  if (points >= 100) return `${500 - points} pts to Gold`;
+  return `${100 - points} pts to Silver`;
 }
 
 const card = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } };
@@ -51,7 +59,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
   const [showGCash, setShowGCash]         = useState(false);
   const [showFreighter, setShowFreighter] = useState(false);
   const [showInstaPay, setShowInstaPay]   = useState(false);
-  const [showPhp, setShowPhp]             = useState(false);
+  const [showPhp, setShowPhp]             = useState(true);
   const [runtime, setRuntime]             = useState<RuntimeStatus | null>(null);
   const rate = useXlmPhpRate();
 
@@ -100,8 +108,9 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
     );
   }
 
-  const tier     = TIER[vault.credit_tier];
-  const progress = tierProgress(vault);
+  const saloTier = saloTierFromPoints(vault.salo_points);
+  const tier     = TIER[saloTier];
+  const progress = tierProgress(vault.salo_points);
 
   return (
     <>
@@ -113,14 +122,26 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
     >
       {/* Balance hero */}
       <motion.div variants={card} className="gradient-brand rounded-2xl p-5 text-white shadow-card-md">
-        <p className="text-xs font-semibold uppercase tracking-widest text-blue-200 mb-1">{t('pay_vault_balance')}</p>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className="text-xs font-semibold uppercase tracking-widest text-blue-200">{t('pay_vault_balance')}</p>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={loading}
+            className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-[10px] font-semibold text-blue-100/90 transition-colors hover:bg-white/20 disabled:opacity-60"
+          >
+            <RefreshCw size={10} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+        </div>
 
         {loading ? (
           <div className="h-11 w-44 bg-white/20 rounded-lg animate-pulse my-1" />
         ) : (
           <button
             onClick={() => setShowPhp(v => !v)}
-            className="text-left w-full active:scale-[0.99] transition-transform"
+            className="group w-full text-left transition-transform active:scale-[0.99]"
+            title={showPhp ? 'Show XLM balance' : 'Show PHP balance'}
           >
             <AnimatePresence mode="wait">
               <motion.div
@@ -131,12 +152,12 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
                 transition={{ duration: 0.18 }}
               >
                 {showPhp ? (
-                  <p className="text-4xl font-bold tabular-nums">
+                  <p className="text-4xl font-bold leading-none tabular-nums">
                     ₱{fmtPhp(phpValue)}
                     <span className="text-xl font-normal text-blue-200 ml-2">PHP</span>
                   </p>
                 ) : (
-                  <p className="text-4xl font-bold tabular-nums">
+                  <p className="text-4xl font-bold leading-none tabular-nums">
                     {fmtXlm(xlmValue)}
                     <span className="text-xl font-normal text-blue-200 ml-2">XLM</span>
                   </p>
@@ -144,26 +165,19 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
               </motion.div>
             </AnimatePresence>
             {/* Tap hint */}
-            <p className="text-xs text-blue-300 mt-1 flex items-center gap-1">
+            <p className="mt-2 flex max-w-xs flex-wrap items-center gap-2 text-xs text-blue-200">
               {showPhp
                 ? `≈ ${fmtXlm(xlmValue)} XLM`
                 : `≈ ₱${fmtPhp(phpValue)} PHP`}
-              <ArrowLeftRight size={10} className="text-blue-400" />
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-bold text-white transition-colors group-hover:bg-white/25">
+                <ArrowLeftRight size={11} />
+                {showPhp ? 'Show XLM' : 'Show PHP'}
+              </span>
             </p>
           </button>
         )}
 
-        <button
-          type="button"
-          onClick={onRefresh}
-          disabled={loading}
-          className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-blue-100/90 transition-colors hover:bg-white/20 disabled:opacity-60"
-        >
-          <RefreshCw size={10} className={loading ? 'animate-spin' : ''} />
-          Refresh vault
-        </button>
-
-        <div className="mt-1 flex items-center justify-between gap-2">
+        <div className="mt-3 flex items-center justify-between gap-2">
           <p className="min-w-0 truncate text-xs font-mono text-blue-300">
             {address.slice(0, 8)}…{address.slice(-8)}
           </p>
@@ -197,19 +211,19 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
         </div>
 
         {/* Actions row */}
-        <div className="mt-4 space-y-2">
+        <div className="mt-5 space-y-2.5">
           {/* Top up label */}
           <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest text-center">
             {t('vault_topup')}
           </p>
-          <div className="grid grid-cols-1 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {(runtime?.mode === 'demo' || runtime?.mode === 'stellar_testnet') && (
               <button
                 onClick={() => setShowGCash(true)}
-                className="flex items-center gap-2 bg-white/20 hover:bg-white/30 active:scale-[0.97] transition-all rounded-xl px-3 py-3 text-xs font-semibold justify-center"
+                className="group flex min-h-20 flex-col items-center justify-center gap-2 rounded-xl bg-white/15 px-3 py-3 text-center text-[11px] font-bold text-white shadow-sm transition-all hover:bg-white hover:text-slate-800 active:scale-[0.98]"
               >
-                <span className="w-5 h-5 bg-white rounded-md flex items-center justify-center text-[#007DFF] text-[11px] font-black">G</span>
-                Add funds via GCash
+                <span className="w-7 h-7 bg-white/90 rounded-lg flex items-center justify-center text-[#007DFF] text-[12px] font-black transition-colors group-hover:bg-[#007DFF] group-hover:text-white">G</span>
+                GCash
               </button>
             )}
             {(runtime?.mode === 'pdax_uat' || runtime?.mode === 'pdax_prod') && (
@@ -221,17 +235,24 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
               <>
                 <button
                   onClick={() => setShowInstaPay(true)}
-                  className="flex items-center gap-2 bg-white text-[#007DFF] hover:bg-blue-50 active:scale-[0.97] transition-all rounded-xl px-3 py-3 text-xs font-bold justify-center"
+                  className="group flex min-h-20 flex-col items-center justify-center gap-2 rounded-xl bg-white/15 px-3 py-3 text-center text-[11px] font-bold text-white shadow-sm transition-all hover:bg-white hover:text-slate-800 active:scale-[0.98]"
                 >
-                  <CreditCard size={16} />
-                  Top up with InstaPay (PDAX)
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 text-blue-600 transition-colors group-hover:bg-blue-50">
+                    <CreditCard size={15} />
+                  </span>
+                  <span>
+                    InstaPay
+                    <span className="block text-[9px] font-semibold opacity-75 group-hover:text-slate-500">PDAX</span>
+                  </span>
                 </button>
                 <button
                   onClick={() => setShowFreighter(true)}
-                  className="flex items-center gap-2 bg-white/20 hover:bg-white/30 active:scale-[0.97] transition-all rounded-xl px-3 py-3 text-xs font-semibold justify-center"
+                  className="group flex min-h-20 flex-col items-center justify-center gap-2 rounded-xl bg-white/15 px-3 py-3 text-center text-[11px] font-bold text-white shadow-sm transition-all hover:bg-white hover:text-slate-800 active:scale-[0.98]"
                 >
-                  <Wallet size={16} />
-                  Top up with Freighter
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 text-indigo-600 transition-colors group-hover:bg-indigo-50">
+                    <Wallet size={15} />
+                  </span>
+                  Freighter
                 </button>
               </>
             )}
@@ -251,7 +272,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
           </div>
           <span className={`px-3 py-1.5 rounded-full text-sm font-bold flex items-center gap-1.5 ${tier.badge}`}>
             <Award size={14} />
-            {vault.credit_tier}
+            {saloTier}
           </span>
         </div>
 
@@ -264,7 +285,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
               transition={{ duration: 1, ease: 'easeOut', delay: 0.2 }}
             />
           </div>
-          <p className="text-xs text-slate-400 text-right">{tierNextLabel(vault)}</p>
+          <p className="text-xs text-slate-400 text-right">{tierNextLabel(vault.salo_points)}</p>
         </div>
       </motion.div>
 
@@ -286,7 +307,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
           { label: 'Vault Asset', value: 'XLM', sub: 'Stellar Lumens', Icon: Coins },
           { label: 'Points Rule', value: '1 / XLM', sub: 'per full XLM paid', Icon: Star },
           { label: 'Vault Status', value: vault.balance > 0n ? t('vault_active') : t('vault_empty'), sub: t('vault_escrow'), Icon: ShieldCheck },
-          { label: 'Salo Tier',  value: vault.credit_tier,   sub: tierNextLabel(vault), Icon: Award       },
+          { label: 'Salo Tier',  value: saloTier,   sub: tierNextLabel(vault.salo_points), Icon: Award       },
         ].map(stat => (
           <div key={stat.label} className="bg-white rounded-2xl shadow-card border border-slate-100 p-4">
             <div className="flex items-center gap-1.5 mb-2">

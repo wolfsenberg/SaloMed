@@ -28,7 +28,7 @@ export default function PayModal({ patientAddress, amountXlm, vault, onClose, on
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [done, setDone] = useState(false);
-  const [showPhp, setShowPhp] = useState(false);
+  const [showPhp, setShowPhp] = useState(true);
   const rate = useXlmPhpRate();
   const amountPhp = amountXlm * rate.phpPerXlm;
 
@@ -104,7 +104,7 @@ export default function PayModal({ patientAddress, amountXlm, vault, onClose, on
               <span className="text-[10px] font-bold uppercase tracking-wider">Transfer Amount</span>
             </div>
             <span className="text-2xl font-bold tabular-nums">
-              {showPhp ? amountPhp.toFixed(2) : amountXlm.toFixed(2)}
+              {showPhp ? `₱${amountPhp.toFixed(2)}` : amountXlm.toFixed(2)}
               <span className="text-sm font-normal text-blue-200 ml-1.5">{showPhp ? 'PHP' : 'XLM'}</span>
             </span>
           </div>
