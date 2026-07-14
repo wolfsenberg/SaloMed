@@ -3,6 +3,17 @@
 **/*.log
 **/.DS_Store
 
+# Local AI / assistant / planning artifacts
+.agents/
+.codex/
+.kiro/
+audit/
+.cursor/
+.windsurf/
+.aider*
+*.prompt.md
+*.scratch.md
+
 # Environment Variables
 .env
 .env.*
@@ -26,6 +37,8 @@ yarn-error.log*
 !.yarn/versions
 
 # Backend (Python / FastAPI)
+**/__pycache__/
+**/*.py[cod]
 backend/__pycache__/
 backend/*.py[cod]
 backend/*$py.class
@@ -38,9 +51,12 @@ backend/*.sqlite3*
 
 # Smart Contracts (Rust / Soroban)
 contracts/**/target/
+node_modules/
 contracts/node_modules/
 contracts/.tmp/
 **/*.rs.bk
+contracts/salomed/build_out.txt
+contracts/salomed/deploy_out.txt
 
 # Build artifacts / backups
 **/*.bak
