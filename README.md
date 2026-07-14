@@ -2,39 +2,50 @@
 
 [![SaloMed CI/CD Pipeline](https://github.com/wolfsenberg/SaloMed/actions/workflows/ci.yml/badge.svg)](https://github.com/wolfsenberg/SaloMed/actions/workflows/ci.yml)
 [![Stellar Network](https://img.shields.io/badge/Stellar-Testnet-blue)](https://stellar.expert/explorer/testnet)
-[![Track](https://img.shields.io/badge/APAC%20Track-Local%20Finance%20%26%20Real%20World%20Access-blue)](#requirements-detail)
+[![APAC Stellar Hackathon](https://img.shields.io/badge/APAC%20Stellar%20Hackathon-Local%20Finance%20%26%20Real%20World%20Access-blue)](#requirements-detail)
 
-SaloMed is a purpose-bound health savings and payment platform for Filipino families. It keeps medical funds protected for real healthcare use while giving users a familiar e-wallet experience powered by Stellar under the hood.
+## Problem
+
+**Ang sakit na nga, mas masakit pa sa bulsa.** For many families, a medical emergency is not only a health crisis. It is a financial shock that can wipe out savings overnight.
+
+In the Philippines, the pressure is especially clear. Only 3 in 10 adults have enough savings to survive a financial shock (BSP, 2025). In Q4 2024, just 25.6% of families reported having any money left to save at all (BSP). Daily expenses consume almost everything.
+
+Even when families manage to set money aside for health, the savings often do not last. Emergency funds sit in the same wallet used for groceries, bills, favors, school needs, and impulse spending. Each withdrawal feels justified in the moment. Together, they drain the health fund before the emergency arrives.
+
+Then someone needs care now. The money is gone. Out-of-pocket payments still account for 44.4% of total health expenditure in the Philippines (DOH National Health Accounts, 2023), and many families fall back on borrowing when hospital costs exceed what they saved. One illness becomes two crises: medical and financial.
+
+Remittances carry the same pain. In 2024, 2.19 million OFWs sent a record $38.34 billion home (PSA/BSP). A parent abroad may send money for medicine. A sibling in Manila may send money for a checkup. But once the money arrives, there is no reliable proof that it was actually used for healthcare. **Pampa-checkup sana, pero nagastos sa iba.**
+
+No mainstream wallet treats health money differently from everyday money. SaloMed starts in the Philippines, but the problem is universal: any family in a high-remittance, high-out-of-pocket healthcare market needs money that is easy to fund, easy to send, easy to use at real providers, and hard to misuse.
+
+## Solution
+
+SaloMed is a digital **health alkansya** built for the **APAC Stellar Hackathon** under **Local Finance & Real World Access**.
+
+It has one core promise: **health savings stay for health**.
+
+The app feels like a familiar payment wallet. Users top up in local currency, see their balance in pesos, receive health padala from family, and pay at approved hospitals, clinics, or pharmacies. No crypto jargon. No complex setup. The experience is intentionally ordinary because the problem is already stressful enough.
+
+That is the zero-crypto-anxiety angle: ordinary people can benefit from blockchain without feeling like they are "using crypto." For a patient, it feels like topping up and paying. For a sender, it feels like padala. Underneath, Stellar and Soroban make the money purpose-bound. Funds inside the SaloMed Vault can only move to whitelisted healthcare providers or another SaloMed health vault. Every transfer leaves a verifiable record, giving families and senders confidence that health money is still health money.
+
+For the Philippines wedge, SaloMed uses a PDAX-oriented InstaPay flow with live PHP-to-XLM conversion to show how local bank funding can move into a Stellar-powered health vault. For the broader APAC opportunity, the same model can be adapted to other markets where families rely on remittances and pay heavily out of pocket for care.
+
+**Primary track:** Local Finance & Real World Access  
+**Supporting angle:** Payment & Consumer Applications  
+**UX principle:** Zero crypto anxiety  
+**Technical backbone:** Stellar Soroban smart contracts and composable on-chain settlement
+
+<img width="6400" height="2400" alt="SaloMed banner" src="https://github.com/user-attachments/assets/aef0d074-76c7-4bd5-82eb-9bedeb4f9ac4" />
+
+**Desktop:** <img width="1920" height="1080" alt="SaloMed desktop app" src="https://github.com/user-attachments/assets/fbe9fcbb-b6bb-489b-bd24-fe48efeb71ba" />
+
+**Mobile:** <img width="391" height="851" alt="SaloMed mobile app" src="https://github.com/user-attachments/assets/58b71aa2-e726-4df4-a780-c90721baf64b" />
 
 **Live App:** [https://salomedhealthalkansya.vercel.app/](https://salomedhealthalkansya.vercel.app/)
 
 **Video Demo:** [Google Drive](https://drive.google.com/file/d/1FdqfCqWRw6hjVrcqbt7UpLAgSdgnlXAR/view?usp=sharing)
 
 **Pitch Document:** [Google Docs](https://docs.google.com/document/d/134i9LdSE-X0jaV2Nr0X9SSptM7tY4yRtdCkYO2t2260/edit?usp=sharing)
-
-<img width="6400" height="2400" alt="SaloMed banner" src="https://github.com/user-attachments/assets/aef0d074-76c7-4bd5-82eb-9bedeb4f9ac4" />
-
-## Problem
-
-**Ang sakit na nga, mas masakit pa sa bulsa.** For many Filipinos, saving for medical emergencies is a serious goal, but keeping that money untouched is hard. A regular savings balance can be spent on shopping, bills, travel, or everyday wants long before a hospital visit or prescription need arrives.
-
-When the emergency finally happens, the fund that was supposed to protect the family is often gone. The result is familiar: people are forced to borrow, delay treatment, or ask relatives for urgent help.
-
-The same issue appears in remittances. An OFW or family member may send money specifically for medicine, checkups, or hospital bills, but the sender has no reliable way to know that the money was actually used for healthcare. **Pampa-checkup sana, pero nagastos sa iba.**
-
-## Solution
-
-SaloMed is a digital **health alkansya**: a familiar e-wallet-like vault where funds are purpose-bound for healthcare. Users can top up, receive padala, pay approved healthcare providers, and view every transaction in one simple app.
-
-The difference is what happens underneath. Stellar and Soroban enforce the health-only rule so funds can only move to whitelisted hospitals, clinics, and pharmacies. The crypto layer stays mostly invisible to the user: balances are shown in Philippine pesos by default, actions feel like common local finance flows, and Stellar provides fast, low-cost settlement behind the scenes.
-
-**Primary APAC track:** Local Finance & Real World Access  
-**Supporting angle:** Payment & Consumer Applications  
-**Technical backbone:** Stellar Soroban smart contracts and composable on-chain settlement
-
-**Desktop:** <img width="1920" height="1080" alt="SaloMed desktop app" src="https://github.com/user-attachments/assets/fbe9fcbb-b6bb-489b-bd24-fe48efeb71ba" />
-
-**Mobile:** <img width="391" height="851" alt="SaloMed mobile app" src="https://github.com/user-attachments/assets/58b71aa2-e726-4df4-a780-c90721baf64b" />
 
 ## Table of Contents
 
@@ -53,62 +64,73 @@ The difference is what happens underneath. Stellar and Soroban enforce the healt
 
 ## Key Features
 
-### 1. Purpose-Bound Health Vault
+SaloMed is intentionally focused. It is not trying to be a super app. It solves one job: keep healthcare money protected, visible, and usable when care is needed.
 
-Funds inside the SaloMed Vault are not casual spending money. They are reserved for approved healthcare providers only. This turns a normal digital balance into a disciplined medical fund that is ready when an emergency happens.
+### 1. Protected Health Vault
 
-### 2. Familiar, Zero-Crypto-Anxiety UX
+The SaloMed Vault separates health funds from everyday spending. Funds are reserved for approved healthcare use and cannot be casually withdrawn for non-health expenses.
 
-SaloMed looks and feels close to finance apps Filipinos already understand:
+### 2. Local Funding and Familiar Payments
 
-* PHP-first balance display with optional XLM view.
-* GCash-style top up flow for familiar local funding.
-* InstaPay via PDAX flow for fiat-to-XLM onboarding.
-* Freighter wallet support for Stellar-native users.
-* QR and address-based payments for provider checkout.
-* English, Tagalog, and default Taglish language support.
+Users interact with the app through patterns they already understand:
 
-The user does not need to understand blockchain mechanics to understand the product.
+* PHP-first balance display, with XLM available as a transparent alternate view.
+* GCash-style top up for familiar local behavior.
+* InstaPay via PDAX flow for PHP-to-XLM onboarding.
+* Freighter support for Stellar-native users.
+* QR and address-based payment flows for provider checkout.
 
-### 3. Health Padala
+The product hides blockchain complexity without hiding the audit trail.
 
-SaloMed extends the Filipino idea of padala into healthcare. A sender can transfer support to a family member's SaloMed Vault knowing the funds remain reserved for hospitals, clinics, and pharmacies.
+This is how SaloMed introduces blockchain to everyday users: not through seed phrases, market charts, or token speculation, but through a concrete benefit they already understand: protected health money.
 
-This works for OFWs, relatives in Manila, or anyone helping a loved one with medical expenses.
+### 3. Health Padala With Proof
 
-### 4. Whitelisted Provider Payments
+SaloMed turns padala into purpose-bound healthcare support. A sender can transfer money to a loved one's health vault knowing it remains dedicated to hospitals, clinics, and pharmacies.
 
-Healthcare payments are limited to approved providers. The app includes a separate provider portal where whitelisted hospitals and pharmacies can view incoming SaloMed payments, bill checks, and settlement status.
+This is valuable for OFWs, relatives in Manila, or anyone supporting family care from a distance. The sender no longer has to rely only on trust and screenshots; the transaction is tied to a healthcare-dedicated vault.
+
+### 4. Provider-Verified Healthcare Payments
+
+Payments can only go to whitelisted providers. This is the enforcement layer that makes SaloMed different from a normal wallet: the funds are liquid for healthcare, but blocked for everything else.
 
 ### 5. SaloPoints and Salo Support
 
-Users earn SaloPoints from healthcare payments. SaloPoints are not cash, not cashback, and not withdrawable value. They are a trust and activity signal used to determine Salo tiers.
+SaloPoints are a lightweight reputation signal earned from healthcare payments. They are not cash, not cashback, and not withdrawable value.
 
-When a user's vault falls short, the Salo flow lets them request health bill support. Salo requests are reviewed in the SaloMed admin console, with approval, terms acceptance, and release status tracked separately.
+When a user's vault falls short, the Salo flow lets them request health bill support. In the MVP, this is review-based and tracked through the SaloMed admin console. In production, any real credit product would require regulated underwriting, compliance, and licensed partners.
 
-### 6. Admin and Partner Operations
+### 6. Provider and Admin Rails
 
-SaloMed includes non-user-facing operational portals:
+To prove the workflow beyond the patient screen, SaloMed includes separate operational surfaces:
 
-* **Partner Portal:** lets whitelisted providers inspect payments and settlement details.
-* **Admin Console:** lets SaloMed reviewers manage Salo support requests across users.
+* **Partner Portal:** whitelisted hospitals and pharmacies can inspect incoming SaloMed activity.
+* **Admin Console:** SaloMed reviewers can manage Salo support requests across users.
 
-These portals close a key MVP gap: the project is not only a patient app, it already models the operational side needed for a real healthcare finance network.
+These are not extra gimmicks. They show that the product can support the real actors in a healthcare finance network: patients, family senders, providers, and SaloMed operators.
 
 ## The Vision
 
-SaloMed is built for families who are one medical emergency away from debt. The goal is not to make people "use crypto." The goal is to make protected healthcare savings, transparent family support, and provider payments feel normal.
+SaloMed starts in the Philippines because the pain is obvious: high out-of-pocket healthcare costs, strong family remittance behavior, and a familiar e-wallet culture. But the deeper problem is not uniquely Filipino.
 
-In the Philippines, people already understand alkansya, GCash, InstaPay, and padala. SaloMed uses that cultural and financial familiarity, then adds a stronger guarantee: health funds stay for health.
+Across APAC and other emerging markets, families face the same pattern: limited savings, medical bills paid directly from household cash, relatives sending support from far away, and no guarantee that health money stays reserved for health.
 
-Long term, SaloMed can become a local finance access layer for:
+The first users are:
 
-* personal health savings,
-* OFW and domestic healthcare remittances,
-* clinic and pharmacy payment networks,
-* employer or community health support,
+* **Family savers** who want a health fund that cannot be casually drained.
+* **OFWs and family supporters** who send money home for medical needs and want proof it stays dedicated to healthcare.
+* **Hospitals, clinics, and pharmacies** that benefit when patients arrive with pre-funded, settlement-ready health wallets.
+
+SaloMed's long-term vision is to become a local finance access layer for purpose-bound healthcare money:
+
+* personal and family health savings,
+* domestic and cross-border healthcare remittances,
+* hospital, clinic, and pharmacy payment networks,
+* employer and community health support,
 * transparent medical aid distribution,
 * regulated short-term gap funding for approved health expenses.
+
+The first market is the Philippines. The problem is universal.
 
 ## Tech Stack
 
@@ -152,6 +174,7 @@ Long term, SaloMed can become a local finance access layer for:
 * **Purpose-bound enforcement:** Soroban contract logic prevents funds from leaving the vault unless the recipient is whitelisted.
 * **Atomic healthcare payments:** Provider settlement happens as one contract-mediated action, reducing ambiguity between payment approval and fund movement.
 * **Transparent activity trail:** Transactions can be verified through Stellar network records and contract events.
+* **Zero-crypto-anxiety access:** users get blockchain guarantees through familiar wallet, padala, and QR payment flows instead of crypto-native workflows.
 * **Composable finance layer:** The vault, provider whitelist, remittance, and SaloPoints logic can be extended into broader health finance workflows.
 
 ## Architecture and Structure
@@ -190,38 +213,42 @@ Required deployment secrets:
 
 ### Technical Implementation and Stellar Usage
 
-SaloMed uses Stellar beyond a simple transfer button. The Soroban contract models a purpose-bound healthcare vault with admin setup, provider whitelist enforcement, remittance deposits, vault-to-vault transfer, healthcare payment settlement, points, and read methods for verification.
+SaloMed uses Stellar beyond a simple transfer button. The Soroban contract models the central rule of the product: health vault funds can be deposited, transferred as health padala, and released only through approved healthcare paths.
 
-The backend integrates Stellar-aware runtime checks, Freighter transaction flows, live PHP/XLM rate handling, and explicit safe modes. The project also includes CI for frontend, backend, and contract builds.
+The backend supports Stellar-aware runtime checks, Freighter transaction flows, live PHP/XLM rate handling, explicit safe modes, persistent history, provider indexing, and Salo request review. The project also includes CI for frontend, backend, and contract builds.
 
 ### Real-World Fit and Use Case
 
-The product is built around a clear local finance problem: Filipino families need medical funds that are easy to fund but hard to misuse. SaloMed combines health savings, healthcare-only spending, and family padala into one practical flow.
+The product is built around a clear local finance problem: families need medical funds that are easy to fund, easy to send, and hard to misuse. SaloMed combines health savings, healthcare-only spending, and family padala into one practical flow.
 
-The primary APAC track is **Local Finance & Real World Access** because SaloMed focuses on real-world health expenses, local e-wallet behavior, Philippine peso UX, and family remittance use cases.
+The primary APAC track is **Local Finance & Real World Access** because SaloMed focuses on real-world health expenses, local funding behavior, Philippine peso UX, and remittance-backed family care. The Philippines is the first market, but the same pattern exists across high-remittance, high-out-of-pocket healthcare markets.
 
 ### Innovation and Differentiation
 
-SaloMed is not only a wallet and not only a payment page. The differentiator is the purpose-bound vault: funds are locked for healthcare and released only to approved providers. The product adds family remittance confidence, provider verification, SaloPoints, and Salo support workflows on top of a familiar consumer experience.
+SaloMed is not another wallet. The differentiator is purpose-bound money: funds are liquid for healthcare but blocked for everything else. That single rule creates a stronger savings product, a more trustworthy remittance product, and a clearer provider payment flow.
 
 ### UX and Accessibility
 
-The app is intentionally designed to reduce crypto anxiety:
+The app is intentionally designed for zero crypto anxiety. SaloMed should feel understandable to a normal patient, parent, OFW, or pharmacy customer even if they have never used a blockchain wallet before:
 
 * PHP is the default display currency.
 * XLM is available as an alternate view for transparency.
-* Top up and payment flows mirror familiar local finance patterns.
+* Top up, padala, and payment flows mirror familiar local finance patterns.
 * Onboarding explains the concept visually.
 * English, Tagalog, and Taglish language modes are supported.
 * Consumer, provider, and admin surfaces are separated so each user sees only the workflows relevant to them.
 
+The eye-opener is subtle: users experience blockchain as protection, proof, and speed, not as speculation or technical friction.
+
 ### Viability and Go-to-Market
 
-The MVP already demonstrates the three-sided workflow needed for adoption:
+The MVP demonstrates the minimum real-world network needed for adoption:
 
 * patients and families fund and spend through the vault,
+* family supporters send health padala,
 * providers receive and inspect SaloMed payments,
-* SaloMed admins review support requests and operational queues.
+* SaloMed admins review support requests and operational queues,
+* PDAX-oriented InstaPay flow shows how local bank funding can connect to the vault.
 
 Production rollout would require provider onboarding, compliance review, KYC/AML, reconciliation, fraud checks, PDAX production approval, and regulated lending treatment for any real Salo credit product. Those are roadmap items, not hidden assumptions.
 
