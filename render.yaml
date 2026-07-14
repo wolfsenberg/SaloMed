@@ -1,12 +1,13 @@
-# SaloMed backend - Render Blueprint (stellar_testnet mode)
+# SaloMed backend + persistent database for Render.
 #
-# Primary experience: real on-chain transactions on Stellar Testnet. The
-# Soroban contract is the source of truth for vault balances and history, read
-# by the frontend over RPC. The backend is STATELESS in this mode, so there is
-# no database to persist and Render's free-tier spin-down only causes a cold
-# start, never data loss.
-#
-# Deploy: push this repo, then in Render: New + > Blueprint > select this file.
+# Safe MVP deployment:
+# - SALOMED_MODE=demo keeps real-money/on-chain mutation guarded.
+# - DATABASE_URL is injected from managed Postgres so cross-user vault,
+#   history, provider, and admin queues survive restarts and redeploys.
+
+databases:
+  - name: salomed-db
+    plan: free
 
 services:
   - type: web
@@ -17,10 +18,16 @@ services:
     plan: free
     healthCheckPath: /api/runtime
     envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: salomed-db
+          property: connectionString
       - key: SALOMED_MODE
-        value: stellar_testnet
+        value: demo
       - key: SALOMED_ASSET_CODE
-        value: USDC
+        value: XLM
+      - key: PHP_PER_XLM
+        value: "11.34"
       - key: PHP_PER_USDC
         value: "56.00"
       - key: STELLAR_NETWORK
@@ -37,11 +44,14 @@ services:
         value: GBSXYPN2XWTJEZPLAMRIYQQVQTCJ2MEQOVOA3G73USGCMEXJ5YXPU2G7
       - key: SALOMED_CONTRACT_CONFIG_VERIFIED
         value: "true"
-      # Admin secret key (S...) that signs on-chain USDC credits after a PDAX
-      # payment is confirmed. REQUIRED for the InstaPay -> vault bridge.
+      - key: SALOMED_ADMIN_USERNAME
+        sync: false
+      - key: SALOMED_ADMIN_PASSWORD
+        sync: false
+      - key: SALOMED_ADMIN_SESSION_SECRET
+        sync: false
       - key: SALOMED_SIGNER_SECRET
         sync: false
-      # PDAX Institutional API credentials (fiat on-ramp). Set in dashboard only.
       - key: PDAX_BASE_URL
         value: https://uat.services.sandbox.pdax.ph/api/pdax-api
       - key: PDAX_USERNAME
@@ -50,6 +60,5 @@ services:
         sync: false
       - key: PDAX_WEBHOOK_SECRET
         sync: false
-      # Your deployed Vercel URL, e.g. https://salomed.vercel.app
       - key: FRONTEND_ORIGIN
         sync: false

@@ -140,9 +140,10 @@ SaloMed acts as a self-funded, community-backed insurance layer for the millions
 ---
 
 ## CI/CD Pipeline
-SaloMed uses a robust CI/CD Pipeline via GitHub Actions to maintain code quality and ensure continuous delivery:
-*   **Continuous Integration (CI)**: Automatically runs Smart Contract tests (cargo test), Frontend validation (Next.js build), and Dependency audits on every push.
-*   **Deployment**: Deployment credentials and platform configuration are managed outside this repository; CI does not claim a deployment succeeded.
+SaloMed uses GitHub Actions for CI/CD:
+*   **Continuous Integration (CI)**: Runs smart contract tests and WASM build, frontend tests/type-check/build, backend tests, and dependency audit on every push or pull request.
+*   **Application Deployment (CD)**: On pushes to `main` or `master`, successful CI triggers Vercel and Render deploy hooks when `VERCEL_DEPLOY_HOOK_URL` and `RENDER_DEPLOY_HOOK_URL` are configured in GitHub Secrets.
+*   **Smart Contract Release**: Contract deployment is manual and gated through the `SaloMed Smart Contract Release` workflow. It builds/tests/uploads the WASM artifact and only deploys to Stellar Testnet when an operator explicitly types `DEPLOY_TESTNET` and provides the required Stellar deploy secret.
 
 ---
 

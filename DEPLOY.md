@@ -57,7 +57,31 @@ required for stellar_testnet mode; leave them unset for the demo deployment.)
 Deploy, then copy the Vercel URL into Render's `FRONTEND_ORIGIN` and redeploy
 the backend so CORS allows browser calls.
 
-## Step 3 — Verify
+## Step 3 - Enable GitHub Actions CD
+
+The CI workflow always validates frontend, backend, and contract code. To let
+GitHub Actions trigger production deployments after CI passes, add these GitHub
+repository secrets:
+
+| Secret | Purpose |
+|---|---|
+| `RENDER_DEPLOY_HOOK_URL` | Render deploy hook for `salomed-backend` |
+| `VERCEL_DEPLOY_HOOK_URL` | Vercel deploy hook for the frontend project |
+
+If either secret is missing, the workflow logs a notice and skips that deploy
+instead of failing CI.
+
+For manual smart contract release, add:
+
+| Secret | Purpose |
+|---|---|
+| `STELLAR_DEPLOY_SECRET_KEY` | Testnet signer used only by the manual contract release workflow |
+
+The smart contract workflow is never automatic. Run **SaloMed Smart Contract
+Release** manually, type `DEPLOY_TESTNET`, and provide the intended admin and
+token addresses before initializing a new contract.
+
+## Step 4 - Verify
 
 1. Open the Vercel URL, do a GCash/InstaPay top-up, a payment, and a padala.
 2. Reload the page — balance and history persist (read from Postgres).
