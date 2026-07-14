@@ -119,7 +119,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
       setDone(true);
       setTimeout(onSuccess, 2500);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Payment failed — Freighter rejected or backend unavailable.');
+      setError(e instanceof Error ? e.message : 'Payment failed. Freighter rejected it or the backend is unavailable.');
     } finally {
       setGenSubmitting(false);
     }
@@ -175,7 +175,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
       setDone(true);
       setTimeout(onSuccess, 2500);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Payment failed — Freighter rejected or network error.');
+      setError(e instanceof Error ? e.message : 'Payment failed. Freighter rejected it or there was a network error.');
     } finally {
       setSubmitting(false);
     }
@@ -260,7 +260,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
       <AnimatePresence mode="wait">
 
         {/* ══════════════════════════════════════════════════════ */}
-        {/*  HOME — Main payment hub (GCash-style)               */}
+        {/*  HOME: Main payment hub (GCash-style)                */}
         {/* ══════════════════════════════════════════════════════ */}
         {view === 'home' && (
           <motion.div
@@ -305,7 +305,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
               </div>
             </div>
 
-            {/* Action buttons — GCash style */}
+            {/* Action buttons: GCash style */}
             <div className="grid grid-cols-3 gap-3">
               {/* Generate QR */}
               <button
@@ -350,7 +350,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
               </button>
             </div>
 
-            {/* My Receive QR — always visible */}
+            {/* My Receive QR: always visible */}
             <div className="bg-white rounded-2xl shadow-card border border-slate-100 p-5">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-1.5">
                 <QrCode size={12} /> My Wallet QR
@@ -374,7 +374,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
         )}
 
         {/* ══════════════════════════════════════════════════════ */}
-        {/*  GENERATE QR — Create a payment QR for cashier       */}
+        {/*  GENERATE QR: Create a payment QR for cashier        */}
         {/* ══════════════════════════════════════════════════════ */}
         {view === 'generate' && (
           <motion.div
@@ -604,7 +604,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
               )}
             </div>
 
-            {/* Generated QR Code — requires provider + amount + sufficient balance */}
+            {/* Generated QR Code: requires provider + amount + sufficient balance */}
             <AnimatePresence mode="wait">
               {parsedXlm > 0 && manualAddress.trim() && parsedXlm <= activeBalance ? (
                 <motion.div
@@ -681,7 +681,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
         )}
 
         {/* ══════════════════════════════════════════════════════ */}
-        {/*  MANUAL — Send via Stellar Address                   */}
+        {/*  MANUAL: Send via Stellar Address                    */}
         {/* ══════════════════════════════════════════════════════ */}
         {view === 'manual' && (
           <motion.div
@@ -766,7 +766,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                 </div>
               </div>
 
-              {/* Stellar address — auto-filled by combobox or enter manually */}
+              {/* Stellar address: auto-filled by combobox or enter manually */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block">
                   Recipient Stellar Address

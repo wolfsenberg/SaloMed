@@ -143,7 +143,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
     const onStorage = () => refreshVault(address);
     window.addEventListener('storage', onStorage);
 
-    // Poll every 20 seconds — background refresh without showing loading UI
+    // Poll every 20 seconds: background refresh without showing loading UI
     const POLL_INTERVAL_MS = 20_000;
     const pollId = setInterval(() => refreshVault(address, true), POLL_INTERVAL_MS);
 
@@ -214,7 +214,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
     setDir(ni > pi ? 1 : -1);
     setTab(next);
     prevTab.current = next;
-    // Update URL without triggering a Next.js navigation — instant, no remount
+        // Update URL without triggering a Next.js navigation: instant, no remount
     window.history.pushState(null, '', TAB_META[next].path);
     if (options?.scrollTop) scheduleScrollContentToTop();
   }
@@ -436,7 +436,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
               </div>
             )}
 
-            {/* Content — rendered directly from state, no Next.js navigation */}
+            {/* Content: rendered directly from state, no Next.js navigation */}
             <div ref={contentRef} className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 scroll-touch overscroll-y-contain">
               <AnimatePresence mode="wait" custom={dir}>
                 <motion.div

@@ -98,7 +98,7 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
       setDone(true);
       setTimeout(onSuccess, 2500);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Payment failed — check connection.');
+      setError(e instanceof Error ? e.message : 'Payment failed. Check your connection.');
     } finally {
       setSubmitting(false);
     }

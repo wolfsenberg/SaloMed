@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Loader2, CheckCircle, ExternalLink, AlertCircle, Zap } from 'lucide-react';
+import { X, Loader2, CheckCircle, CreditCard, ExternalLink, AlertCircle, Zap } from 'lucide-react';
 import { saveTx } from '@/lib/transactions';
 import { pdaxInitiateDeposit, pdaxConfirm, pdaxQuote, PdaxQuoteResult } from '@/lib/api';
 import { fmtAsset, fmtPhp } from '@/lib/format';
@@ -89,7 +89,7 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
   }
 
   async function handleCreateDeposit() {
-    if (parsedPhp < 100) { setError('Minimum top-up is PHP 100.'); return; }
+    if (parsedPhp < 100) { setError('Minimum top up is PHP 100.'); return; }
     setError(null);
     setStep('creating');
     try {
@@ -179,14 +179,10 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <rect x="2" y="4" width="20" height="16" rx="3" stroke="white" strokeWidth="1.5"/>
-                  <path d="M2 9h20" stroke="white" strokeWidth="1.5"/>
-                  <path d="M6 15h4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
+                <CreditCard size={18} className="text-white" />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest">Vault Top-Up</p>
+                <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest">Vault top up</p>
                 <p className="font-bold text-base leading-tight">InstaPay via PDAX</p>
               </div>
             </div>
@@ -201,7 +197,7 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
         <div className="p-6">
           <AnimatePresence mode="wait">
 
-            {/* STEP 1 — FORM */}
+            {/* STEP 1: FORM */}
             {step === 'form' && (
               <motion.div key="form"
                 initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }}
@@ -262,9 +258,9 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
                               : 'text-amber-700 bg-amber-100'
                           }`}>
                             {rateSource === 'pdax_live'
-                              ? `Live PDAX rate · ₱${fmtPhp(quote?.rate ?? 0)}/XLM`
+                              ? `Live PDAX rate: ₱${fmtPhp(quote?.rate ?? 0)}/XLM`
                               : rateSource === 'coingecko_live'
-                                ? `Live market rate · ₱${fmtPhp(quote?.rate ?? 0)}/XLM`
+                                ? `Live market rate: ₱${fmtPhp(quote?.rate ?? 0)}/XLM`
                                 : 'Indicative rate'}
                           </span>
                         </div>
@@ -285,10 +281,7 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
                 )}
 
                 <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-slate-400 shrink-0">
-                    <rect x="2" y="4" width="20" height="16" rx="3" stroke="currentColor" strokeWidth="1.5"/>
-                    <path d="M2 9h20" stroke="currentColor" strokeWidth="1.5"/>
-                  </svg>
+                  <CreditCard size={14} className="text-slate-400 shrink-0" />
                   <div className="overflow-hidden">
                     <p className="text-xs text-slate-400">Credits vault of</p>
                     <p className="text-xs font-mono text-slate-600 truncate">{beneficiaryAddress}</p>
@@ -311,7 +304,7 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
               </motion.div>
             )}
 
-            {/* STEP 1.5 — CREATING */}
+            {/* STEP 1.5: CREATING */}
             {step === 'creating' && (
               <motion.div key="creating"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -325,7 +318,7 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
               </motion.div>
             )}
 
-            {/* STEP 2 — AWAITING PAYMENT */}
+            {/* STEP 2: AWAITING PAYMENT */}
             {step === 'awaiting_payment' && (
               <motion.div key="awaiting"
                 initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }}
@@ -381,7 +374,7 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
               </motion.div>
             )}
 
-            {/* STEP 3 — CREDITING */}
+            {/* STEP 3: CREDITING */}
             {step === 'crediting' && (
               <motion.div key="crediting"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -395,7 +388,7 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
               </motion.div>
             )}
 
-            {/* STEP 4 — DONE */}
+            {/* STEP 4: DONE */}
             {step === 'done' && (
               <motion.div key="done"
                 initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}

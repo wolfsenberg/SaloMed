@@ -36,7 +36,7 @@ export default function BillScanner({ address, vault, onPaySuccess }: Props) {
     try {
       setResult(await scanBill(file));
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Scan failed — is the backend running?');
+      setError(e instanceof Error ? e.message : 'Scan failed. Is the backend running?');
     } finally {
       setScanning(false);
     }

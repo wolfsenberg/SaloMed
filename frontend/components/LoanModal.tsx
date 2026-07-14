@@ -171,7 +171,7 @@ export default function LoanModal({ gapAmount, vault, onClose, onSuccess }: Prop
             >
               {submitting
                 ? <><Loader2 size={16} className="animate-spin" /> Submitting…</>
-                : `Request Salo — ${php(monthly)}/mo for ${selectedTerm} months`}
+                : `Request Salo: ${php(monthly)}/mo for ${selectedTerm} months`}
             </button>
           )}
         </AnimatePresence>

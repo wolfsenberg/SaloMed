@@ -391,7 +391,7 @@ export default function LoanTab({ address, vault }: Props) {
               {submitting
                 ? <><Loader2 size={16} className="animate-spin" /> Submitting…</>
                 : parsedPhp > 0
-                  ? `Request Salo — ${php(monthly)}/mo for ${selectedTerm} months`
+                  ? `Request Salo: ${php(monthly)}/mo for ${selectedTerm} months`
                   : 'Enter an amount to continue'
               }
             </button>

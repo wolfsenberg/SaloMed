@@ -65,7 +65,7 @@ export default function PayModal({ patientAddress, amountXlm, vault, onClose, on
       setTimeout(onSuccess, 3000);
     } catch (e: unknown) {
       console.error('Payment error:', e);
-      setError(e instanceof Error ? e.message : 'Payment failed — check your Freighter wallet.');
+      setError(e instanceof Error ? e.message : 'Payment failed. Check your Freighter wallet.');
     } finally {
       setSubmitting(false);
     }

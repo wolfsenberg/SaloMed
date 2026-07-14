@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Award, CreditCard, Star, Lock, RefreshCw, Globe,
-  TrendingUp, ShieldCheck, Link, ArrowLeftRight,
+  Award, Coins, CreditCard, Star, Lock, RefreshCw, Globe,
+  TrendingUp, ShieldCheck, Link, ArrowLeftRight, Wallet,
 } from 'lucide-react';
 import { HealthVault } from '@/lib/contract';
 import GCashModal from '@/components/GCashModal';
@@ -198,7 +198,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
 
         {/* Actions row */}
         <div className="mt-4 space-y-2">
-          {/* Top-up label */}
+          {/* Top up label */}
           <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest text-center">
             {t('vault_topup')}
           </p>
@@ -214,7 +214,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
             )}
             {(runtime?.mode === 'pdax_uat' || runtime?.mode === 'pdax_prod') && (
               <div className="rounded-xl px-3 py-3 text-xs text-center bg-amber-300/20 border border-amber-200/30 text-amber-100">
-                PDAX top-up disabled until USDC settlement is implemented and verified.
+                PDAX top up is disabled until USDC settlement is implemented and verified.
               </div>
             )}
             {runtime?.mode === 'stellar_testnet' && (
@@ -223,17 +223,15 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
                   onClick={() => setShowInstaPay(true)}
                   className="flex items-center gap-2 bg-white text-[#007DFF] hover:bg-blue-50 active:scale-[0.97] transition-all rounded-xl px-3 py-3 text-xs font-bold justify-center"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                    <rect x="2" y="4" width="20" height="16" rx="3" stroke="currentColor" strokeWidth="1.6"/>
-                    <path d="M2 9h20" stroke="currentColor" strokeWidth="1.6"/>
-                  </svg>
+                  <CreditCard size={16} />
                   Top up with InstaPay (PDAX)
                 </button>
                 <button
                   onClick={() => setShowFreighter(true)}
                   className="flex items-center gap-2 bg-white/20 hover:bg-white/30 active:scale-[0.97] transition-all rounded-xl px-3 py-3 text-xs font-semibold justify-center"
                 >
-                  Deposit XLM with Freighter
+                  <Wallet size={16} />
+                  Top up with Freighter
                 </button>
               </>
             )}
@@ -285,7 +283,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
       {/* Stats */}
       <motion.div variants={card} className="grid grid-cols-2 gap-3">
         {[
-          { label: 'Vault Asset', value: 'XLM', sub: 'Stellar Lumens', Icon: CreditCard },
+          { label: 'Vault Asset', value: 'XLM', sub: 'Stellar Lumens', Icon: Coins },
           { label: 'Points Rule', value: '1 / XLM', sub: 'per full XLM paid', Icon: Star },
           { label: 'Vault Status', value: vault.balance > 0n ? t('vault_active') : t('vault_empty'), sub: t('vault_escrow'), Icon: ShieldCheck },
           { label: 'Salo Tier',  value: vault.credit_tier,   sub: tierNextLabel(vault), Icon: Award       },
@@ -308,7 +306,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
         </p>
         {[
           'Earn 1 point for each full XLM paid to a whitelisted provider.',
-          'Bronze: below 100 points; Silver: 100–499; Gold: 500 or more.',
+          'Bronze: below 100 points; Silver: 100 to 499; Gold: 500 or more.',
           'Points cannot be converted, withdrawn, transferred, or spent.',
           rate.source === 'pdax_live'
             ? 'PHP conversion uses the live PDAX rate.'
@@ -317,13 +315,13 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
             : 'PHP display uses an indicative rate.',
         ].map(tip => (
           <div key={tip} className="flex gap-2 text-xs text-blue-600">
-            <span className="shrink-0 mt-0.5 font-bold">–</span>
+            <span className="shrink-0 mt-0.5 font-bold">-</span>
             <span>{tip}</span>
           </div>
         ))}
       </motion.div>
 
-      {/* Purpose lock notice — always visible, reinforces the core value */}
+      {/* Purpose lock notice: always visible, reinforces the core value */}
       <motion.div variants={card} className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
         <div className="flex items-start gap-3">
           <ShieldCheck size={18} className="text-blue-500 shrink-0 mt-0.5" />

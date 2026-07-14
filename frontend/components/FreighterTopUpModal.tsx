@@ -37,7 +37,7 @@ export default function FreighterTopUpModal({ address, onClose, onSuccess }: Pro
       const { depositToVault } = await import('@/lib/contract');
       const hash = await depositToVault(address, parsedXlm, 'freighter');
 
-      // Backend already records the top-up in the address-keyed history index.
+      // Backend already records the top up in the address-keyed history index.
       setTxHash(hash);
       saveTx(address, {
         type:      'topup',
@@ -53,7 +53,7 @@ export default function FreighterTopUpModal({ address, onClose, onSuccess }: Pro
       setTimeout(onSuccess, 2200);
 
     } catch (e: unknown) {
-      console.error('Top-up failed:', e);
+      console.error('Top up failed:', e);
       setError(e instanceof Error ? e.message : 'Deposit failed. Please try again.');
       setStep('form');
     }
@@ -81,7 +81,7 @@ export default function FreighterTopUpModal({ address, onClose, onSuccess }: Pro
                 <Wallet size={20} className="text-blue-600" />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest">Vault Top-Up</p>
+                <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest">Vault top up</p>
                 <p className="font-bold text-base leading-tight">Freighter Wallet</p>
               </div>
             </div>
@@ -178,7 +178,7 @@ export default function FreighterTopUpModal({ address, onClose, onSuccess }: Pro
                   disabled={parsedXlm <= 0}
                   className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
                 >
-                  <Wallet size={15} /> Top Up with Freighter
+                  <Wallet size={15} /> Top up with Freighter
                 </button>
               </motion.div>
             )}
@@ -207,7 +207,7 @@ export default function FreighterTopUpModal({ address, onClose, onSuccess }: Pro
               >
                 <Loader2 size={48} className="text-blue-600 animate-spin" />
                 <div className="text-center space-y-1">
-                  <p className="font-bold text-slate-900">Processing Top-Up…</p>
+                  <p className="font-bold text-slate-900">Processing top up…</p>
                   <p className="text-xs text-slate-500">Executing on-chain deposit…</p>
                   {signerAddress && (
                     <p className="text-[10px] font-mono text-slate-400 mt-2">
@@ -231,8 +231,8 @@ export default function FreighterTopUpModal({ address, onClose, onSuccess }: Pro
                   <CheckCircle size={56} className="text-emerald-500" />
                 </motion.div>
                 <div>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Vault Top-Up</p>
-                  <p className="text-lg font-bold text-slate-900">Top-Up Confirmed!</p>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Vault top up</p>
+                  <p className="text-lg font-bold text-slate-900">Top up confirmed!</p>
                   <p className="text-sm text-slate-500 mt-1">
                     <span className="font-semibold text-slate-700">{parsedXlm.toFixed(2)} XLM</span>
                     {' '}(≈ ₱{parsedPhp.toFixed(2)}) credited to your vault.

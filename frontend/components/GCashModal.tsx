@@ -35,7 +35,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
   const rate = useXlmPhpRate();
 
   const parsedPhp = parseFloat(amountPhp) || 0;
-  const xlmAmount = parsedPhp > 0 ? (parsedPhp / rate.phpPerXlm).toFixed(2) : '—';
+  const xlmAmount = parsedPhp > 0 ? (parsedPhp / rate.phpPerXlm).toFixed(2) : '0.00';
 
   function buildQRResult(): LocalQRResult {
     const refId  = 'SM' + Math.random().toString(36).slice(2, 10).toUpperCase();
@@ -52,7 +52,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
       setError('Enter a valid GCash number (09XXXXXXXXX).'); return;
     }
     if (parsedPhp < 1) {
-      setError('Minimum top-up is ₱1.'); return;
+      setError('Minimum top up is ₱1.'); return;
     }
     setError(null);
     setResult(buildQRResult());
@@ -70,7 +70,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
       const { depositToVault } = await import('@/lib/contract');
       const hash = await depositToVault(beneficiaryAddress, result.amount_xlm, 'gcash');
 
-      // Backend already records the top-up in the address-keyed history index.
+      // Backend already records the top up in the address-keyed history index.
       setLedgerReference(hash);
       saveTx(beneficiaryAddress, {
         type:      'topup',
@@ -89,8 +89,8 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
       setTimeout(() => { onSuccess(); }, 1500);
 
     } catch (e: unknown) {
-      console.error('GCash top-up failed:', e);
-      setError(e instanceof Error ? e.message : 'Top-up failed. Please retry.');
+      console.error('GCash top up failed:', e);
+      setError(e instanceof Error ? e.message : 'Top up failed. Please retry.');
       setStep('qr');
     }
   }
@@ -117,7 +117,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                 <span className="text-[#007DFF] font-black text-base">G</span>
               </div>
               <div>
-                <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest">Vault Top-Up</p>
+                <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest">Vault top up</p>
                 <p className="font-bold text-base leading-tight">GCash</p>
               </div>
             </div>
@@ -132,7 +132,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
         <div className="p-6">
           <AnimatePresence mode="wait">
 
-            {/* STEP 1 — Form */}
+            {/* STEP 1: Form */}
             {step === 'form' && (
               <motion.div key="form"
                 initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }}
@@ -239,7 +239,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
               </motion.div>
             )}
 
-            {/* STEP 2 — QR */}
+            {/* STEP 2: QR */}
             {step === 'qr' && result && (
               <motion.div key="qr"
                 initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }}
@@ -290,7 +290,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
               </motion.div>
             )}
 
-            {/* STEP 3 — Processing */}
+            {/* STEP 3: Processing */}
             {step === 'processing' && (
               <motion.div key="processing"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -304,7 +304,7 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
               </motion.div>
             )}
 
-            {/* STEP 4 — Done */}
+            {/* STEP 4: Done */}
             {step === 'done' && (
               <motion.div key="done"
                 initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
@@ -313,10 +313,10 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                 <CheckCircle size={48} className="text-green-500" />
                 <div>
                   <p className="font-bold text-slate-900 text-lg">
-                    Top-up Successful!
+                    Top up successful!
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
-                    {`Top-up recorded: ₱${result?.amount_php.toLocaleString('en-PH', { minimumFractionDigits: 2 })} → ${result?.amount_xlm} XLM`
+                    {`Top up recorded: ₱${result?.amount_php.toLocaleString('en-PH', { minimumFractionDigits: 2 })} to ${result?.amount_xlm} XLM`
                     }
                   </p>
                 </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { AlertCircle, ArrowLeftRight, CheckCircle, Globe, Loader2, Lock, Send, Users, Zap } from 'lucide-react';
+import { AlertCircle, ArrowLeftRight, CheckCircle, CreditCard, Globe, Loader2, Lock, Send, Users } from 'lucide-react';
 
 import type { HealthVault } from '@/lib/contract';
 import { calcPadala, getVault, sendPadala } from '@/lib/contract';
@@ -287,7 +287,7 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
         {canFundBeneficiary && (
           <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 space-y-2">
             <div className="flex items-start gap-2">
-              <Zap size={15} className="text-blue-600 shrink-0 mt-0.5" />
+              <CreditCard size={15} className="text-blue-600 shrink-0 mt-0.5" />
               <div>
                 <p className="text-xs font-bold text-blue-800">Fund this family vault via InstaPay</p>
                 <p className="text-xs text-blue-600 leading-relaxed">
@@ -310,7 +310,7 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
 
         {insufficient && (
           <button onClick={() => onSwitchTab('vault', { scrollTop: true })} className="w-full text-xs font-semibold text-amber-700 bg-amber-50 rounded-xl p-3">
-            Insufficient balance — add funds in Vault
+            Insufficient balance. Add funds in Vault
           </button>
         )}
         {error && <p className="text-xs text-red-600 flex items-center gap-1.5"><AlertCircle size={13} />{error}</p>}

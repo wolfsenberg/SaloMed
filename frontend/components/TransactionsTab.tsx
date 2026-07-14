@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, Clock, ExternalLink, Receipt, RefreshCw, Send } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Clock, ExternalLink, HandCoins, Receipt, RefreshCw, Send } from 'lucide-react';
 
 import { loadTxs, Transaction } from '@/lib/transactions';
 import { getAddressHistory } from '@/lib/runtime';
@@ -15,7 +15,7 @@ interface Props {
 
 const activityStyle = {
   topup: {
-    label: 'Top-up',
+    label: 'Top up',
     Icon: ArrowDownLeft,
     icon: 'bg-emerald-50 text-emerald-600',
     amount: 'text-emerald-600',
@@ -37,12 +37,16 @@ const activityStyle = {
   },
   loan: {
     label: 'Salo',
-    Icon: Receipt,
+    Icon: HandCoins,
     icon: 'bg-amber-50 text-amber-600',
     amount: 'text-amber-700',
     link: 'text-amber-700 hover:text-amber-800',
   },
 } as const;
+
+function statusLabel(status: Transaction['status']): string {
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
 
 export default function TransactionsTab({ address }: Props) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -128,7 +132,7 @@ export default function TransactionsTab({ address }: Props) {
           const label = transaction.providerName
             || transaction.recipientLabel
             || transaction.senderLabel
-            || (transaction.type === 'topup' ? topUpMethodLabel(transaction.topUpSource) : transaction.status);
+            || (transaction.type === 'topup' ? topUpMethodLabel(transaction.topUpSource) : statusLabel(transaction.status));
           const explorer = transaction.txHash ? explorerTxUrl(transaction.txHash) : '';
 
           return (
