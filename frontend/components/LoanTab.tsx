@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Award, Percent, Star, CheckCircle, Loader2, Info,
@@ -9,11 +9,13 @@ import {
 import type { HealthVault } from '@/lib/contract';
 import { loadTxs, Transaction, saveTx } from '@/lib/transactions';
 import { useTranslation } from '@/lib/i18n/LanguageContext';
+import LiveRateButton from '@/components/LiveRateButton';
+import { useXlmPhpRate } from '@/lib/use-xlm-php-rate';
+import { acceptSaloTerms, getPatientSaloRequests, recordSaloRequest, type SaloRequestRow } from '@/lib/salo-requests';
 
 interface Props {
   address: string | null;
   vault: HealthVault;
-  phpRate: number;
 }
 
 const TIER_RATE: Record<HealthVault['credit_tier'], number> = {
@@ -34,19 +36,28 @@ function monthlyPayment(principal: number, annualRate: number, months: number): 
 const php = (n: number) =>
   '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+function saloStatusLabel(status: string): string {
+  if (status === 'terms_accepted') return 'Terms accepted';
+  if (status === 'released') return 'Released';
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
 type Step = 'overview' | 'apply' | 'done';
 
-export default function LoanTab({ address, vault, phpRate }: Props) {
+export default function LoanTab({ address, vault }: Props) {
   const { t } = useTranslation();
   const [step, setStep]             = useState<Step>('overview');
   const [amountPhp, setAmountPhp]   = useState('');
   const [showXlm, setShowXlm]       = useState(false);
   const [selectedTerm, setSelectedTerm] = useState(6);
   const [submitting, setSubmitting] = useState(false);
+  const [saloRequests, setSaloRequests] = useState<SaloRequestRow[]>([]);
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const xlmRate = useXlmPhpRate();
 
   const rate       = TIER_RATE[vault.credit_tier];
   const parsedPhp  = parseFloat(amountPhp) || 0;
-  const parsedXlm  = parsedPhp / phpRate;
+  const parsedUsdc = parsedPhp / xlmRate.phpPerXlm;
   const monthly    = parsedPhp > 0 ? monthlyPayment(parsedPhp, rate, selectedTerm) : 0;
   const totalPay   = monthly * selectedTerm;
   const totalInt   = totalPay - parsedPhp;
@@ -57,6 +68,35 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
   const pendingLoans = allTxs.filter(t => t.type === 'loan' && t.status === 'pending');
   const loanLimitReached = pendingLoans.length >= 2;
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!address) {
+      setSaloRequests([]);
+      return;
+    }
+    getPatientSaloRequests(address)
+      .then(rows => {
+        if (!cancelled) setSaloRequests(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setSaloRequests([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [address]);
+
+  async function handleAcceptTerms(requestId: string) {
+    if (!address) return;
+    setAcceptingId(requestId);
+    try {
+      const updated = await acceptSaloTerms(requestId, address);
+      setSaloRequests(current => current.map(row => row.id === requestId ? updated : row));
+    } finally {
+      setAcceptingId(null);
+    }
+  }
+
   async function handleApply() {
     setSubmitting(true);
     await new Promise(r => setTimeout(r, 1400));
@@ -64,12 +104,27 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
     if (address) {
       saveTx(address, {
         type:         'loan',
-        amountXlm:    parsedXlm,
+        amountXlm:    parsedUsdc,
         amountPhp:    parsedPhp,
         termMonths:   selectedTerm,
         monthlyPhp:   monthly,
         interestRate: rate,
         status:       'pending',
+      });
+      void recordSaloRequest({
+        patientAddress: address,
+        amountAsset: parsedUsdc,
+        amountPhp: parsedPhp,
+        termMonths: selectedTerm,
+        monthlyPhp: monthly,
+        interestRate: rate,
+        saloPoints: vault.salo_points,
+        creditTier: vault.credit_tier,
+        pendingRequests: pendingLoans.length,
+      }).then(recorded => {
+        if (recorded) {
+          setSaloRequests(current => [recorded, ...current.filter(row => row.id !== recorded.id)]);
+        }
       });
     }
     setStep('done');
@@ -103,12 +158,11 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
             {/* Hero */}
             <div className="gradient-brand rounded-2xl p-5 text-white">
               <p className="text-xs font-semibold uppercase tracking-widest text-blue-200 mb-1 flex items-center gap-1.5">
-                <Coins size={11} /> SaloMed Micro-Loan
+                <Coins size={11} /> Salo
               </p>
-              <h2 className="text-xl font-bold mb-1">Gap Funding</h2>
+              <h2 className="text-xl font-bold mb-1">{t('loan_hero_title')}</h2>
               <p className="text-sm text-blue-100 leading-relaxed">
-                Bridge the gap between your vault and your medical bill.
-                Rates are based on your SaloPoints tier.
+                {t('loan_hero_desc')}
               </p>
             </div>
 
@@ -125,12 +179,15 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
                   </div>
                   <div className="space-y-0.5">
                     <p className="text-sm font-bold text-amber-900">
-                      {pendingLoans.length === 1 ? 'Loan Pending Review' : 'Multiple Loans Pending Review'}
+                      {pendingLoans.length === 1 ? t('loan_pending_one') : t('loan_pending_many')}
                     </p>
                     <p className="text-xs text-amber-700 leading-relaxed">
-                      {pendingLoans.length === 1 
-                        ? `Your ${php(pendingLoans[0].amountPhp)} loan application is being verified by our team.`
-                        : `You have ${pendingLoans.length} applications (Total: ${php(pendingLoans.reduce((sum, l) => sum + l.amountPhp, 0))}) being verified.`}
+                      {pendingLoans.length === 1
+                        ? t('loan_pending_one_desc', { amount: php(pendingLoans[0].amountPhp) })
+                        : t('loan_pending_many_desc', {
+                            count: pendingLoans.length,
+                            amount: php(pendingLoans.reduce((sum, l) => sum + l.amountPhp, 0)),
+                          })}
                     </p>
                   </div>
                 </div>
@@ -139,7 +196,7 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
                   <div className="space-y-2 pt-2 border-t border-amber-200">
                     {pendingLoans.map((loan, i) => (
                       <div key={loan.id} className="flex justify-between items-center text-[10px] font-bold text-amber-800">
-                        <span>Application #{i + 1}</span>
+                        <span>{t('loan_application', { number: i + 1 })}</span>
                         <span>{php(loan.amountPhp)}</span>
                       </div>
                     ))}
@@ -148,20 +205,91 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
               </motion.div>
             )}
 
-            {/* Credit tier card */}
+            {saloRequests.length > 0 && (
+              <div className="bg-white rounded-2xl shadow-card border border-slate-100 p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800">Salo workflow</h3>
+                    <p className="text-xs text-slate-400">Approval, terms, release, and repayment tracking</p>
+                  </div>
+                  <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-blue-700">
+                    {saloRequests.length} total
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {saloRequests.slice(0, 3).map(request => (
+                    <div key={request.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-bold text-slate-900">{php(Number(request.amount_php))}</p>
+                          <p className="text-xs text-slate-400">
+                            {request.term_months} months | {Number(request.interest_rate).toFixed(0)}% p.a.
+                          </p>
+                        </div>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                          request.status === 'released'
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : request.status === 'rejected'
+                              ? 'bg-red-50 text-red-700'
+                              : 'bg-amber-50 text-amber-700'
+                        }`}>
+                          {saloStatusLabel(request.status)}
+                        </span>
+                      </div>
+
+                      {request.status === 'approved' && (
+                        <div className="mt-3 space-y-2">
+                          <div className="rounded-lg bg-white px-3 py-2 text-xs text-slate-500">
+                            Review and accept the Salo terms before SaloMed can mark the support as released.
+                          </div>
+                          <button
+                            onClick={() => handleAcceptTerms(request.id)}
+                            disabled={acceptingId === request.id}
+                            className="w-full rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                          >
+                            {acceptingId === request.id ? 'Accepting...' : 'Accept terms'}
+                          </button>
+                        </div>
+                      )}
+
+                      {request.status === 'terms_accepted' && (
+                        <p className="mt-3 rounded-lg bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700">
+                          Terms accepted. Waiting for SaloMed release.
+                        </p>
+                      )}
+
+                      {request.status === 'released' && request.repayment_schedule?.length ? (
+                        <div className="mt-3 space-y-1">
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Repayment schedule</p>
+                          {request.repayment_schedule.slice(0, 3).map(item => (
+                            <div key={item.number} className="flex items-center justify-between text-xs">
+                              <span className="text-slate-500">Month {item.number}</span>
+                              <span className="font-bold text-slate-800">{php(Number(item.amount_php))}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Salo tier card */}
             <div className="bg-white rounded-2xl shadow-card border border-slate-100 p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Your Credit Tier</p>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">{t('loan_your_tier')}</p>
                   <div className="flex items-center gap-2">
                     <span className="text-2xl font-bold text-slate-900">{vault.credit_tier}</span>
                     <Award size={18} className="text-blue-500" />
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs text-slate-400 mb-0.5">Interest Rate</p>
+                  <p className="text-xs text-slate-400 mb-0.5">{t('loan_interest_rate')}</p>
                   <p className="text-3xl font-bold text-blue-600">{rate}%</p>
-                  <p className="text-xs text-slate-400">per annum</p>
+                  <p className="text-xs text-slate-400">{t('loan_per_annum')}</p>
                 </div>
               </div>
 
@@ -184,9 +312,9 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
                   <Info size={14} className="text-blue-500 shrink-0 mt-0.5" />
                   <p className="text-xs text-blue-700 leading-relaxed">
                     {vault.credit_tier === 'Bronze'
-                      ? `${100 - vault.salo_points} more SaloPoints to Silver (5% rate).`
-                      : `${500 - vault.salo_points} more SaloPoints to Gold (2% rate).`}
-                    {' '}Pay at hospitals to earn faster.
+                      ? t('loan_points_to_silver', { points: 100 - vault.salo_points })
+                      : t('loan_points_to_gold', { points: 500 - vault.salo_points })}
+                    {' '}{t('loan_pay_hospitals_tip')}
                   </p>
                 </div>
               )}
@@ -195,9 +323,9 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
             {/* Stats row */}
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: 'Vault Balance', value: `${vaultXlm.toFixed(2)} XLM`, sub: `≈ ₱${(vaultXlm * phpRate).toFixed(0)}`, Icon: Coins },
-                { label: 'SaloPoints',   value: vault.salo_points.toLocaleString(), sub: 'earned', Icon: Star },
-                { label: 'Rate',          value: `${rate}% p.a.`,  sub: vault.credit_tier, Icon: Percent },
+                { label: t('loan_vault_balance'), value: php(vaultXlm * xlmRate.phpPerXlm), sub: `≈ ${vaultXlm.toFixed(2)} XLM`, Icon: Coins },
+                { label: t('loan_salopoints'),   value: vault.salo_points.toLocaleString(), sub: t('loan_earned'), Icon: Star },
+                { label: t('loan_rate'),          value: `${rate}% p.a.`,  sub: vault.credit_tier, Icon: Percent },
               ].map(s => (
                 <div key={s.label} className="bg-white rounded-2xl shadow-card border border-slate-100 p-3 text-center">
                   <s.Icon size={14} className="text-blue-400 mx-auto mb-1" />
@@ -209,12 +337,12 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
 
             {/* How it works */}
             <div className="bg-white rounded-2xl shadow-card border border-slate-100 p-5 space-y-3">
-              <h3 className="text-sm font-bold text-slate-700">How It Works</h3>
+              <h3 className="text-sm font-bold text-slate-700">{t('loan_how_title')}</h3>
               {[
-                'Apply for a micro-loan to cover your medical bill gap',
-                'Loan is credited to your vault instantly (demo)',
-                'Repay in equal monthly installments',
-                'Earn SaloPoints to improve your tier and lower your rate',
+                t('loan_how_1'),
+                t('loan_how_2'),
+                t('loan_how_3'),
+                t('loan_how_4'),
               ].map((s, i) => (
                 <div key={s} className="flex gap-3 items-start">
                   <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
@@ -231,15 +359,14 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
                 disabled={loanLimitReached}
                 className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:bg-slate-100 disabled:text-slate-400 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
               >
-                {loanLimitReached ? 'Loan Limit Reached' : 'Apply for a Loan'} <ChevronRight size={16} />
+                {loanLimitReached ? t('loan_request_limit') : t('loan_request')} <ChevronRight size={16} />
               </button>
               
               {loanLimitReached && (
                 <div className="flex gap-2 bg-slate-50 border border-slate-200 rounded-xl p-3">
                   <Info size={14} className="text-slate-400 shrink-0 mt-0.5" />
                   <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Maximum of 2 loans are allowed at the same time to ensure financial safety. 
-                    Please wait for your current applications to be processed or settled.
+                    {t('loan_limit_desc')}
                   </p>
                 </div>
               )}
@@ -261,7 +388,7 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
                 <ChevronLeft size={18} />
               </button>
               <div>
-                <h2 className="font-bold text-lg text-slate-900">Loan Application</h2>
+                <h2 className="font-bold text-lg text-slate-900">{t('loan_apply_title')}</h2>
                 <p className="text-xs text-slate-400">{rate}% p.a. · {vault.credit_tier} tier</p>
               </div>
             </div>
@@ -270,7 +397,7 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
             <div className="bg-white rounded-2xl shadow-card border border-slate-100 p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
-                  <Coins size={11} /> Loan Amount
+                  <Coins size={11} /> {t('loan_support_amount')}
                 </label>
                 <button
                   onClick={() => setShowXlm(v => !v)}
@@ -287,6 +414,7 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
                 <input
                   value={amountPhp}
                   onChange={e => setAmountPhp(e.target.value)}
+                  onWheel={e => e.currentTarget.blur()}
                   type="number" min="0" step={showXlm ? '0.01' : '100'} placeholder="0.00"
                   className={`w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl ${showXlm ? 'px-4' : 'pl-8'} pr-16 py-3.5 text-xl font-bold text-slate-800 placeholder-slate-300 outline-none transition-all`}
                 />
@@ -297,7 +425,7 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
 
               {parsedPhp > 0 && (
                 <p className="text-xs text-slate-400 text-right">
-                  {showXlm ? `= ${php(parsedPhp)}` : `≈ ${parsedXlm.toFixed(4)} XLM`}
+                  {showXlm ? `= ${php(parsedPhp)}` : `≈ ${parsedUsdc.toFixed(2)} XLM`}
                 </p>
               )}
 
@@ -321,22 +449,22 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
 
             {/* Term selector */}
             <div className="bg-white rounded-2xl shadow-card border border-slate-100 p-5 space-y-3">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Repayment Term</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('loan_repayment_term')}</p>
               <div className="grid grid-cols-3 gap-2">
-                {TERMS.map(t => (
+                {TERMS.map(term => (
                   <button
-                    key={t}
-                    onClick={() => setSelectedTerm(t)}
+                    key={term}
+                    onClick={() => setSelectedTerm(term)}
                     className={`rounded-xl py-3.5 text-center transition-all border ${
-                      selectedTerm === t
+                      selectedTerm === term
                         ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
                         : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-blue-300'
                     }`}
                   >
-                    <p className="text-sm font-bold">{t} months</p>
+                    <p className="text-sm font-bold">{t('loan_months', { months: term })}</p>
                     {parsedPhp > 0 && (
-                      <p className={`text-xs mt-0.5 ${selectedTerm === t ? 'text-blue-100' : 'text-slate-400'}`}>
-                        {php(monthlyPayment(parsedPhp, rate, t))}/mo
+                      <p className={`text-xs mt-0.5 ${selectedTerm === term ? 'text-blue-100' : 'text-slate-400'}`}>
+                        {t('loan_monthly_short', { amount: php(monthlyPayment(parsedPhp, rate, term)) })}
                       </p>
                     )}
                   </button>
@@ -353,21 +481,50 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
                   exit={{ opacity: 0, height: 0 }}
                   className="bg-white rounded-2xl shadow-card border border-slate-100 p-5 space-y-2"
                 >
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Loan Breakdown</p>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{t('loan_summary')}</p>
                   {[
-                    { label: 'Principal',                         value: php(parsedPhp) },
-                    { label: `Monthly payment (${selectedTerm} mo)`, value: php(monthly) },
-                    { label: 'Total repayment',                   value: php(totalPay) },
-                    { label: 'Total interest',                    value: php(totalInt) },
+                    { label: t('loan_principal'),                         value: php(parsedPhp) },
+                    { label: t('loan_monthly_payment', { months: selectedTerm }), value: php(monthly) },
+                    { label: t('loan_total_repayment'),                   value: php(totalPay) },
+                    { label: t('loan_total_interest'),                    value: php(totalInt) },
                   ].map(row => (
                     <div key={row.label} className="flex justify-between text-sm">
                       <span className="text-slate-500">{row.label}</span>
                       <span className="font-semibold text-slate-800">{row.value}</span>
                     </div>
                   ))}
+                  <div className="flex justify-end pt-1">
+                    <LiveRateButton
+                      phpPerXlm={xlmRate.phpPerXlm}
+                      source={xlmRate.source}
+                      loading={xlmRate.loading}
+                      onRefresh={xlmRate.refresh}
+                      className="!border-blue-100 !bg-blue-100/70 !text-blue-700 hover:!bg-blue-100"
+                    />
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {parsedPhp > 0 && (
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-3">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('loan_review_title')}</p>
+                {[
+                  { label: t('loan_review_identity'), value: t('loan_review_identity_value') },
+                  { label: t('loan_review_open_requests'), value: `${pendingLoans.length}/2` },
+                  { label: t('loan_review_payment_history'), value: t('loan_review_payment_history_value', { points: vault.salo_points }) },
+                  { label: t('loan_review_salomed'), value: t('loan_review_salomed_value') },
+                ].map(row => (
+                  <div key={row.label} className="flex items-center justify-between gap-3 text-xs">
+                    <span className="flex items-center gap-2 text-slate-500">
+                      <CheckCircle size={13} className="text-blue-500" />
+                      {row.label}
+                    </span>
+                    <span className="font-semibold text-slate-700 text-right">{row.value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <p className="text-xs text-slate-400 text-center">{t('common_demo_simulated')}</p>
 
@@ -377,10 +534,10 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
               className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
             >
               {submitting
-                ? <><Loader2 size={16} className="animate-spin" /> Submitting…</>
+                ? <><Loader2 size={16} className="animate-spin" /> {t('loan_submitting')}</>
                 : parsedPhp > 0
-                  ? `Apply — ${php(monthly)}/mo for ${selectedTerm} months`
-                  : 'Enter an amount to continue'
+                  ? t('loan_request_with_terms', { amount: php(monthly), months: selectedTerm })
+                  : t('loan_enter_amount')
               }
             </button>
           </motion.div>
@@ -397,23 +554,23 @@ export default function LoanTab({ address, vault, phpRate }: Props) {
               <Clock size={36} className="text-amber-500" />
             </div>
             <div className="space-y-1">
-              <h3 className="text-xl font-bold text-slate-900">Application For Approval</h3>
+              <h3 className="text-xl font-bold text-slate-900">{t('loan_done_title')}</h3>
               <p className="text-sm text-slate-500">
-                Your loan request for <span className="font-bold text-slate-900">{php(parsedPhp)}</span> (≈ {parsedXlm.toFixed(4)} XLM) is now being reviewed.
+                {t('loan_done_desc', { amount: php(parsedPhp), xlm: parsedUsdc.toFixed(2) })}
               </p>
               <p className="text-xs text-slate-400 mt-2">
-                Term: {selectedTerm} months · Rate: {rate}% p.a.
+                {t('loan_done_term_rate', { months: selectedTerm, rate })}
               </p>
             </div>
             <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-xs text-amber-700 max-w-xs leading-relaxed">
-              <p className="font-bold mb-1">Status: Pending Verification</p>
-              A SaloMed representative will contact you shortly to complete the verification process.
+              <p className="font-bold mb-1">{t('loan_done_status_title')}</p>
+              {t('loan_done_status_desc')}
             </div>
             <button
               onClick={() => { setStep('overview'); setAmountPhp(''); }}
               className="text-sm font-semibold text-blue-600 hover:text-blue-700"
             >
-              Back to Loan Overview
+              {t('loan_back')}
             </button>
           </motion.div>
         )}

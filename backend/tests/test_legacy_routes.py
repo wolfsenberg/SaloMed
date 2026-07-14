@@ -89,20 +89,64 @@ def test_retired_paths_are_not_duplicated_in_the_active_router(main_module: Modu
         assert len(matches) == 1, path
 
 
-def test_demo_rate_is_truthful_and_not_xlm(client: TestClient) -> None:
+def test_demo_rate_is_truthful_and_not_xlm(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import pdax_service
+
+    async def _quote(amount_php: float, asset: str = "XLM", fallback_rate: float = 11.34):
+        return {
+            "success": False,
+            "rate": fallback_rate,
+            "asset": asset,
+            "asset_amount": amount_php / fallback_rate,
+            "amount_php": amount_php,
+            "source": "indicative",
+        }
+
+    monkeypatch.setattr(pdax_service, "get_php_to_asset_quote", _quote)
+
     response = client.get("/api/gcash-rate")
 
     assert response.status_code == 200
-    assert response.json()["source"] == "fixed_demo"
-    assert response.json()["php_per_xlm"] is None
+    assert response.json()["source"] == "configured_indicative"
+    assert response.json()["executable"] is False
     assert response.json()["pdax_enabled"] is False
 
 
-def test_pdax_deposit_never_falls_back_to_demo(client: TestClient) -> None:
+def test_demo_rate_can_use_live_market_xlm(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import pdax_service
+
+    async def _quote(amount_php: float, asset: str = "XLM", fallback_rate: float = 11.34):
+        return {
+            "success": True,
+            "rate": 11.34,
+            "asset": asset,
+            "asset_amount": amount_php / 11.34,
+            "amount_php": amount_php,
+            "source": "coingecko_live",
+            "last_updated_at": 123,
+        }
+
+    monkeypatch.setattr(pdax_service, "get_php_to_asset_quote", _quote)
+
+    response = client.get("/api/gcash-rate")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source"] == "coingecko_live"
+    assert body["php_per_xlm"] == 11.34
+    assert body["pdax_enabled"] is False
+
+
+def test_pdax_deposit_validates_before_disabled_mode(client: TestClient) -> None:
     response = client.post(
         "/api/pdax/deposit",
         json={"beneficiary_address": "GFAKE", "amount_php": 560, "gcash_reference": "REF-8"},
     )
 
-    assert response.status_code == 409
-    assert response.json()["detail"]["error"] == "PDAX_DISABLED"
+    assert response.status_code == 422

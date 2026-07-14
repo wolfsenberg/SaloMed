@@ -1,5 +1,4 @@
 import { API_URL } from './config';
-import { demoTopUp, getRuntimeStatus } from './runtime';
 
 export interface BillScanResult {
   total_bill: number;
@@ -29,112 +28,122 @@ export async function scanBill(file: File): Promise<BillScanResult> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PDAX Integration
+// PDAX InstaPay On-Ramp (live)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface PdaxStatusResult {
   configured: boolean;
-  status: string;
-  live_rate: number | null;
-  token_valid?: boolean;
-}
-
-export interface PdaxRateResult {
-  base: string;
-  quote: string;
-  rate: number;
-  source: 'fixed_demo' | 'configured_indicative';
-  pdax_enabled: boolean;
-}
-
-export interface PdaxDepositResult {
-  success: boolean;
-  mode: 'demo' | 'pdax_uat' | 'pdax_prod';
-  // Present only in explicitly enabled PDAX UAT/production modes.
-  checkout_url?: string;
-  // Demo transaction ID; it is never a Stellar hash.
-  tx_result?: string;
-  reference_id: string;
-  pdax_reference?: string;
-  amount_php: number;
-  amount_usdc?: number;
-  estimated_amount_usdc?: number;
-  beneficiary: string;
+  mode: string;
+  connected: boolean;
+  status?: string;
+  balances?: Record<string, number>;
   message?: string;
-  status: string;
 }
 
 export interface PdaxQuoteResult {
   success: boolean;
-  quote_id?: string;
-  base_amount?: number;
-  quote_amount?: number;
-  rate?: number;
-  expires_at?: number;
-  error?: string;
-  fallback_rate?: number;
+  rate: number;
+  asset: string;
+  asset_amount: number;
+  amount_php: number;
+  source: 'pdax_live' | 'coingecko_live' | 'indicative';
 }
 
-/**
- * Check whether the explicitly selected PDAX runtime is available.
- */
+export interface PdaxDepositResult {
+  success: boolean;
+  checkout_url: string;
+  identifier: string;
+  reference_number: string;
+  request_id?: string;
+  amount_php: number;
+  status: string;
+  asset_code?: string;
+  asset_amount?: number;
+  usdc_amount?: number;
+  rate?: number;
+  rate_source?: 'pdax_live' | 'coingecko_live' | 'indicative';
+  review?: Record<string, unknown>;
+}
+
+export interface PdaxConfirmResult {
+  credited: boolean;
+  already?: boolean;
+  tx_hash?: string;
+  asset_code?: string;
+  asset_amount?: number;
+  usdc_amount?: number;
+  pdax_status?: string;
+  settlement_status?: 'pending' | 'credited' | 'failed';
+  retry_count?: number;
+  retryable?: boolean;
+  next_retry_at?: number | null;
+}
+
+export interface PdaxDepositStatusResult {
+  identifier: string;
+  found: boolean;
+  pdax_status: string;
+  beneficiary_address?: string | null;
+  amount_php?: string | number | null;
+  credited: boolean;
+  tx_hash?: string | null;
+  settlement_status?: 'pending' | 'credited' | 'failed';
+  retry_count?: number;
+  last_error?: string;
+  next_retry_at?: number | null;
+  retryable?: boolean;
+}
+
+/** Live PDAX connectivity + institutional balances. */
 export async function getPdaxStatus(): Promise<PdaxStatusResult> {
   const res = await fetch(`${API_URL}/api/pdax/status`);
   return handleResponse<PdaxStatusResult>(res);
 }
 
-/**
- * Get the configured indicative USDC/PHP display rate.
- */
-export async function getPdaxRate(): Promise<PdaxRateResult> {
-  const res = await fetch(`${API_URL}/api/pdax/rate`);
-  return handleResponse<PdaxRateResult>(res);
+/** Live PHP to asset conversion quote from PDAX. */
+export async function pdaxQuote(amountPhp: number, asset = 'XLM'): Promise<PdaxQuoteResult> {
+  const res = await fetch(`${API_URL}/api/pdax/quote?amount_php=${encodeURIComponent(amountPhp)}&asset=${asset}`);
+  return handleResponse<PdaxQuoteResult>(res);
 }
 
-/**
- * Demo mode uses the explicit v2 simulation. PDAX transaction endpoints are
- * blocked until verified USDC settlement exists; modes never fall back.
- */
+/** Create a real PDAX InstaPay deposit; returns a live checkout URL. */
 export async function pdaxInitiateDeposit(
   beneficiaryAddress: string,
   amountPhp: number,
-  gcashReference?: string,
+  senderFirstName = 'SaloMed',
+  senderLastName = 'User',
 ): Promise<PdaxDepositResult> {
-  const runtime = await getRuntimeStatus();
-  if (runtime.mode === 'demo') {
-    const transactionId = await demoTopUp(beneficiaryAddress, amountPhp);
-    return {
-      success: true,
-      mode: 'demo',
-      tx_result: transactionId,
-      reference_id: gcashReference || transactionId,
-      amount_php: amountPhp,
-      amount_usdc: amountPhp / Number(runtime.php_per_asset),
-      beneficiary: beneficiaryAddress,
-      message: 'SIMULATED top-up completed in the demo vault. No real money moved.',
-      status: 'completed',
-    };
-  }
-  if (runtime.mode === 'stellar_testnet') {
-    throw new Error('GCash/InstaPay is disabled in Stellar Testnet mode. Use a Freighter USDC deposit.');
-  }
-
   const res = await fetch(`${API_URL}/api/pdax/deposit`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       beneficiary_address: beneficiaryAddress,
       amount_php: amountPhp,
-      gcash_reference: gcashReference || `SALOMED-${Date.now()}`,
+      sender_first_name: senderFirstName,
+      sender_last_name: senderLastName,
     }),
   });
   return handleResponse<PdaxDepositResult>(res);
 }
 
 /**
- * Firm quotes stay blocked until the private PDAX contract is implemented.
+ * Poll for payment completion. When PDAX reports the deposit completed, the
+ * backend credits the vault with the configured asset and returns the Stellar tx hash.
  */
-export async function getPdaxQuote(amountUsdc: number): Promise<PdaxQuoteResult> {
-  const res = await fetch(`${API_URL}/api/pdax/quote?amount_usdc=${amountUsdc}`);
-  return handleResponse<PdaxQuoteResult>(res);
+export async function pdaxConfirm(
+  identifier: string,
+  beneficiaryAddress: string,
+): Promise<PdaxConfirmResult> {
+  const res = await fetch(`${API_URL}/api/pdax/confirm`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identifier, beneficiary_address: beneficiaryAddress }),
+  });
+  return handleResponse<PdaxConfirmResult>(res);
+}
+
+/** Read the local PDAX deposit tracking row plus the latest PDAX status. */
+export async function pdaxDepositStatus(identifier: string): Promise<PdaxDepositStatusResult> {
+  const res = await fetch(`${API_URL}/api/pdax/deposits/${encodeURIComponent(identifier)}`);
+  return handleResponse<PdaxDepositStatusResult>(res);
 }

@@ -1,3 +1,5 @@
+import { API_URL, PHP_PER_XLM } from './config';
+
 export type TxType = 'topup' | 'payment' | 'padala' | 'loan';
 
 // ── Local SaloPoints persistence ──────────────────────────────────────────────
@@ -31,8 +33,10 @@ export interface Transaction {
   amountPhp:        number;
   // topup
   gcashRef?:        string;
+  gcashNumber?:     string;
   // payment
   providerName?:    string;
+  providerAddress?: string;
   providerType?:    'hospital' | 'pharmacy';
   payFrom?:         'vault' | 'savings';
   // padala
@@ -48,9 +52,24 @@ export interface Transaction {
   status:           'success' | 'pending';
   direction?:       'sent' | 'received';
   senderLabel?:     string;
+  counterpartyLabel?: string;
+  // top-up method label source: gcash | instapay | freighter
+  topUpSource?:     string | null;
 }
 
 const storageKey = (address: string) => `salomed_txs_${address.toUpperCase()}`;
+
+async function readCurrentPhpPerXlm(): Promise<number> {
+  try {
+    const response = await fetch(`${API_URL}/api/gcash-rate`, { cache: 'no-store' });
+    if (!response.ok) return PHP_PER_XLM;
+    const data = await response.json();
+    const rate = Number(data.php_per_xlm ?? data.php_per_usdc);
+    return Number.isFinite(rate) && rate > 0 ? rate : PHP_PER_XLM;
+  } catch {
+    return PHP_PER_XLM;
+  }
+}
 
 export function saveTx(
   address: string,
@@ -101,6 +120,7 @@ export async function fetchHorizonTxs(address: string): Promise<Transaction[]> {
     if (!res.ok) return [];
     const data = await res.json();
     const records = data._embedded?.records || [];
+    const phpPerXlm = await readCurrentPhpPerXlm();
 
     return records.map((r: any) => {
       // Horizon 'payments' endpoint returns 'payment' or 'create_account'
@@ -120,7 +140,7 @@ export async function fetchHorizonTxs(address: string): Promise<Transaction[]> {
         type,
         timestamp: new Date(r.created_at).getTime(),
         amountXlm,
-        amountPhp: amountXlm * 56, // Demo static rate
+        amountPhp: amountXlm * phpPerXlm,
         direction: isSender ? 'sent' : 'received',
         status: 'success',
         txHash: r.transaction_hash,

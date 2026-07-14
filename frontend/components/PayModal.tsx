@@ -6,6 +6,9 @@ import { Building2, Coins, X, CheckCircle, Loader2, AlertCircle, Globe, ArrowLef
 
 import { payHospital, calcPayment } from '@/lib/contract';
 import { saveTx } from '@/lib/transactions';
+import { recordProviderPayment } from '@/lib/runtime';
+import LiveRateButton from '@/components/LiveRateButton';
+import { useXlmPhpRate } from '@/lib/use-xlm-php-rate';
 
 interface Props {
   patientAddress: string;
@@ -13,7 +16,7 @@ interface Props {
   vault?: any; // HealthVault structure
   onClose: () => void;
   onSuccess: () => void;
-  onSwitchTab?: (tab: string) => void;
+  onSwitchTab?: (tab: string, options?: { scrollTop?: boolean }) => void;
 }
 
 function isValidStellarAddress(addr: string) {
@@ -26,8 +29,9 @@ export default function PayModal({ patientAddress, amountXlm, vault, onClose, on
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [done, setDone] = useState(false);
-  const [showPhp, setShowPhp] = useState(false);
-  const phpRate = 56; // demo rate
+  const [showPhp, setShowPhp] = useState(true);
+  const rate = useXlmPhpRate();
+  const amountPhp = amountXlm * rate.phpPerXlm;
 
   const vaultBalance = vault ? Number(vault.balance) / 10_000_000 : Infinity;
   const isInsufficient = amountXlm > vaultBalance;
@@ -49,20 +53,30 @@ export default function PayModal({ patientAddress, amountXlm, vault, onClose, on
       saveTx(patientAddress, {
         type: 'payment',
         amountXlm,
-        amountPhp: amountXlm * 56, // demo rate
+        amountPhp,
         providerName: 'Whitelisted Hospital',
+        providerAddress: hospitalAddress.trim(),
         providerType: 'hospital',
         payFrom: 'vault',
         ptsEarned: breakdown.ptsEarned,
         txHash: hash,
         status: 'success',
       });
+      void recordProviderPayment({
+        patientAddress,
+        providerAddress: hospitalAddress.trim(),
+        providerName: 'Whitelisted Hospital',
+        providerType: 'hospital',
+        amountAsset: amountXlm,
+        amountPhp,
+        txHash: hash,
+      });
 
       setDone(true);
       setTimeout(onSuccess, 3000);
     } catch (e: unknown) {
       console.error('Payment error:', e);
-      setError(e instanceof Error ? e.message : 'Payment failed — check your Freighter wallet.');
+      setError(e instanceof Error ? e.message : 'Payment failed. Check your Freighter wallet.');
     } finally {
       setSubmitting(false);
     }
@@ -101,8 +115,11 @@ export default function PayModal({ patientAddress, amountXlm, vault, onClose, on
               <span className="text-[10px] font-bold uppercase tracking-wider">Transfer Amount</span>
             </div>
             <span className="text-2xl font-bold tabular-nums">
-              {showPhp ? (amountXlm * phpRate).toFixed(2) : amountXlm.toFixed(2)}
+              {showPhp ? `₱${amountPhp.toFixed(2)}` : amountXlm.toFixed(2)}
               <span className="text-sm font-normal text-blue-200 ml-1.5">{showPhp ? 'PHP' : 'XLM'}</span>
+            </span>
+            <span className="text-xs text-blue-200 mt-0.5">
+              {showPhp ? `≈ ${amountXlm.toFixed(2)} XLM` : `≈ ₱${amountPhp.toFixed(2)} PHP`}
             </span>
           </div>
           <button
@@ -112,6 +129,16 @@ export default function PayModal({ patientAddress, amountXlm, vault, onClose, on
           >
             <ArrowLeftRight size={16} />
           </button>
+        </div>
+
+        <div className="flex justify-end -mt-1">
+          <LiveRateButton
+            phpPerXlm={rate.phpPerXlm}
+            source={rate.source}
+            loading={rate.loading}
+            onRefresh={rate.refresh}
+            className="!border-blue-100 !bg-blue-50/80 !text-blue-600 hover:!bg-blue-100"
+          />
         </div>
 
         {/* Hospital address */}
@@ -153,15 +180,16 @@ export default function PayModal({ patientAddress, amountXlm, vault, onClose, on
                 <p className="text-sm font-bold text-amber-900">Not enough balance</p>
                 <p className="text-xs text-amber-700">
                   Your vault has {vaultBalance.toFixed(2)} XLM, which is not enough for this payment.
+                  Add funds in Vault, then return here to complete it.
                 </p>
               </div>
             </div>
             {onSwitchTab && (
               <button
-                onClick={() => { onClose(); onSwitchTab('vault'); }}
+                onClick={() => { onClose(); onSwitchTab('vault', { scrollTop: true }); }}
                 className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition-colors"
               >
-                Top Up in Vault
+                Add Funds in Vault
               </button>
             )}
           </div>
@@ -181,7 +209,7 @@ export default function PayModal({ patientAddress, amountXlm, vault, onClose, on
               <div className="space-y-1">
                 <p className="text-emerald-900 font-bold text-base">Payment Sent!</p>
                 <p className="text-emerald-700 text-sm font-semibold">
-                  {amountXlm.toFixed(2)} XLM (≈ ₱{(amountXlm * phpRate).toFixed(2)})
+                  {amountXlm.toFixed(2)} XLM (≈ ₱{amountPhp.toFixed(2)})
                 </p>
                 <p className="text-emerald-600/70 text-[10px] tabular-nums break-all">
                   TX: {txHash?.slice(0, 32)}...

@@ -35,22 +35,29 @@ export async function connectWallet(): Promise<string | null> {
   return addr;
 }
 
-export async function signTransaction(xdr: string): Promise<string | null> {
+export async function signTransaction(xdr: string, signerAddress?: string): Promise<string | null> {
   const f = await api();
-  if (!f) { console.error('[Freighter] extension not found'); return null; }
-  try {
-    const result = await f.signTransaction(xdr, {
-      networkPassphrase: process.env.NEXT_PUBLIC_NETWORK_PASSPHRASE ?? 'Test SDF Network ; September 2015',
-    });
-    if (!result || (result as Record<string, unknown>).error) {
-      console.error('[Freighter] sign error:', (result as Record<string, unknown>)?.error);
-      return null;
-    }
-    return (result as { signedTxXdr: string }).signedTxXdr ?? null;
-  } catch (e) {
-    console.error('[Freighter] signTransaction error:', e);
-    return null;
+  if (!f) throw new Error('Freighter extension not found. Install it from freighter.app and refresh.');
+
+  const passphrase = process.env.NEXT_PUBLIC_NETWORK_PASSPHRASE ?? 'Test SDF Network ; September 2015';
+
+  // signTransaction itself triggers the Freighter approval popup. We pass the
+  // signer address (when known) so the extension targets the right account.
+  // No extra requestAccess/getAddress round-trips here: the wallet is already
+  // connected before any signing flow, so those only added latency.
+  const result = await f.signTransaction(xdr, {
+    networkPassphrase: passphrase,
+    ...(signerAddress ? { address: signerAddress } : {}),
+  });
+
+  const err = (result as Record<string, unknown>)?.error;
+  if (err) {
+    const msg = typeof err === 'string' ? err : (err as { message?: string })?.message ?? JSON.stringify(err);
+    throw new Error(`Freighter: ${msg}`);
   }
+  const signed = (result as { signedTxXdr?: string })?.signedTxXdr;
+  if (!signed) throw new Error('Freighter returned no signed transaction. Is it set to Testnet and unlocked?');
+  return signed;
 }
 
 export async function isFreighterInstalled(): Promise<boolean> {

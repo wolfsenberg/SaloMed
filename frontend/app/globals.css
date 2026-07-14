@@ -21,7 +21,7 @@
     box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.08), 0 2px 4px -1px rgb(0 0 0 / 0.04);
   }
 
-  /* Purpose-lock badge — used throughout app to reinforce healthcare-only lock */
+  /* Purpose-lock badge: used throughout app to reinforce healthcare-only lock */
   .lock-badge {
     @apply inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200
            text-blue-700 text-[10px] font-bold uppercase tracking-wider

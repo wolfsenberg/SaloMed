@@ -65,18 +65,18 @@ export default function LoanModal({ gapAmount, vault, onClose, onSuccess }: Prop
 
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Micro-Loan Request</h2>
-            <p className="text-xs text-slate-500">Gap Funding — Salo Feature</p>
+            <h2 className="text-lg font-bold text-slate-900">Salo</h2>
+            <p className="text-xs text-slate-500">Health bill support for SaloMed review</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
             <X size={22} />
           </button>
         </div>
 
-        {/* Loan summary */}
+        {/* Salo summary */}
         <div className="gradient-brand rounded-2xl p-4 text-white space-y-3">
           <div className="flex justify-between items-center">
-            <span className="text-sm text-blue-200">Loan Amount</span>
+            <span className="text-sm text-blue-200">Support Amount</span>
             <span className="text-2xl font-bold">{php(gapAmount)}</span>
           </div>
           <div className="flex gap-4">
@@ -138,7 +138,7 @@ export default function LoanModal({ gapAmount, vault, onClose, onSuccess }: Prop
           <div className="flex gap-2.5 bg-blue-50 border border-blue-100 rounded-xl p-3">
             <Info size={14} className="text-blue-500 shrink-0 mt-0.5" />
             <p className="text-xs text-blue-700 leading-relaxed">
-              Earn more SaloPoints to unlock a lower rate.{' '}
+              Earn more SaloPoints to unlock a lower Salo rate.{' '}
               {vault.credit_tier === 'Bronze'
                 ? `${100 - vault.salo_points} more pts for Silver (5%).`
                 : `${500 - vault.salo_points} more pts for Gold (2%).`}
@@ -159,9 +159,9 @@ export default function LoanModal({ gapAmount, vault, onClose, onSuccess }: Prop
               className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center"
             >
               <div className="flex items-center justify-center gap-2 text-emerald-700 font-semibold text-sm">
-                <CheckCircle size={16} /> Application submitted!
+                <CheckCircle size={16} /> Application recorded
               </div>
-              <p className="text-slate-500 text-xs mt-1">A representative will contact you shortly.</p>
+              <p className="text-slate-500 text-xs mt-1">This Salo request is recorded for review. Disbursement is not yet enabled.</p>
             </motion.div>
           ) : (
             <button
@@ -171,7 +171,7 @@ export default function LoanModal({ gapAmount, vault, onClose, onSuccess }: Prop
             >
               {submitting
                 ? <><Loader2 size={16} className="animate-spin" /> Submitting…</>
-                : `Apply — ${php(monthly)}/mo for ${selectedTerm} months`}
+                : `Request Salo: ${php(monthly)}/mo for ${selectedTerm} months`}
             </button>
           )}
         </AnimatePresence>

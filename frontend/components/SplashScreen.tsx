@@ -59,7 +59,7 @@ export default function SplashScreen({ onDone }: Props) {
 
             {/* Powered by */}
             <p className="text-[11px] text-slate-300 font-medium">
-              Powered by Stellar Soroban · Explicit runtime modes
+              Powered by Stellar Soroban
             </p>
 
             {/* Pulse loader */}

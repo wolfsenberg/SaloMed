@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import {
@@ -11,23 +11,26 @@ import {
 import type { HealthVault } from '@/lib/contract';
 import { POINTS_RATE, calcPayment, payHospital } from '@/lib/contract';
 import { saveTx } from '@/lib/transactions';
+import { recordHistory, recordProviderPayment } from '@/lib/runtime';
 import QRScannerModal from '@/components/QRScannerModal';
 import ProviderCombobox from '@/components/ProviderCombobox';
 import { useTranslation } from '@/lib/i18n/LanguageContext';
+import LiveRateButton from '@/components/LiveRateButton';
+import { useXlmPhpRate } from '@/lib/use-xlm-php-rate';
 
 interface Props {
   address: string | null;
   vault: HealthVault;
   onSuccess: () => void;
-  onSwitchTab: (tab: any) => void;
+  onSwitchTab: (tab: any, options?: { scrollTop?: boolean }) => void;
 }
 
 type View         = 'home' | 'generate' | 'manual';
 type ProviderType = 'hospital' | 'pharmacy';
 type PayFrom      = 'vault';
 
-import { API_URL } from '@/lib/config';
-const QUICK_AMT = [1, 5, 10, 25, 50];
+const QUICK_XLM_AMT = [1, 5, 10, 25, 50];
+const QUICK_PHP_AMT = [50, 100, 250, 500, 1000];
 
 export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: Props) {
   const { t } = useTranslation();
@@ -39,10 +42,9 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
   const [scannerOrigin, setScannerOrigin] = useState<View>('home');
   const [genSubmitting, setGenSubmitting] = useState(false);
   const [amountXlm, setAmountXlm]         = useState('');
-  const [showPhp, setShowPhp]             = useState(false);
-  const [phpRate, setPhpRate]             = useState(56);
-  const [rateSource, setRateSource]       = useState<'fixed_demo' | 'configured_indicative'>('fixed_demo');
+  const [showPhp, setShowPhp]             = useState(true);
   const [copied, setCopied]               = useState(false);
+  const rate = useXlmPhpRate();
 
   // Manual pay state
   const [manualAddress, setManualAddress] = useState('');
@@ -54,24 +56,19 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
   const [lastPaidAmount, setLastPaidAmount] = useState(0);
   const [lastPaidPhp, setLastPaidPhp]       = useState(0);
 
-  useEffect(() => {
-    fetch(`${API_URL}/api/gcash-rate`)
-      .then(r => r.json())
-      .then((d: { php_per_usdc: number; source?: string }) => {
-        setPhpRate(d.php_per_usdc);
-        setRateSource(d.source === 'configured_indicative' ? 'configured_indicative' : 'fixed_demo');
-      })
-      .catch(() => {});
-  }, []);
-
-  const parsedXlm    = parseFloat(amountXlm) || 0;
-  const parsedPhp    = parsedXlm * phpRate;
+  // The amount field stores the raw typed string in the CURRENTLY shown unit.
+  // We interpret it by mode instead of converting on every keystroke, so typing
+  // stays smooth (no float round-trip jank) and the on-chain XLM is exact.
+  const rawGenAmount = parseFloat(amountXlm) || 0;
+  const parsedXlm    = showPhp ? (rate.phpPerXlm > 0 ? rawGenAmount / rate.phpPerXlm : 0) : rawGenAmount;
+  const parsedPhp    = showPhp ? rawGenAmount : rawGenAmount * rate.phpPerXlm;
   const vaultXlm     = Number(vault.balance) / 10_000_000;
   const activeBalance  = vaultXlm;
   const pointsRate     = POINTS_RATE[providerType];
 
-  const manualParsed    = parseFloat(manualAmount) || 0;
-  const manualParsedPhp = manualParsed * phpRate;
+  const rawManualAmount = parseFloat(manualAmount) || 0;
+  const manualParsed    = showPhp ? (rate.phpPerXlm > 0 ? rawManualAmount / rate.phpPerXlm : 0) : rawManualAmount;
+  const manualParsedPhp = showPhp ? rawManualAmount : rawManualAmount * rate.phpPerXlm;
 
   const genBreakdown    = calcPayment(parsedXlm, providerType);
   const manualBreakdown = calcPayment(manualParsed, providerType);
@@ -96,6 +93,15 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
     setError(null);
     setGenSubmitting(true);
     try {
+      // Guard against stale display: verify live on-chain vault balance first.
+      const { getVault } = await import('@/lib/contract');
+      const live = await getVault(address);
+      const liveXlm = Number(live.balance) / 10_000_000;
+      if (parsedXlm > liveXlm) {
+        setError(`Not enough vault balance. You have ${liveXlm.toFixed(2)} XLM. Top up first.`);
+        setGenSubmitting(false);
+        return;
+      }
       // payHospital: backend prepares XDR → Freighter signs → submit to Horizon
       const txHash = await payHospital(address, manualAddress.trim(), parsedXlm);
       setTxHash(txHash);
@@ -103,13 +109,27 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
       setLastPaidPhp(parsedPhp);
       saveTx(address, {
         type: 'payment', amountXlm: parsedXlm, amountPhp: parsedPhp,
-        providerName: providerName || undefined, providerType, payFrom,
+        providerName: providerName || undefined, providerAddress: manualAddress.trim(), providerType, payFrom,
         ptsEarned: genBreakdown.ptsEarned, txHash, status: 'success',
       });
+      await recordHistory({
+        address, type: 'payment', amountAsset: parsedXlm, amountPhp: parsedPhp,
+        direction: 'sent', counterparty: providerName || undefined, txHash,
+      });
+      void recordProviderPayment({
+        patientAddress: address,
+        providerAddress: manualAddress.trim(),
+        providerName: providerName || 'Whitelisted provider',
+        providerType,
+        amountAsset: parsedXlm,
+        amountPhp: parsedPhp,
+        txHash,
+      });
+      window.dispatchEvent(new CustomEvent('salomed_tx_update', { detail: { address: address.toUpperCase() } }));
       setDone(true);
       setTimeout(onSuccess, 2500);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Payment failed — Freighter rejected or backend unavailable.');
+      setError(e instanceof Error ? e.message : 'Payment failed. Freighter rejected it or the backend is unavailable.');
     } finally {
       setGenSubmitting(false);
     }
@@ -130,6 +150,17 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
     setError(null);
     setSubmitting(true);
     try {
+      // Guard against stale display: re-read the live on-chain vault balance
+      // before submitting, so we never attempt to pay more than is actually
+      // held (which would trap in the contract).
+      const { getVault } = await import('@/lib/contract');
+      const live = await getVault(address);
+      const liveXlm = Number(live.balance) / 10_000_000;
+      if (manualParsed > liveXlm) {
+        setError(`Not enough vault balance. You have ${liveXlm.toFixed(2)} XLM. Top up first.`);
+        setSubmitting(false);
+        return;
+      }
       // payHospital: backend prepares XDR → Freighter signs → submit to Horizon
       const txHash = await payHospital(address, manualAddress.trim(), manualParsed);
       setTxHash(txHash);
@@ -140,16 +171,31 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
         amountXlm:    manualParsed,
         amountPhp:    manualParsedPhp,
         providerName: providerName || undefined,
+        providerAddress: manualAddress.trim(),
         providerType,
         payFrom,
         ptsEarned:    manualBreakdown.ptsEarned,
         txHash,
         status:       'success',
       });
+      await recordHistory({
+        address, type: 'payment', amountAsset: manualParsed, amountPhp: manualParsedPhp,
+        direction: 'sent', counterparty: providerName || undefined, txHash,
+      });
+      void recordProviderPayment({
+        patientAddress: address,
+        providerAddress: manualAddress.trim(),
+        providerName: providerName || 'Whitelisted provider',
+        providerType,
+        amountAsset: manualParsed,
+        amountPhp: manualParsedPhp,
+        txHash,
+      });
+      window.dispatchEvent(new CustomEvent('salomed_tx_update', { detail: { address: address.toUpperCase() } }));
       setDone(true);
       setTimeout(onSuccess, 2500);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Payment failed — Freighter rejected or network error.');
+      setError(e instanceof Error ? e.message : 'Payment failed. Freighter rejected it or there was a network error.');
     } finally {
       setSubmitting(false);
     }
@@ -194,7 +240,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
         <div className="space-y-1">
           <h3 className="text-xl font-bold text-slate-900">Payment Sent!</h3>
           <p className="text-sm text-slate-500">
-            <span className="font-semibold text-slate-700">{lastPaidAmount.toFixed(2)} USDC</span>
+            <span className="font-semibold text-slate-700">{lastPaidAmount.toFixed(2)} XLM</span>
             {' '}(≈ ₱{lastPaidPhp.toFixed(2)}) sent successfully.
           </p>
         </div>
@@ -234,7 +280,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
       <AnimatePresence mode="wait">
 
         {/* ══════════════════════════════════════════════════════ */}
-        {/*  HOME — Main payment hub (GCash-style)               */}
+        {/*  HOME: Main payment hub (GCash-style)                */}
         {/* ══════════════════════════════════════════════════════ */}
         {view === 'home' && (
           <motion.div
@@ -250,30 +296,36 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                 <p className="text-xs font-semibold uppercase tracking-widest text-blue-200 flex items-center gap-1.5">
                   <Sparkles size={11} /> {t('pay_available_balance')}
                 </p>
-                <span className="text-[10px] font-bold bg-white/20 text-white/90 border border-white/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-blue-100/90 transition-colors">
                   <ShieldCheck size={9} /> Healthcare Only
                 </span>
               </div>
               <div className="flex items-end justify-between">
                 <div>
                   <p className="text-3xl font-bold tabular-nums">
-                    {vaultXlm.toFixed(2)}
-                    <span className="text-lg font-normal text-blue-200 ml-2">USDC</span>
+                    ₱{(vaultXlm * rate.phpPerXlm).toFixed(2)}
+                    <span className="text-lg font-normal text-blue-200 ml-2">PHP</span>
                   </p>
                   <p className="text-xs text-blue-300 mt-0.5">
-                    ≈ ₱{(vaultXlm * phpRate).toFixed(2)} PHP
-                    {rateSource === 'configured_indicative' && (
-                      <span className="ml-1.5 text-[10px] font-bold text-green-300">· Indicative PHP rate</span>
-                    )}
+                    ≈ {vaultXlm.toFixed(2)} XLM
                   </p>
                 </div>
               </div>
-              <p className="text-xs text-blue-300 font-mono mt-2 truncate">
-                {address.slice(0, 10)}…{address.slice(-10)}
-              </p>
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <p className="min-w-0 truncate text-xs font-mono text-blue-300">
+                  {address.slice(0, 10)}…{address.slice(-10)}
+                </p>
+                <LiveRateButton
+                  phpPerXlm={rate.phpPerXlm}
+                  source={rate.source}
+                  loading={rate.loading}
+                  onRefresh={rate.refresh}
+                  className="shrink-0 !border-0 !bg-white/10 !text-blue-100/90 shadow-none hover:!bg-white/20"
+                />
+              </div>
             </div>
 
-            {/* Action buttons — GCash style */}
+            {/* Action buttons: GCash style */}
             <div className="grid grid-cols-3 gap-3">
               {/* Generate QR */}
               <button
@@ -318,7 +370,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
               </button>
             </div>
 
-            {/* My Receive QR — always visible */}
+            {/* My Receive QR: always visible */}
             <div className="bg-white rounded-2xl shadow-card border border-slate-100 p-5">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-1.5">
                 <QrCode size={12} /> My Wallet QR
@@ -342,7 +394,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
         )}
 
         {/* ══════════════════════════════════════════════════════ */}
-        {/*  GENERATE QR — Create a payment QR for cashier       */}
+        {/*  GENERATE QR: Create a payment QR for cashier        */}
         {/* ══════════════════════════════════════════════════════ */}
         {view === 'generate' && (
           <motion.div
@@ -372,8 +424,8 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
               {/* Provider type */}
               <div className="grid grid-cols-2 gap-2">
                 {([
-                  { t: 'hospital' as ProviderType, Icon: Building2, label: 'Hospital', pts: '1 pt/USDC' },
-                  { t: 'pharmacy' as ProviderType, Icon: FlaskConical, label: 'Pharmacy', pts: '1 pt/USDC' },
+                  { t: 'hospital' as ProviderType, Icon: Building2, label: 'Hospital', pts: '1 pt/XLM' },
+                  { t: 'pharmacy' as ProviderType, Icon: FlaskConical, label: 'Pharmacy', pts: '1 pt/XLM' },
                 ] as const).map(({ t, Icon, label, pts }) => (
                   <button key={t} onClick={() => setProviderType(t)}
                     className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all ${
@@ -411,7 +463,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     className="flex items-center gap-1 text-[10px] text-blue-500 hover:text-blue-700 font-bold uppercase tracking-wider"
                   >
                     <ArrowLeftRight size={10} />
-                    {showPhp ? 'Show USDC Bal' : 'Show PHP Bal'}
+                    {showPhp ? 'Show XLM Bal' : 'Show PHP Bal'}
                   </button>
                 </div>
                 <div className="grid grid-cols-1 gap-2">
@@ -420,7 +472,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     <div className="text-left">
                       <p className="text-[10px] text-slate-400 leading-none">Locked vault balance</p>
                       <p className="text-xs font-bold mt-0.5">
-                        {showPhp ? `₱${(vaultXlm * phpRate).toFixed(2)}` : `${vaultXlm.toFixed(2)} USDC`}
+                        {showPhp ? `₱${(vaultXlm * rate.phpPerXlm).toFixed(2)}` : `${vaultXlm.toFixed(2)} XLM`}
                       </p>
                     </div>
                   </div>
@@ -435,7 +487,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                   onClick={() => setShowPhp(v => !v)}
                   className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 font-semibold"
                 >
-                  <ArrowLeftRight size={11} /> {showPhp ? 'USDC' : 'PHP'}
+                  <ArrowLeftRight size={11} /> {showPhp ? 'XLM' : 'PHP'}
                 </button>
               </div>
 
@@ -444,18 +496,16 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">₱</span>
                     <input
-                      value={amountXlm ? String(parseFloat(amountXlm) * phpRate) : ''}
-                      onChange={e => {
-                        const php = parseFloat(e.target.value) || 0;
-                        setAmountXlm(php > 0 ? String(php / phpRate) : '');
-                      }}
-                      type="number" min="0" step="0.01" placeholder="0.00"
+                      value={amountXlm}
+                      onChange={e => setAmountXlm(e.target.value)}
+                      onWheel={e => e.currentTarget.blur()}
+                      type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00"
                       className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl pl-8 pr-16 py-3.5 text-xl font-bold text-slate-800 placeholder-slate-300 outline-none transition-all"
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">PHP</span>
                   </div>
                   {parsedXlm > 0 && (
-                    <p className="text-xs text-slate-400 text-right">= {parsedXlm.toFixed(2)} USDC</p>
+                    <p className="text-xs text-slate-400 text-right">= {parsedXlm.toFixed(2)} XLM</p>
                   )}
                 </div>
               ) : (
@@ -464,10 +514,11 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     <input
                       value={amountXlm}
                       onChange={e => setAmountXlm(e.target.value)}
-                      type="number" min="0" step="0.01" placeholder="0.00"
+                      onWheel={e => e.currentTarget.blur()}
+                      type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00"
                       className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl px-4 pr-16 py-3.5 text-xl font-bold text-slate-800 placeholder-slate-300 outline-none transition-all"
                     />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">USDC</span>
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">XLM</span>
                   </div>
                   {parsedXlm > 0 && (
                     <p className="text-xs text-slate-400 text-right">≈ ₱{parsedPhp.toFixed(2)} PHP</p>
@@ -477,17 +528,17 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
 
               {/* Quick amounts */}
               <div className="flex gap-2">
-                {QUICK_AMT.map(n => (
+                {(showPhp ? QUICK_PHP_AMT : QUICK_XLM_AMT).map(n => (
                   <button
                     key={n}
-                    onClick={() => setAmountXlm(String(n))}
+                    onClick={() => { setAmountXlm(String(n)); }}
                     className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all border ${
-                      parsedXlm === n
+                      rawGenAmount === n
                         ? 'bg-blue-600 border-blue-600 text-white'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-blue-300'
                     }`}
                   >
-                    {n}
+                    {showPhp ? `₱${n}` : `${n} XLM`}
                   </button>
                 ))}
               </div>
@@ -495,43 +546,36 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
               {/* Balance / full breakdown */}
               {parsedXlm > 0 ? (
                 <div className="bg-slate-50 rounded-xl border border-slate-100 p-3 space-y-1.5 text-xs">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Breakdown</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Payment summary</p>
                   <div className="flex justify-between">
                     <span className="text-slate-500">You pay</span>
                     <div className="text-right">
-                      <p className="font-semibold text-slate-700">{showPhp ? `₱${parsedPhp.toFixed(2)}` : `${parsedXlm.toFixed(2)} USDC`}</p>
-                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${parsedXlm.toFixed(2)} USDC` : `₱${parsedPhp.toFixed(2)}`}</p>
+                      <p className="font-semibold text-slate-700">{showPhp ? `₱${parsedPhp.toFixed(2)}` : `${parsedXlm.toFixed(2)} XLM`}</p>
+                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${parsedXlm.toFixed(2)} XLM` : `₱${parsedPhp.toFixed(2)}`}</p>
                     </div>
                   </div>
                   <div className="flex justify-between text-slate-400">
-                    <span>Platform fee ({(genBreakdown.feeRate * 100).toFixed(1)}%)</span>
-                    <span>{showPhp ? `₱${(genBreakdown.salomedFee * phpRate).toFixed(2)}` : `${genBreakdown.salomedFee.toFixed(2)} USDC`}</span>
+                    <span>SaloMed fee</span>
+                    <span>None</span>
                   </div>
                   <div className="flex justify-between text-slate-500">
-                    <span>Merchant receives</span>
+                    <span>Provider receives</span>
                     <div className="text-right">
-                      <p className="font-semibold text-slate-700">{showPhp ? `₱${(genBreakdown.merchantReceives * phpRate).toFixed(2)}` : `${genBreakdown.merchantReceives.toFixed(2)} USDC`}</p>
-                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${genBreakdown.merchantReceives.toFixed(2)} USDC` : `₱${(genBreakdown.merchantReceives * phpRate).toFixed(2)}`}</p>
+                      <p className="font-semibold text-slate-700">{showPhp ? `₱${(genBreakdown.merchantReceives * rate.phpPerXlm).toFixed(2)}` : `${genBreakdown.merchantReceives.toFixed(2)} XLM`}</p>
+                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${genBreakdown.merchantReceives.toFixed(2)} XLM` : `₱${(genBreakdown.merchantReceives * rate.phpPerXlm).toFixed(2)}`}</p>
                     </div>
                   </div>
-                  <div className="border-t border-slate-200 pt-1.5 space-y-1">
+                  <div className="border-t border-slate-200 pt-1.5">
                     <div className="flex justify-between text-blue-600 font-semibold">
                       <span className="flex items-center gap-1"><Star size={10} /> SaloPoints earned</span>
                       <span>+{genBreakdown.ptsEarned} pts</span>
-                    </div>
-                    <div className="flex justify-between text-blue-600 font-bold">
-                      <span>Net cost to you</span>
-                      <div className="text-right">
-                        <p>{showPhp ? `₱${(genBreakdown.effectiveCost * phpRate).toFixed(2)}` : `${genBreakdown.effectiveCost.toFixed(2)} USDC`}</p>
-                        <p className="text-[10px] font-medium opacity-80">≈ {showPhp ? `${genBreakdown.effectiveCost.toFixed(2)} USDC` : `₱${(genBreakdown.effectiveCost * phpRate).toFixed(2)}`}</p>
-                      </div>
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
                   <span className="text-xs text-slate-400">Locked vault balance</span>
-                  <span className="text-xs font-semibold text-slate-600">{activeBalance.toFixed(2)} USDC</span>
+                  <span className="text-xs font-semibold text-slate-600">{activeBalance.toFixed(2)} XLM</span>
                 </div>
               )}
 
@@ -542,21 +586,22 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     <div className="space-y-1">
                       <p className="text-sm font-bold text-amber-900">Not enough balance</p>
                       <p className="text-xs text-amber-700 leading-relaxed">
-                        Your locked vault balance ({activeBalance.toFixed(2)} USDC) is not enough to cover this payment.
+                        Your locked vault balance ({activeBalance.toFixed(2)} XLM) is not enough to cover this payment.
+                        Add funds in Vault, then return here to complete it.
                       </p>
                     </div>
                   </div>
                   <button
-                    onClick={() => onSwitchTab('vault')}
+                    onClick={() => onSwitchTab('vault', { scrollTop: true })}
                     className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
                   >
-                    <Wallet size={13} /> Top Up in Vault
+                    <Wallet size={13} /> Add Funds in Vault
                   </button>
                 </div>
               )}
             </div>
 
-            {/* Generated QR Code — requires provider + amount + sufficient balance */}
+            {/* Generated QR Code: requires provider + amount + sufficient balance */}
             <AnimatePresence mode="wait">
               {parsedXlm > 0 && manualAddress.trim() && parsedXlm <= activeBalance ? (
                 <motion.div
@@ -579,7 +624,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                         <p className="text-sm font-bold text-slate-800">Ready to Scan</p>
                       </div>
                       <p className="text-xs font-semibold text-slate-500">{providerName}</p>
-                      <p className="text-2xl font-bold text-blue-600">{parsedXlm.toFixed(2)} USDC</p>
+                      <p className="text-2xl font-bold text-blue-600">{parsedXlm.toFixed(2)} XLM</p>
                       <p className="text-xs text-slate-400">≈ ₱{parsedPhp.toFixed(2)} PHP</p>
                       <p className="text-xs text-slate-400 max-w-[240px] mx-auto mt-1">
                         Show this QR to the cashier, or tap Confirm below once the cashier has scanned it.
@@ -633,7 +678,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
         )}
 
         {/* ══════════════════════════════════════════════════════ */}
-        {/*  MANUAL — Send via Stellar Address                   */}
+        {/*  MANUAL: Send via Stellar Address                    */}
         {/* ══════════════════════════════════════════════════════ */}
         {view === 'manual' && (
           <motion.div
@@ -662,8 +707,8 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
               {/* Provider type */}
               <div className="grid grid-cols-2 gap-2">
                 {([
-                  { t: 'hospital' as ProviderType, Icon: Building2, label: 'Hospital', pts: '1 pt/USDC' },
-                  { t: 'pharmacy' as ProviderType, Icon: FlaskConical, label: 'Pharmacy', pts: '1 pt/USDC' },
+                  { t: 'hospital' as ProviderType, Icon: Building2, label: 'Hospital', pts: '1 pt/XLM' },
+                  { t: 'pharmacy' as ProviderType, Icon: FlaskConical, label: 'Pharmacy', pts: '1 pt/XLM' },
                 ] as const).map(({ t, Icon, label, pts }) => (
                   <button key={t} onClick={() => setProviderType(t)}
                     className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all ${
@@ -702,7 +747,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     className="flex items-center gap-1 text-[10px] text-blue-500 hover:text-blue-700 font-bold uppercase tracking-wider"
                   >
                     <ArrowLeftRight size={10} />
-                    {showPhp ? 'Show USDC Bal' : 'Show PHP Bal'}
+                    {showPhp ? 'Show XLM Bal' : 'Show PHP Bal'}
                   </button>
                 </div>
                 <div className="grid grid-cols-1 gap-2">
@@ -711,14 +756,14 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     <div className="text-left">
                       <p className="text-[10px] text-slate-400 leading-none">Locked vault balance</p>
                       <p className="text-xs font-bold mt-0.5">
-                        {showPhp ? `₱${(vaultXlm * phpRate).toFixed(2)}` : `${vaultXlm.toFixed(2)} USDC`}
+                        {showPhp ? `₱${(vaultXlm * rate.phpPerXlm).toFixed(2)}` : `${vaultXlm.toFixed(2)} XLM`}
                       </p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Stellar address — auto-filled by combobox or enter manually */}
+              {/* Stellar address: auto-filled by combobox or enter manually */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block">
                   Recipient Stellar Address
@@ -748,7 +793,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     onClick={() => setShowPhp(v => !v)}
                     className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 font-semibold"
                   >
-                    <ArrowLeftRight size={11} /> {showPhp ? 'USDC' : 'PHP'}
+                    <ArrowLeftRight size={11} /> {showPhp ? 'XLM' : 'PHP'}
                   </button>
                 </div>
 
@@ -757,18 +802,16 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">₱</span>
                       <input
-                        value={manualAmount ? String(parseFloat(manualAmount) * phpRate) : ''}
-                        onChange={e => {
-                          const php = parseFloat(e.target.value) || 0;
-                          setManualAmount(php > 0 ? String(php / phpRate) : '');
-                        }}
-                        type="number" min="0" step="0.01" placeholder="0.00"
+                        value={manualAmount}
+                        onChange={e => setManualAmount(e.target.value)}
+                        onWheel={e => e.currentTarget.blur()}
+                        type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00"
                         className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl pl-8 pr-16 py-3 text-lg font-bold text-slate-800 placeholder-slate-300 outline-none transition-all"
                       />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">PHP</span>
                     </div>
                     {manualParsed > 0 && (
-                      <p className="text-xs text-slate-400 text-right">= {manualParsed.toFixed(2)} USDC</p>
+                      <p className="text-xs text-slate-400 text-right">= {manualParsed.toFixed(2)} XLM</p>
                     )}
                   </div>
                 ) : (
@@ -777,10 +820,11 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                       <input
                         value={manualAmount}
                         onChange={e => setManualAmount(e.target.value)}
-                        type="number" min="0" step="0.01" placeholder="0.00"
+                        onWheel={e => e.currentTarget.blur()}
+                        type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00"
                         className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl px-4 pr-16 py-3 text-lg font-bold text-slate-800 placeholder-slate-300 outline-none transition-all"
                       />
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">USDC</span>
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">XLM</span>
                     </div>
                     {manualParsed > 0 && (
                       <p className="text-xs text-slate-400 text-right">≈ ₱{manualParsedPhp.toFixed(2)} PHP</p>
@@ -791,17 +835,17 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
 
               {/* Quick amounts */}
               <div className="flex gap-2">
-                {QUICK_AMT.map(n => (
+                {(showPhp ? QUICK_PHP_AMT : QUICK_XLM_AMT).map(n => (
                   <button
                     key={n}
-                    onClick={() => setManualAmount(String(n))}
+                    onClick={() => { setManualAmount(String(n)); }}
                     className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all border ${
-                      manualParsed === n
+                      rawManualAmount === n
                         ? 'bg-blue-600 border-blue-600 text-white'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-blue-300'
                     }`}
                   >
-                    {n}
+                    {showPhp ? `₱${n}` : `${n} XLM`}
                   </button>
                 ))}
               </div>
@@ -809,43 +853,36 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
               {/* Balance / full breakdown */}
               {manualParsed > 0 ? (
                 <div className="bg-slate-50 rounded-xl border border-slate-100 p-3 space-y-1.5 text-xs">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Breakdown</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Payment summary</p>
                   <div className="flex justify-between">
                     <span className="text-slate-500">You pay</span>
                     <div className="text-right">
-                      <p className="font-semibold text-slate-700">{showPhp ? `₱${manualParsedPhp.toFixed(2)}` : `${manualParsed.toFixed(2)} USDC`}</p>
-                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${manualParsed.toFixed(2)} USDC` : `₱${manualParsedPhp.toFixed(2)}`}</p>
+                      <p className="font-semibold text-slate-700">{showPhp ? `₱${manualParsedPhp.toFixed(2)}` : `${manualParsed.toFixed(2)} XLM`}</p>
+                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${manualParsed.toFixed(2)} XLM` : `₱${manualParsedPhp.toFixed(2)}`}</p>
                     </div>
                   </div>
                   <div className="flex justify-between text-slate-400">
-                    <span>Platform fee ({(manualBreakdown.feeRate * 100).toFixed(1)}%)</span>
-                    <span>{showPhp ? `₱${(manualBreakdown.salomedFee * phpRate).toFixed(2)}` : `${manualBreakdown.salomedFee.toFixed(2)} USDC`}</span>
+                    <span>SaloMed fee</span>
+                    <span>None</span>
                   </div>
                   <div className="flex justify-between text-slate-500">
-                    <span>Merchant receives</span>
+                    <span>Provider receives</span>
                     <div className="text-right">
-                      <p className="font-semibold text-slate-700">{showPhp ? `₱${(manualBreakdown.merchantReceives * phpRate).toFixed(2)}` : `${manualBreakdown.merchantReceives.toFixed(2)} USDC`}</p>
-                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${manualBreakdown.merchantReceives.toFixed(2)} USDC` : `₱${(manualBreakdown.merchantReceives * phpRate).toFixed(2)}`}</p>
+                      <p className="font-semibold text-slate-700">{showPhp ? `₱${(manualBreakdown.merchantReceives * rate.phpPerXlm).toFixed(2)}` : `${manualBreakdown.merchantReceives.toFixed(2)} XLM`}</p>
+                      <p className="text-[10px] text-slate-400">≈ {showPhp ? `${manualBreakdown.merchantReceives.toFixed(2)} XLM` : `₱${(manualBreakdown.merchantReceives * rate.phpPerXlm).toFixed(2)}`}</p>
                     </div>
                   </div>
-                  <div className="border-t border-slate-200 pt-1.5 space-y-1">
+                  <div className="border-t border-slate-200 pt-1.5">
                     <div className="flex justify-between text-blue-600 font-semibold">
                       <span className="flex items-center gap-1"><Star size={10} /> SaloPoints earned</span>
                       <span>+{manualBreakdown.ptsEarned} pts</span>
-                    </div>
-                    <div className="flex justify-between text-blue-600 font-bold">
-                      <span>Net cost to you</span>
-                      <div className="text-right">
-                        <p>{showPhp ? `₱${(manualBreakdown.effectiveCost * phpRate).toFixed(2)}` : `${manualBreakdown.effectiveCost.toFixed(2)} USDC`}</p>
-                        <p className="text-[10px] font-medium opacity-80">≈ {showPhp ? `${manualBreakdown.effectiveCost.toFixed(2)} USDC` : `₱${(manualBreakdown.effectiveCost * phpRate).toFixed(2)}`}</p>
-                      </div>
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
                   <span className="text-xs text-slate-400">Locked vault balance</span>
-                  <span className="text-xs font-semibold text-slate-600">{activeBalance.toFixed(2)} USDC</span>
+                  <span className="text-xs font-semibold text-slate-600">{activeBalance.toFixed(2)} XLM</span>
                 </div>
               )}
 
@@ -857,15 +894,16 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                     <div className="space-y-1">
                       <p className="text-sm font-bold text-amber-900">Not enough balance</p>
                       <p className="text-xs text-amber-700 leading-relaxed">
-                        Your locked vault balance ({activeBalance.toFixed(2)} USDC) is not enough for this transaction.
+                        Your locked vault balance ({activeBalance.toFixed(2)} XLM) is not enough for this transaction.
+                        Add funds in Vault, then return here to complete it.
                       </p>
                     </div>
                   </div>
                   <button
-                    onClick={() => onSwitchTab('vault')}
+                    onClick={() => onSwitchTab('vault', { scrollTop: true })}
                     className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
                   >
-                    <Wallet size={13} /> Top Up in Vault
+                    <Wallet size={13} /> Add Funds in Vault
                   </button>
                 </div>
               )}
@@ -893,7 +931,7 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
               >
                 {submitting
                   ? <><Loader2 size={16} className="animate-spin" /> Sending…</>
-                  : <><Coins size={15} /> Send {manualParsed > 0 ? `${manualParsed.toFixed(4)} USDC` : 'Payment'}</>
+                  : <><Coins size={15} /> Send {manualParsed > 0 ? `${manualParsed.toFixed(2)} XLM` : 'Payment'}</>
                 }
               </button>
             </div>

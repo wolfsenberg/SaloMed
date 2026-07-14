@@ -3,14 +3,19 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Award, CreditCard, Star, Lock, RefreshCw, Globe,
-  TrendingUp, ShieldCheck, Link, ArrowLeftRight,
+  Award, Coins, CreditCard, Star, RefreshCw, Globe,
+  TrendingUp, ShieldCheck, Link, ArrowLeftRight, Wallet,
 } from 'lucide-react';
 import { HealthVault } from '@/lib/contract';
 import GCashModal from '@/components/GCashModal';
 import FreighterTopUpModal from '@/components/FreighterTopUpModal';
+import InstaPayTopUpModal from '@/components/InstaPayTopUpModal';
 import { useTranslation } from '@/lib/i18n/LanguageContext';
 import { getRuntimeStatus, RuntimeStatus } from '@/lib/runtime';
+import { fmtPhp, fmtXlm } from '@/lib/format';
+import { explorerAccountUrl, explorerContractUrl, networkBadgeLabel } from '@/lib/stellar-links';
+import { CONTRACT_ID } from '@/lib/config';
+import { useXlmPhpRate } from '@/lib/use-xlm-php-rate';
 
 interface Props {
   address: string | null;
@@ -27,18 +32,24 @@ const TIER = {
   Gold:   { gradient: 'gradient-gold',   badge: 'bg-yellow-100 text-yellow-700',  rate: '2%' },
 };
 
-import { API_URL } from '@/lib/config';
+type SaloTier = keyof typeof TIER;
 
-function tierProgress(vault: HealthVault): number {
-  if (vault.credit_tier === 'Gold')   return 1;
-  if (vault.credit_tier === 'Silver') return (vault.salo_points - 100) / 400;
-  return vault.salo_points / 100;
+function saloTierFromPoints(points: number): SaloTier {
+  if (points >= 500) return 'Gold';
+  if (points >= 100) return 'Silver';
+  return 'Bronze';
 }
 
-function tierNextLabel(vault: HealthVault): string {
-  if (vault.credit_tier === 'Gold')   return 'Maximum tier reached';
-  if (vault.credit_tier === 'Silver') return `${500 - vault.salo_points} pts to Gold`;
-  return `${100 - vault.salo_points} pts to Silver`;
+function tierProgress(points: number): number {
+  if (points >= 500) return 1;
+  if (points >= 100) return (points - 100) / 400;
+  return points / 100;
+}
+
+function tierNextLabel(points: number, t: (key: any, params?: Record<string, string | number>) => string): string {
+  if (points >= 500) return t('vault_max_tier');
+  if (points >= 100) return t('vault_points_to_gold', { points: 500 - points });
+  return t('vault_points_to_silver', { points: 100 - points });
 }
 
 const card = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } };
@@ -47,34 +58,23 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
   const { t } = useTranslation();
   const [showGCash, setShowGCash]         = useState(false);
   const [showFreighter, setShowFreighter] = useState(false);
-  const [showPhp, setShowPhp]             = useState(false);
-  const [phpRate, setPhpRate]             = useState(56);
-  const [rateSource, setRateSource]       = useState<'fixed_demo' | 'configured_indicative'>('fixed_demo');
+  const [showInstaPay, setShowInstaPay]   = useState(false);
+  const [showPhp, setShowPhp]             = useState(true);
   const [runtime, setRuntime]             = useState<RuntimeStatus | null>(null);
+  const rate = useXlmPhpRate();
 
   useEffect(() => {
-    fetch(`${API_URL}/api/gcash-rate`)
-      .then(r => r.json())
-      .then((d: { php_per_usdc: number; source?: string }) => {
-        setPhpRate(d.php_per_usdc);
-        setRateSource(d.source === 'configured_indicative' ? 'configured_indicative' : 'fixed_demo');
-      })
-      .catch(() => {});
-
     getRuntimeStatus().then(setRuntime).catch(() => setRuntime(null));
   }, []);
 
   const xlmValue  = Number(vault.balance) / 10_000_000;
-  const phpValue  = xlmValue * phpRate;
-
-  function fmtXlm(v: number) { return v.toFixed(2); }
-  function fmtPhp(v: number)  { return v.toFixed(2); }
+  const phpValue  = xlmValue * rate.phpPerXlm;
 
   if (!address) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[65vh] px-6 gap-6">
         <div className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center shadow-sm">
-          <Lock size={36} className="text-blue-400" />
+          <Wallet size={36} className="text-blue-400" />
         </div>
 
         <div className="text-center space-y-2">
@@ -94,22 +94,23 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
             className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-semibold text-sm transition-all disabled:opacity-60 shadow-sm flex items-center justify-center gap-2"
           >
             <Link size={15} />
-            {connecting ? t('common_connecting') : t('common_connect_wallet')}
+            {connecting ? t('common_connecting') : t('common_connect_freighter')}
           </button>
-          <p className="text-[11px] text-amber-600 text-center">
-            Connect the wallet that will sign transactions. Manual address-only sessions are disabled.
+          <p className="text-[11px] text-slate-400 text-center">
+            {t('vault_connect_notice')}
           </p>
 
           <p className="text-[11px] text-slate-400 text-center pt-1">
-            {t('common_demo_testnet')}
+            {t('vault_secured_on_stellar')}
           </p>
         </div>
       </div>
     );
   }
 
-  const tier     = TIER[vault.credit_tier];
-  const progress = tierProgress(vault);
+  const saloTier = saloTierFromPoints(vault.salo_points);
+  const tier     = TIER[saloTier];
+  const progress = tierProgress(vault.salo_points);
 
   return (
     <>
@@ -121,14 +122,26 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
     >
       {/* Balance hero */}
       <motion.div variants={card} className="gradient-brand rounded-2xl p-5 text-white shadow-card-md">
-        <p className="text-xs font-semibold uppercase tracking-widest text-blue-200 mb-1">{t('pay_vault_balance')}</p>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className="text-xs font-semibold uppercase tracking-widest text-blue-200">{t('pay_vault_balance')}</p>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={loading}
+            className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-[10px] font-semibold text-blue-100/90 transition-colors hover:bg-white/20 disabled:opacity-60"
+          >
+            <RefreshCw size={10} className={loading ? 'animate-spin' : ''} />
+            {t('vault_refresh')}
+          </button>
+        </div>
 
         {loading ? (
           <div className="h-11 w-44 bg-white/20 rounded-lg animate-pulse my-1" />
         ) : (
           <button
             onClick={() => setShowPhp(v => !v)}
-            className="text-left w-full active:scale-[0.99] transition-transform"
+            className="group w-full text-left transition-transform active:scale-[0.99]"
+            title={showPhp ? t('vault_show_xlm') : t('vault_show_php')}
           >
             <AnimatePresence mode="wait">
               <motion.div
@@ -139,76 +152,109 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
                 transition={{ duration: 0.18 }}
               >
                 {showPhp ? (
-                  <p className="text-4xl font-bold tabular-nums">
+                  <p className="text-4xl font-bold leading-none tabular-nums">
                     ₱{fmtPhp(phpValue)}
                     <span className="text-xl font-normal text-blue-200 ml-2">PHP</span>
                   </p>
                 ) : (
-                  <p className="text-4xl font-bold tabular-nums">
+                  <p className="text-4xl font-bold leading-none tabular-nums">
                     {fmtXlm(xlmValue)}
-                    <span className="text-xl font-normal text-blue-200 ml-2">USDC</span>
+                    <span className="text-xl font-normal text-blue-200 ml-2">XLM</span>
                   </p>
                 )}
               </motion.div>
             </AnimatePresence>
             {/* Tap hint */}
-            <p className="text-xs text-blue-300 mt-1 flex items-center gap-1">
+            <p className="mt-2 flex max-w-xs flex-wrap items-center gap-2 text-xs text-blue-200">
               {showPhp
-                ? `≈ ${fmtXlm(xlmValue)} USDC`
+                ? `≈ ${fmtXlm(xlmValue)} XLM`
                 : `≈ ₱${fmtPhp(phpValue)} PHP`}
-              <ArrowLeftRight size={10} className="text-blue-400" />
-              {rateSource === 'configured_indicative' && (
-                <span className="text-[10px] font-bold text-white/70 bg-white/15 px-1.5 py-0.5 rounded-full">
-                  Indicative PHP rate
-                </span>
-              )}
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-bold text-white transition-colors group-hover:bg-white/25">
+                <ArrowLeftRight size={11} />
+                {showPhp ? t('vault_show_xlm') : t('vault_show_php')}
+              </span>
             </p>
           </button>
         )}
 
-        <div className="flex items-center justify-between mt-1">
-          <p className="text-xs text-blue-300 font-mono truncate mr-2">
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <p className="min-w-0 truncate text-xs font-mono text-blue-300">
             {address.slice(0, 8)}…{address.slice(-8)}
           </p>
-          <a
-            href={`https://stellar.expert/explorer/testnet/account/${address}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[10px] bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded flex items-center gap-1 transition-colors"
-          >
-            <Globe size={10} />
-            Explorer
-          </a>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={rate.refresh}
+              disabled={rate.loading}
+              className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-blue-100/90 transition-colors hover:bg-white/20 disabled:opacity-60"
+              title={`PHP/XLM rate: ₱${fmtPhp(rate.phpPerXlm)}`}
+            >
+              <RefreshCw size={9} className={rate.loading ? 'animate-spin' : ''} />
+              {rate.source === 'pdax_live'
+                ? t('vault_live_pdax')
+                : rate.source === 'coingecko_live'
+                  ? t('vault_live_market')
+                  : t('vault_indicative')} · ₱{fmtPhp(rate.phpPerXlm)}/XLM
+            </button>
+            {runtime?.mode === 'stellar_testnet' && (
+              <a
+                href={explorerAccountUrl(address)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 rounded bg-white/10 px-2 py-0.5 text-[10px] transition-colors hover:bg-white/20"
+              >
+                <Globe size={10} />
+                {t('vault_explorer')}
+              </a>
+            )}
+          </div>
         </div>
 
         {/* Actions row */}
-        <div className="mt-4 space-y-2">
-          {/* Top-up label */}
+        <div className="mt-5 space-y-2.5">
+          {/* Top up label */}
           <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest text-center">
             {t('vault_topup')}
           </p>
-          <div className="grid grid-cols-1 gap-2">
-            {runtime?.mode === 'demo' && (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {(runtime?.mode === 'demo' || runtime?.mode === 'stellar_testnet') && (
               <button
                 onClick={() => setShowGCash(true)}
-                className="flex items-center gap-2 bg-white/20 hover:bg-white/30 active:scale-[0.97] transition-all rounded-xl px-3 py-3 text-xs font-semibold justify-center"
+                className="group flex min-h-20 flex-col items-center justify-center gap-2 rounded-xl bg-white/15 px-3 py-3 text-center text-[11px] font-bold text-white shadow-sm transition-all hover:bg-white hover:text-slate-800 active:scale-[0.98]"
               >
-                <span className="w-5 h-5 bg-white rounded-md flex items-center justify-center text-[#007DFF] text-[11px] font-black">G</span>
-                Simulate GCash top-up
+                <span className="w-7 h-7 bg-white/90 rounded-lg flex items-center justify-center text-[#007DFF] text-[12px] font-black transition-colors group-hover:bg-[#007DFF] group-hover:text-white">G</span>
+                GCash
               </button>
             )}
             {(runtime?.mode === 'pdax_uat' || runtime?.mode === 'pdax_prod') && (
               <div className="rounded-xl px-3 py-3 text-xs text-center bg-amber-300/20 border border-amber-200/30 text-amber-100">
-                PDAX top-up disabled until USDC settlement is implemented and verified.
+                {t('vault_pdax_disabled')}
               </div>
             )}
             {runtime?.mode === 'stellar_testnet' && (
-              <button
-                onClick={() => setShowFreighter(true)}
-                className="flex items-center gap-2 bg-white/20 hover:bg-white/30 active:scale-[0.97] transition-all rounded-xl px-3 py-3 text-xs font-semibold justify-center"
-              >
-                Deposit USDC with Freighter
-              </button>
+              <>
+                <button
+                  onClick={() => setShowInstaPay(true)}
+                  className="group flex min-h-20 flex-col items-center justify-center gap-2 rounded-xl bg-white/15 px-3 py-3 text-center text-[11px] font-bold text-white shadow-sm transition-all hover:bg-white hover:text-slate-800 active:scale-[0.98]"
+                >
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 text-blue-600 transition-colors group-hover:bg-blue-50">
+                    <CreditCard size={15} />
+                  </span>
+                  <span>
+                    InstaPay
+                    <span className="block text-[9px] font-semibold opacity-75 group-hover:text-slate-500">PDAX</span>
+                  </span>
+                </button>
+                <button
+                  onClick={() => setShowFreighter(true)}
+                  className="group flex min-h-20 flex-col items-center justify-center gap-2 rounded-xl bg-white/15 px-3 py-3 text-center text-[11px] font-bold text-white shadow-sm transition-all hover:bg-white hover:text-slate-800 active:scale-[0.98]"
+                >
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 text-indigo-600 transition-colors group-hover:bg-indigo-50">
+                    <Wallet size={15} />
+                  </span>
+                  Freighter
+                </button>
+              </>
             )}
           </div>
         </div>      </motion.div>
@@ -226,7 +272,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
           </div>
           <span className={`px-3 py-1.5 rounded-full text-sm font-bold flex items-center gap-1.5 ${tier.badge}`}>
             <Award size={14} />
-            {vault.credit_tier}
+            {saloTier}
           </span>
         </div>
 
@@ -239,18 +285,17 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
               transition={{ duration: 1, ease: 'easeOut', delay: 0.2 }}
             />
           </div>
-          <p className="text-xs text-slate-400 text-right">{tierNextLabel(vault)}</p>
+          <p className="text-xs text-slate-400 text-right">{tierNextLabel(vault.salo_points, t)}</p>
         </div>
       </motion.div>
 
       {/* SaloPoints are non-monetary until a funded redemption mechanism exists. */}
       <motion.div variants={card} className="bg-white rounded-2xl shadow-card border border-slate-100 p-5">
         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-          <TrendingUp size={12} /> SaloPoints policy
+          <TrendingUp size={12} /> {t('vault_salopoints_policy_title')}
         </p>
         <p className="text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2 leading-relaxed">
-          Earn 1 SaloPoint for every full 1 USDC paid through the vault. Points determine your credit tier only;
-          they are not money, cashback, or a spendable savings balance.
+          {t('vault_salopoints_policy_desc')}
         </p>
       </motion.div>
 
@@ -258,10 +303,10 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
       {/* Stats */}
       <motion.div variants={card} className="grid grid-cols-2 gap-3">
         {[
-          { label: 'Vault Asset', value: 'USDC', sub: '7 decimal units', Icon: CreditCard },
-          { label: 'Points Rule', value: '1 / USDC', sub: 'per full USDC paid', Icon: Star },
-          { label: 'Vault Status', value: vault.balance > 0n ? t('vault_active') : t('vault_empty'), sub: t('vault_escrow'), Icon: ShieldCheck },
-          { label: 'Credit Tier',  value: vault.credit_tier,   sub: tierNextLabel(vault), Icon: Award       },
+          { label: t('vault_asset_label'), value: 'XLM', sub: t('vault_asset_sub'), Icon: Coins },
+          { label: t('vault_points_rule_label'), value: '1 / XLM', sub: t('vault_points_rule_sub'), Icon: Star },
+          { label: t('vault_status'), value: vault.balance > 0n ? t('vault_active') : t('vault_empty'), sub: t('vault_escrow'), Icon: ShieldCheck },
+          { label: t('vault_salo_tier_label'),  value: saloTier,   sub: tierNextLabel(vault.salo_points, t), Icon: Award       },
         ].map(stat => (
           <div key={stat.label} className="bg-white rounded-2xl shadow-card border border-slate-100 p-4">
             <div className="flex items-center gap-1.5 mb-2">
@@ -277,51 +322,44 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
       {/* Points rules */}
       <motion.div variants={card} className="bg-blue-50 border border-blue-100 rounded-2xl p-4 space-y-2">
         <p className="text-xs font-bold text-blue-700 uppercase tracking-wide flex items-center gap-1.5">
-          <TrendingUp size={13} /> Points and tiers
+          <TrendingUp size={13} /> {t('vault_points_tiers_title')}
         </p>
         {[
-          'Earn 1 point for each full USDC paid to a whitelisted provider.',
-          'Bronze: below 100 points; Silver: 100–499; Gold: 500 or more.',
-          'Points cannot be converted, withdrawn, transferred, or spent.',
-          `PHP display uses a ${rateSource === 'fixed_demo' ? 'fixed demo' : 'configured indicative'} rate.`,
+          t('vault_points_tiers_tip1'),
+          t('vault_points_tiers_tip2'),
+          t('vault_points_tiers_tip3'),
+          rate.source === 'pdax_live'
+            ? t('vault_php_pdax_rate')
+            : rate.source === 'coingecko_live'
+              ? t('vault_php_market_rate')
+            : t('vault_php_indicative_rate'),
         ].map(tip => (
           <div key={tip} className="flex gap-2 text-xs text-blue-600">
-            <span className="shrink-0 mt-0.5 font-bold">–</span>
+            <span className="shrink-0 mt-0.5 font-bold">-</span>
             <span>{tip}</span>
           </div>
         ))}
       </motion.div>
 
-      <motion.div variants={card}>
-        <button
-          onClick={onRefresh}
-          className="w-full py-2 text-xs text-slate-400 hover:text-blue-600 transition-colors flex items-center justify-center gap-1.5"
-        >
-          <RefreshCw size={12} /> Refresh vault
-        </button>
-      </motion.div>
-
-      {/* Purpose lock notice — always visible, reinforces the core value */}
+      {/* Purpose lock notice: always visible, reinforces the core value */}
       <motion.div variants={card} className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
         <div className="flex items-start gap-3">
           <ShieldCheck size={18} className="text-blue-500 shrink-0 mt-0.5" />
           <div className="space-y-1">
             <p className="text-xs font-bold text-blue-800 uppercase tracking-wide">
-              Purpose-Locked Health Fund
+              {t('vault_purpose_title')}
             </p>
             <p className="text-xs text-blue-700 leading-relaxed">
-              {runtime?.simulated
-                ? 'This simulated balance is enforced by the demo ledger and can only move through demo-whitelisted healthcare flows. No real money is involved.'
-                : 'Funds in this vault are enforced by the configured Soroban contract and can only be paid to contract-whitelisted healthcare providers.'}
+              {t('vault_purpose_desc', { network: networkBadgeLabel() })}
             </p>
-            {!runtime?.simulated && (
+            {runtime?.mode === 'stellar_testnet' && (
               <a
-                href="https://stellar.expert/explorer/testnet/contract/CAO3K6OYB5A3VNVV3HKCSVG3ZZ442DZCDKAXG4CTSLBTN7FOYCCBRZ34"
+                href={explorerContractUrl(CONTRACT_ID)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-[10px] text-blue-500 hover:text-blue-700 font-semibold mt-1"
               >
-                <Globe size={10} /> View smart contract on Stellar Expert
+                <Globe size={10} /> {t('vault_view_contract')}
               </a>
             )}
           </div>
@@ -342,6 +380,13 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
           address={address}
           onClose={() => setShowFreighter(false)}
           onSuccess={() => { setShowFreighter(false); onRefresh(); }}
+        />
+      )}
+      {showInstaPay && (
+        <InstaPayTopUpModal
+          beneficiaryAddress={address}
+          onClose={() => setShowInstaPay(false)}
+          onSuccess={() => { setShowInstaPay(false); onRefresh(); }}
         />
       )}
     </AnimatePresence>

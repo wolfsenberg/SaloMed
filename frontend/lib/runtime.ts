@@ -140,6 +140,128 @@ export async function getRuntimeVault(address: string): Promise<RuntimeVault> {
   };
 }
 
+/**
+ * Ensure the connected wallet can pay transaction fees for payment/padala.
+ * In Stellar modes the backend tops up a little XLM from the admin. No-op in
+ * demo mode. Best-effort: never throws so it can't block wallet connection.
+ */
+export async function ensureFeeFunds(address: string): Promise<void> {
+  try {
+    await apiJson('/api/v2/ensure-fees', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address }),
+    });
+  } catch {
+    // Non-fatal: user can still connect; fees can be funded later.
+  }
+}
+
+export interface HistoryRow {
+  id: string;
+  type: string;
+  direction: string | null;
+  amount_asset: number;
+  amount_php: number;
+  counterparty: string | null;
+  tx_hash: string | null;
+  status: string;
+  created_at: number;
+  source: string | null;
+}
+
+export interface ProviderPaymentRow {
+  id: string;
+  patient_address: string;
+  provider_address: string;
+  provider_name: string;
+  provider_type: 'hospital' | 'pharmacy' | string;
+  amount_asset: number;
+  amount_php: number;
+  tx_hash: string | null;
+  status: 'success' | 'pending' | 'failed' | string;
+  created_at: number;
+}
+
+/** Record a transaction against a Stellar address (history follows the wallet). */
+export async function recordHistory(row: {
+  address: string;
+  type: string;
+  amountAsset: number;
+  amountPhp: number;
+  direction?: string;
+  counterparty?: string;
+  txHash?: string;
+  source?: string;
+}): Promise<void> {
+  try {
+    await apiJson('/api/v2/history/record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        address: row.address,
+        type: row.type,
+        amount_asset: row.amountAsset.toFixed(7),
+        amount_php: row.amountPhp.toFixed(2),
+        direction: row.direction ?? null,
+        counterparty: row.counterparty ?? null,
+        tx_hash: row.txHash ?? null,
+        status: 'success',
+        source: row.source ?? null,
+      }),
+    });
+  } catch {
+    // Non-fatal: local history still works if the index write fails.
+  }
+}
+
+/** Record a provider-keyed payment so provider portals work across users. */
+export async function recordProviderPayment(row: {
+  patientAddress: string;
+  providerAddress: string;
+  providerName: string;
+  providerType: 'hospital' | 'pharmacy' | string;
+  amountAsset: number;
+  amountPhp: number;
+  txHash?: string;
+  status?: string;
+}): Promise<void> {
+  try {
+    await apiJson('/api/v2/provider-payments/record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        patient_address: row.patientAddress,
+        provider_address: row.providerAddress,
+        provider_name: row.providerName,
+        provider_type: row.providerType,
+        amount_asset: row.amountAsset.toFixed(7),
+        amount_php: row.amountPhp.toFixed(2),
+        tx_hash: row.txHash ?? null,
+        status: row.status ?? 'success',
+      }),
+    });
+  } catch {
+    // Non-fatal: patient history and on-chain verification still work.
+  }
+}
+
+/** Read address-keyed history from the backend index (cross-device). */
+export async function getAddressHistory(address: string): Promise<HistoryRow[]> {
+  const res = await apiJson<{ transactions: HistoryRow[] }>(
+    `/api/v2/vaults/${encodeURIComponent(address)}/transactions`,
+  );
+  return res.transactions ?? [];
+}
+
+/** Read provider-keyed payments from the backend index (cross-user provider portal). */
+export async function getProviderPayments(providerAddress: string): Promise<ProviderPaymentRow[]> {
+  const res = await apiJson<{ transactions: ProviderPaymentRow[] }>(
+    `/api/v2/providers/${encodeURIComponent(providerAddress)}/transactions`,
+  );
+  return res.transactions ?? [];
+}
+
 export async function getRuntimeProviders(): Promise<RuntimeProvider[]> {
   const response = await apiJson<{ providers: RuntimeProvider[] }>('/api/v2/providers');
   return response.providers;
@@ -154,7 +276,13 @@ export async function getRuntimeHistory(address: string): Promise<RuntimeTransac
   return response.transactions;
 }
 
-export async function demoTopUp(address: string, amountPhp: number): Promise<string> {
+export type TopUpSource = 'gcash' | 'instapay' | 'freighter';
+
+export async function demoTopUp(
+  address: string,
+  amountPhp: number,
+  source?: TopUpSource,
+): Promise<string> {
   const scope = `topup:${address}:${amountPhp.toFixed(2)}`;
   const result = await apiJson<{ transaction_id: string }>('/api/v2/topups', {
       method: 'POST',
@@ -163,10 +291,41 @@ export async function demoTopUp(address: string, amountPhp: number): Promise<str
         beneficiary_address: address,
         amount_php: amountPhp.toFixed(2),
         idempotency_key: retryableKey(scope, 'topup'),
+        source: source ?? null,
       }),
     });
   retryableKeys.delete(scope);
   return result.transaction_id;
+}
+
+/**
+ * Live PHP to asset conversion. Throws when a live rate is unavailable
+ * (Req 10.3: never settle a credit on a fixed/indicative fallback rate).
+ */
+export async function convertPhpToAssetLive(amountPhp: number): Promise<number> {
+  const runtime = await getRuntimeStatus();
+  const res = await apiJson<{ asset_amount: number; rate: number; source: string }>(
+    `/api/pdax/quote?amount_php=${encodeURIComponent(amountPhp.toFixed(2))}&asset=${runtime.asset_code}`,
+  );
+  if (!['pdax_live', 'coingecko_live'].includes(res.source) || !(res.asset_amount > 0)) {
+    throw new Error('Live PHP/XLM rate unavailable; please try again in a moment.');
+  }
+  return res.asset_amount;
+}
+
+/**
+ * Live asset to PHP conversion. Throws when a live rate is unavailable
+ * (Req 10.3: no fixed/indicative fallback for settlement figures).
+ */
+export async function convertAssetToPhpLive(amountAsset: number): Promise<number> {
+  const runtime = await getRuntimeStatus();
+  const res = await apiJson<{ rate: number; source: string }>(
+    `/api/pdax/quote?amount_php=1000&asset=${runtime.asset_code}`,
+  );
+  if (!['pdax_live', 'coingecko_live'].includes(res.source) || !(res.rate > 0)) {
+    throw new Error('Live PHP/XLM rate unavailable; please try again in a moment.');
+  }
+  return amountAsset * res.rate;
 }
 
 export async function demoPayment(
@@ -232,18 +391,20 @@ async function readContractHistory(address: string, phpRate: number): Promise<Ru
   const events: StellarSdk.rpc.Api.EventResponse[] = [];
   let cursor: string | undefined;
   while (true) {
-    const page = await rpc.getEvents({
-      startLedger: cursor ? undefined : Math.max(1, latest.sequence - 120_000),
-      cursor,
-      filters: [{
-        type: 'contract',
-        contractIds: [CONTRACT_ID],
-        topics: [['*', addressTopic], ['*', '*', addressTopic]],
-      }],
-      limit: 100,
-    });
+    const eventFilter = {
+      type: 'contract',
+      contractIds: [CONTRACT_ID],
+      topics: [['*', addressTopic], ['*', '*', addressTopic]],
+    };
+    const request = cursor
+      ? { filters: [eventFilter], pagination: { cursor, limit: 100 } }
+      : { startLedger: Math.max(1, latest.sequence - 120_000), filters: [eventFilter], pagination: { limit: 100 } };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const page = await rpc.getEvents(request as any);
     events.push(...page.events);
-    const nextCursor = page.events.at(-1)?.pagingToken;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const last = page.events.at(-1) as any;
+    const nextCursor: string | undefined = last?.pagingToken ?? last?.id ?? (page as any).cursor;
     if (page.events.length < 100 || !nextCursor || nextCursor === cursor) break;
     cursor = nextCursor;
   }
@@ -390,8 +551,8 @@ async function submitContractCall(
   const source = await rpc.getAccount(signerAddress);
   const tx = contractTransaction(source, method, args);
   const prepared = await rpc.prepareTransaction(tx);
-  const signedXdr = await signTransaction(prepared.toXDR());
-  if (!signedXdr) throw new Error('Transaction signing was rejected in Freighter.');
+  const signedXdr = await signTransaction(prepared.toXDR(), signerAddress);
+  if (!signedXdr) throw new Error('Freighter did not return a signature. Make sure it is unlocked and set to Testnet.');
 
   const signed = StellarSdk.TransactionBuilder.fromXDR(signedXdr, NETWORK_PASSPHRASE);
   const sent = await rpc.sendTransaction(signed);

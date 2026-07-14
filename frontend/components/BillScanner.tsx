@@ -6,6 +6,8 @@ import { scanBill, BillScanResult } from '@/lib/api';
 import PayModal from '@/components/PayModal';
 import LoanModal from '@/components/LoanModal';
 import type { HealthVault } from '@/lib/contract';
+import LiveRateButton from '@/components/LiveRateButton';
+import { useXlmPhpRate } from '@/lib/use-xlm-php-rate';
 
 interface Props {
   address: string | null;
@@ -24,6 +26,8 @@ export default function BillScanner({ address, vault, onPaySuccess }: Props) {
   const [error, setError]       = useState<string | null>(null);
   const [modal, setModal]       = useState<'pay' | 'loan' | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const rate = useXlmPhpRate();
+  const gapXlm = result ? result.out_of_pocket_balance / rate.phpPerXlm : 0;
 
   async function process(file: File) {
     setError(null);
@@ -32,7 +36,7 @@ export default function BillScanner({ address, vault, onPaySuccess }: Props) {
     try {
       setResult(await scanBill(file));
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Scan failed — is the backend running?');
+      setError(e instanceof Error ? e.message : 'Scan failed. Is the backend running?');
     } finally {
       setScanning(false);
     }
@@ -119,7 +123,7 @@ export default function BillScanner({ address, vault, onPaySuccess }: Props) {
                   ? 'bg-emerald-100 text-emerald-700'
                   : 'bg-slate-100 text-slate-500'
               }`}>
-                {result.ocr_mode === 'real' ? '✓ OCR Scan' : '⚡ Demo Mode'}
+                {result.ocr_mode === 'real' ? '✓ OCR Scan' : '⚡ Sample OCR'}
               </span>
             </div>
 
@@ -148,6 +152,17 @@ export default function BillScanner({ address, vault, onPaySuccess }: Props) {
                   {php(result.out_of_pocket_balance)}
                 </span>
               </div>
+              <div className="mt-3 flex flex-col items-end">
+                <LiveRateButton
+                  phpPerXlm={rate.phpPerXlm}
+                  source={rate.source}
+                  loading={rate.loading}
+                  onRefresh={rate.refresh}
+                />
+                <p className="text-xs text-slate-400 text-right mt-1">
+                  ≈ {gapXlm.toFixed(7)} XLM
+                </p>
+              </div>
             </div>
 
             {/* CTAs */}
@@ -167,7 +182,7 @@ export default function BillScanner({ address, vault, onPaySuccess }: Props) {
                 title={!address ? 'Connect wallet first' : undefined}
                 className="w-full py-3 rounded-xl border-2 border-blue-600 text-blue-600 hover:bg-blue-50 active:scale-[0.98] disabled:border-slate-200 disabled:text-slate-400 font-semibold text-sm transition-all"
               >
-                {address ? '🏦 Apply for Micro-Loan (Salo)' : 'Connect wallet to apply'}
+                {address ? 'Request Salo' : 'Connect wallet to request Salo'}
               </button>
 
               <button
@@ -187,7 +202,7 @@ export default function BillScanner({ address, vault, onPaySuccess }: Props) {
           <PayModal
             patientAddress={address}
             vault={vault}
-            amountXlm={result.out_of_pocket_balance}
+            amountXlm={gapXlm}
             onClose={() => setModal(null)}
             onSuccess={() => { setModal(null); setResult(null); onPaySuccess(); }}
           />

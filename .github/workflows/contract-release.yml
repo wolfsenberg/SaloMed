@@ -1,0 +1,147 @@
+name: SaloMed Smart Contract Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: Stellar network to deploy to
+        required: true
+        default: testnet
+        type: choice
+        options:
+          - testnet
+      initialize_contract:
+        description: Invoke initialize after deploy
+        required: true
+        default: true
+        type: boolean
+      admin_address:
+        description: Admin public key used for initialize
+        required: false
+        type: string
+      token_id:
+        description: Stellar Asset Contract token address used for initialize
+        required: false
+        type: string
+      confirm_deploy:
+        description: Type DEPLOY_TESTNET to allow on-chain deployment
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build_and_release:
+    name: Build and optionally deploy contract
+    runs-on: ubuntu-latest
+    environment: contract-release
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32v1-none
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            contracts/salomed/target
+          key: ${{ runner.os }}-contract-release-${{ hashFiles('contracts/salomed/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-contract-release-
+
+      - name: Run contract tests
+        working-directory: contracts/salomed
+        run: cargo test --release
+
+      - name: Build WASM artifact
+        working-directory: contracts/salomed
+        run: cargo build --target wasm32v1-none --release
+
+      - name: Upload WASM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: salomed-contract-release-wasm
+          path: contracts/salomed/target/wasm32v1-none/release/salomed.wasm
+          if-no-files-found: error
+
+      - name: Stop unless deployment was explicitly confirmed
+        if: inputs.confirm_deploy != 'DEPLOY_TESTNET'
+        run: |
+          echo "::notice::WASM was built and uploaded. On-chain deployment was skipped because confirm_deploy did not equal DEPLOY_TESTNET."
+          exit 0
+
+      - name: Validate deployment inputs
+        if: inputs.confirm_deploy == 'DEPLOY_TESTNET'
+        env:
+          STELLAR_DEPLOY_SECRET_KEY: ${{ secrets.STELLAR_DEPLOY_SECRET_KEY }}
+          ADMIN_ADDRESS: ${{ inputs.admin_address }}
+          TOKEN_ID: ${{ inputs.token_id }}
+          INITIALIZE_CONTRACT: ${{ inputs.initialize_contract }}
+        run: |
+          if [ -z "$STELLAR_DEPLOY_SECRET_KEY" ]; then
+            echo "::error::STELLAR_DEPLOY_SECRET_KEY is required for contract deployment."
+            exit 1
+          fi
+          if [ "$INITIALIZE_CONTRACT" = "true" ] && { [ -z "$ADMIN_ADDRESS" ] || [ -z "$TOKEN_ID" ]; }; then
+            echo "::error::admin_address and token_id are required when initialize_contract is true."
+            exit 1
+          fi
+
+      - name: Install Stellar CLI
+        if: inputs.confirm_deploy == 'DEPLOY_TESTNET'
+        run: cargo install --locked stellar-cli --version 25.2.0
+
+      - name: Deploy contract to Stellar
+        if: inputs.confirm_deploy == 'DEPLOY_TESTNET'
+        id: deploy
+        working-directory: contracts/salomed
+        env:
+          STELLAR_DEPLOY_SECRET_KEY: ${{ secrets.STELLAR_DEPLOY_SECRET_KEY }}
+          NETWORK: ${{ inputs.network }}
+        run: |
+          CONTRACT_ID="$(stellar contract deploy \
+            --wasm target/wasm32v1-none/release/salomed.wasm \
+            --source "$STELLAR_DEPLOY_SECRET_KEY" \
+            --network "$NETWORK")"
+          echo "contract_id=$CONTRACT_ID" >> "$GITHUB_OUTPUT"
+          echo "Deployed contract: $CONTRACT_ID"
+
+      - name: Initialize contract
+        if: inputs.confirm_deploy == 'DEPLOY_TESTNET' && inputs.initialize_contract == true
+        working-directory: contracts/salomed
+        env:
+          CONTRACT_ID: ${{ steps.deploy.outputs.contract_id }}
+          STELLAR_DEPLOY_SECRET_KEY: ${{ secrets.STELLAR_DEPLOY_SECRET_KEY }}
+          NETWORK: ${{ inputs.network }}
+          ADMIN_ADDRESS: ${{ inputs.admin_address }}
+          TOKEN_ID: ${{ inputs.token_id }}
+        run: |
+          stellar contract invoke \
+            --id "$CONTRACT_ID" \
+            --source "$STELLAR_DEPLOY_SECRET_KEY" \
+            --network "$NETWORK" \
+            -- initialize \
+            --admin "$ADMIN_ADDRESS" \
+            --token_id "$TOKEN_ID"
+
+      - name: Contract release summary
+        if: inputs.confirm_deploy == 'DEPLOY_TESTNET'
+        env:
+          CONTRACT_ID: ${{ steps.deploy.outputs.contract_id }}
+          NETWORK: ${{ inputs.network }}
+          INITIALIZED: ${{ inputs.initialize_contract }}
+        run: |
+          {
+            echo "## SaloMed contract release"
+            echo ""
+            echo "- Network: $NETWORK"
+            echo "- Contract ID: \`$CONTRACT_ID\`"
+            echo "- Initialize invoked: $INITIALIZED"
+            echo ""
+            echo "Update Render/Vercel contract environment variables after verifying the deployment."
+          } >> "$GITHUB_STEP_SUMMARY"

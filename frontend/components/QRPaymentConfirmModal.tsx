@@ -9,6 +9,11 @@ import {
 
 import { payHospital, calcPayment } from '@/lib/contract';
 import { saveTx } from '@/lib/transactions';
+import { recordHistory, recordProviderPayment } from '@/lib/runtime';
+import { fmtAsset, fmtPhp } from '@/lib/format';
+import { explorerTxUrl, networkBadgeLabel } from '@/lib/stellar-links';
+import LiveRateButton from '@/components/LiveRateButton';
+import { useXlmPhpRate } from '@/lib/use-xlm-php-rate';
 
 /** Shape decoded from a QR. `patient` is always overwritten by the connected wallet. */
 export interface SaloMedQRPayload {
@@ -52,16 +57,14 @@ interface Props {
   onSuccess: () => void;
 }
 
-import { API_URL } from '@/lib/config';
-
 export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError]           = useState<string | null>(null);
   const [txHash, setTxHash]         = useState<string | null>(null);
   const [done, setDone]             = useState(false);
 
-  const phpRate = 56; // fallback; could fetch from API
-  const phpValue = payload.amount_usdc * phpRate;
+  const rate = useXlmPhpRate();
+  const phpValue = payload.amount_usdc * rate.phpPerXlm;
 
   async function handleConfirm() {
     setError(null);
@@ -74,19 +77,38 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
       saveTx(payload.patient, {
         type: 'payment',
         amountXlm: payload.amount_usdc,
-        amountPhp: payload.amount_usdc * phpRate,
+        amountPhp: phpValue,
         providerName: payload.provider_name || undefined,
+        providerAddress: payload.hospital,
         providerType: payload.provider_type,
         payFrom: 'vault',
         ptsEarned: breakdown.ptsEarned,
         txHash: hash,
         status: 'success',
       });
+      void recordHistory({
+        address: payload.patient,
+        type: 'payment',
+        amountAsset: payload.amount_usdc,
+        amountPhp: phpValue,
+        direction: 'sent',
+        counterparty: payload.provider_name || undefined,
+        txHash: hash,
+      });
+      void recordProviderPayment({
+        patientAddress: payload.patient,
+        providerAddress: payload.hospital,
+        providerName: payload.provider_name || 'Whitelisted provider',
+        providerType: payload.provider_type,
+        amountAsset: payload.amount_usdc,
+        amountPhp: phpValue,
+        txHash: hash,
+      });
 
       setDone(true);
       setTimeout(onSuccess, 2500);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Payment failed — check connection.');
+      setError(e instanceof Error ? e.message : 'Payment failed. Check your connection.');
     } finally {
       setSubmitting(false);
     }
@@ -139,17 +161,36 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
                   <h4 className="font-bold text-slate-900">Payment Processed!</h4>
                   <p className="text-sm text-slate-500">
                     <span className="font-semibold text-slate-700">
-                      {payload.amount_usdc.toFixed(4)} USDC
+                      ₱{fmtPhp(phpValue)} PHP
                     </span>{' '}
                     deducted from vault
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    ≈ {fmtAsset(payload.amount_usdc)} XLM
                   </p>
                   <p className="text-xs text-slate-400">
                     Paid to {payload.provider_name || 'Provider'}
                   </p>
                 </div>
                 {txHash && (
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-400 break-all max-w-full">
-                    {typeof txHash === 'string' ? txHash.slice(0, 60) : JSON.stringify(txHash).slice(0, 60)}…
+                  <div className="flex flex-col items-center gap-1.5 w-full">
+                    <span className="inline-block text-[10px] font-semibold text-blue-700 bg-blue-50 rounded-full px-2 py-0.5">
+                      Stellar {networkBadgeLabel()}
+                    </span>
+                    {explorerTxUrl(txHash) ? (
+                      <a
+                        href={explorerTxUrl(txHash)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-blue-600 hover:text-blue-800 break-all max-w-full"
+                      >
+                        Verify on Stellar: {txHash.slice(0, 16)}…
+                      </a>
+                    ) : (
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-400 break-all max-w-full">
+                        {txHash.slice(0, 60)}…
+                      </div>
+                    )}
                   </div>
                 )}
                 <p className="text-xs text-slate-400">Returning to dashboard…</p>
@@ -179,12 +220,21 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
                     Amount to Deduct
                   </p>
                   <p className="text-3xl font-bold text-blue-700">
-                    {payload.amount_usdc.toFixed(4)}{' '}
-                    <span className="text-lg font-normal text-blue-400">USDC</span>
+                    ₱{fmtPhp(phpValue)}{' '}
+                    <span className="text-lg font-normal text-blue-400">PHP</span>
                   </p>
                   <p className="text-xs text-blue-400 mt-1">
-                    ≈ ₱{phpValue.toFixed(2)} PHP
+                    ≈ {fmtAsset(payload.amount_usdc)} XLM
                   </p>
+                  <div className="mt-3 flex justify-center">
+                    <LiveRateButton
+                      phpPerXlm={rate.phpPerXlm}
+                      source={rate.source}
+                      loading={rate.loading}
+                      onRefresh={rate.refresh}
+                      className="!border-blue-100 !bg-blue-100/80 !text-blue-700 hover:!bg-blue-100"
+                    />
+                  </div>
                 </div>
 
                 {/* Patient address (whose vault gets deducted) */}

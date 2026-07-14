@@ -2,22 +2,22 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wallet, QrCode, Globe, Receipt, LogOut, Smartphone, Monitor, Info, Copy, Check, Languages } from 'lucide-react';
+import { Wallet, QrCode, Globe, HandCoins, Receipt, LogOut, Smartphone, Monitor, Info, Copy, Check, Languages } from 'lucide-react';
 import Image from 'next/image';
 import localFont from 'next/font/local';
 import SplashScreen from '@/components/SplashScreen';
 import VaultCard from '@/components/VaultCard';
 import PaymentTab from '@/components/PaymentTab';
+import LoanTab from '@/components/LoanTab';
 import RemittanceForm from '@/components/RemittanceForm';
 import TransactionsTab from '@/components/TransactionsTab';
 import OnboardingSlides from '@/components/OnboardingSlides';
 import LanguageSelectionModal from '@/components/LanguageSelectionModal';
 import { connectWallet, isFreighterInstalled } from '@/lib/freighter';
 import { getVault, HealthVault, EMPTY_VAULT } from '@/lib/contract';
-import { API_URL } from '@/lib/config';
 import { LanguageProvider, useTranslation } from '@/lib/i18n/LanguageContext';
 import { Language } from '@/lib/i18n/translations';
-import { getRuntimeStatus, RuntimeStatus } from '@/lib/runtime';
+import { getRuntimeStatus, RuntimeStatus, ensureFeeFunds } from '@/lib/runtime';
 import '@/app/globals.css';
 
 const inter = localFont({
@@ -30,12 +30,13 @@ const inter = localFont({
   fallback: ['system-ui', 'Arial'],
 });
 
-type Tab = 'vault' | 'payment' | 'remittance' | 'history';
+type Tab = 'vault' | 'payment' | 'loan' | 'remittance' | 'history';
 
-const TAB_ORDER: Tab[] = ['vault', 'payment', 'remittance', 'history'];
+const TAB_ORDER: Tab[] = ['vault', 'payment', 'loan', 'remittance', 'history'];
 const TAB_META: Record<Tab, { Icon: React.ElementType; label: string; path: string }> = {
   vault: { Icon: Wallet, label: 'Vault', path: '/vault' },
   payment: { Icon: QrCode, label: 'Payment', path: '/payment' },
+  loan: { Icon: HandCoins, label: 'Salo', path: '/loan' },
   remittance: { Icon: Globe, label: 'Padala', path: '/remittance' },
   history: { Icon: Receipt, label: 'History', path: '/history' },
 };
@@ -69,7 +70,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
 function AppContent({ children: _ }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
-  const [phpRate, setPhpRate] = useState(56);
   const [address, setAddress] = useState<string | null>(null);
   const [vault, setVault] = useState<HealthVault>(EMPTY_VAULT);
   const [connecting, setConnecting] = useState(false);
@@ -86,8 +86,10 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
   const [freighterBannerDismissed, setFreighterBannerDismissed] = useState(false);
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
   const prevTab = useRef<Tab>('vault');
+  const contentRef = useRef<HTMLDivElement | null>(null);
 
   const { t, language, setLanguage, hasChosenLanguage } = useTranslation();
+  const showFreighterInstallBanner = !address && !hasFreighter && !freighterBannerDismissed;
 
   // Sync initial tab from URL on mount, then lock down popstate so that
   // html5-qrcode (or any other lib) pushing/popping history doesn't navigate away.
@@ -142,7 +144,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
     const onStorage = () => refreshVault(address);
     window.addEventListener('storage', onStorage);
 
-    // Poll every 20 seconds — background refresh without showing loading UI
+    // Poll every 20 seconds: background refresh without showing loading UI
     const POLL_INTERVAL_MS = 20_000;
     const pollId = setInterval(() => refreshVault(address, true), POLL_INTERVAL_MS);
 
@@ -157,10 +159,6 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
     getRuntimeStatus().then(setRuntime).catch(error => {
       setConnectError(error instanceof Error ? error.message : 'Runtime configuration unavailable.');
     });
-    fetch(`${API_URL}/api/gcash-rate`)
-      .then(r => r.json())
-      .then((d: { php_per_usdc: number }) => setPhpRate(d.php_per_usdc))
-      .catch(() => { });
 
     isFreighterInstalled().then(setHasFreighter);
   }, []);
@@ -175,6 +173,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
     const savedAddr = localStorage.getItem('salomed_address');
     if (savedAddr) {
       setAddress(savedAddr);
+      void ensureFeeFunds(savedAddr);
       refreshVault(savedAddr);
     }
 
@@ -195,15 +194,30 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
     });
   }, [refreshVault]);
 
-  function switchTab(next: Tab) {
-    if (next === tab) return;
+  function scrollContentToTop() {
+    contentRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+  }
+
+  function scheduleScrollContentToTop() {
+    requestAnimationFrame(() => {
+      scrollContentToTop();
+      requestAnimationFrame(scrollContentToTop);
+    });
+  }
+
+  function switchTab(next: Tab, options?: { scrollTop?: boolean }) {
+    if (next === tab) {
+      if (options?.scrollTop) scheduleScrollContentToTop();
+      return;
+    }
     const pi = TAB_ORDER.indexOf(prevTab.current);
     const ni = TAB_ORDER.indexOf(next);
     setDir(ni > pi ? 1 : -1);
     setTab(next);
     prevTab.current = next;
-    // Update URL without triggering a Next.js navigation — instant, no remount
+        // Update URL without triggering a Next.js navigation: instant, no remount
     window.history.pushState(null, '', TAB_META[next].path);
+    if (options?.scrollTop) scheduleScrollContentToTop();
   }
 
   async function handleConnect() {
@@ -216,6 +230,8 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
         localStorage.removeItem('salomed_manual_disconnect');
         setAddress(addr);
         setShowOnboarding(true);
+        // Make sure the wallet can pay fees for payment/padala (Stellar modes).
+        void ensureFeeFunds(addr);
         await refreshVault(addr);
       }
     } catch (e) {
@@ -247,6 +263,10 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
       <AnimatePresence>
         {showOnboarding && (
           <OnboardingSlides
+            liveSettlementEnabled={runtime?.real_money_enabled === true}
+            environmentNotice={runtime?.real_money_enabled
+              ? 'Secured on Stellar Mainnet · Review each transaction before confirming'
+              : 'Secured on the Stellar network · Every transaction is verifiable on-chain'}
             onComplete={() => {
               setShowOnboarding(false);
               localStorage.setItem('salomed_onboarded', 'true');
@@ -265,12 +285,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
       </AnimatePresence>
 
       <div className={`h-dvh flex flex-col w-full overflow-hidden ${forceMobile ? 'bg-slate-50 max-w-lg mx-auto shadow-2xl relative' : 'md:flex-col bg-slate-50'}`}>
-        {runtime?.simulated && (
-          <div className="w-full bg-amber-500 text-amber-950 text-[11px] font-bold px-4 py-2 text-center z-[70] shrink-0">
-            SIMULATED DEMO — NO REAL MONEY · Balances and transactions use the SaloMed demo ledger
-          </div>
-        )}
-        {!hasFreighter && !freighterBannerDismissed && (
+        {showFreighterInstallBanner && (
           <div className="w-full bg-blue-600 text-white text-xs font-semibold px-4 py-2.5 flex items-center justify-center gap-2 text-center z-[60] shrink-0">
             <Info size={14} className="shrink-0" />
             Please install the Freighter wallet to use SaloMed.{' '}
@@ -422,8 +437,8 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
               </div>
             )}
 
-            {/* Content — rendered directly from state, no Next.js navigation */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 scroll-touch overscroll-y-contain">
+            {/* Content: rendered directly from state, no Next.js navigation */}
+            <div ref={contentRef} className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 scroll-touch overscroll-y-contain">
               <AnimatePresence mode="wait" custom={dir}>
                 <motion.div
                   key={tab}
@@ -452,6 +467,9 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
                       onSwitchTab={switchTab}
                     />
                   )}
+                  {tab === 'loan' && (
+                    <LoanTab address={address} vault={vault} />
+                  )}
                   {tab === 'remittance' && (
                     <RemittanceForm
                       ofwAddress={address}
@@ -461,7 +479,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
                     />
                   )}
                   {tab === 'history' && (
-                    <TransactionsTab address={address} phpRate={phpRate} />
+                    <TransactionsTab address={address} />
                   )}
                 </motion.div>
               </AnimatePresence>
@@ -494,7 +512,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
           </div>
 
           {/* Floating UI on the right */}
-          <div className={`fixed right-4 flex flex-col gap-2 z-50 items-end transition-all duration-300 ${!hasFreighter && !freighterBannerDismissed ? 'top-14' : 'top-4'}`}>
+          <div className={`fixed right-4 flex flex-col gap-2 z-50 items-end transition-all duration-300 ${showFreighterInstallBanner ? 'top-14' : 'top-4'}`}>
             {/* View Toggle */}
             <button
               onClick={() => setForceMobile(!forceMobile)}

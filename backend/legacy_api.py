@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from salomed_runtime import RuntimeMode, RuntimeSettings
+from salomed_runtime import RuntimeSettings
 
 
 def create_legacy_compatibility_router(settings: RuntimeSettings) -> APIRouter:
@@ -42,12 +42,28 @@ def create_legacy_compatibility_router(settings: RuntimeSettings) -> APIRouter:
 
     @router.get("/api/gcash-rate", tags=["Utility"])
     async def indicative_asset_rate():
-        pdax_enabled = settings.mode in {RuntimeMode.PDAX_UAT, RuntimeMode.PDAX_PROD}
+        # Prefer live XLM/PHP from PDAX or market data. Only fall back to the
+        # configured env value when every live provider is unavailable.
+        import pdax_service as pdax
+        fallback = float(settings.php_per_asset_decimal)
+        asset = settings.asset_code
+        quote = await pdax.get_php_to_asset_quote(1000.0, asset, fallback_rate=fallback)
+        if quote.get("source") in {"pdax_live", "coingecko_live"}:
+            return {
+                "php_per_usdc": quote["rate"],
+                "php_per_xlm": quote["rate"],
+                "asset_code": asset,
+                "source": quote["source"],
+                "pdax_enabled": pdax._PDAX_CONFIGURED,
+                "executable": False,
+                "last_updated_at": quote.get("last_updated_at"),
+            }
         return {
-            "php_per_usdc": float(settings.php_per_asset_decimal),
-            "php_per_xlm": None,
-            "source": "configured_indicative" if pdax_enabled else "fixed_demo",
-            "pdax_enabled": pdax_enabled,
+            "php_per_usdc": fallback,
+            "php_per_xlm": fallback,
+            "asset_code": asset,
+            "source": "configured_indicative",
+            "pdax_enabled": pdax._PDAX_CONFIGURED,
             "executable": False,
         }
 

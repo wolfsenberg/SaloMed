@@ -34,10 +34,10 @@ export default function QRScannerModal({ patientAddress, onDetected, onClose, on
   function handleDecodedValue(decoded: string) {
     const payload = parseSaloMedQR(decoded);
     if (payload) {
-      // It's a SaloMed payment QR — show the confirm modal
+      // It's a SaloMed payment QR: show the confirm modal
       setQrPayload(payload);
     } else {
-      // Regular QR (Stellar address, etc.) — pass to parent
+      // Regular QR (Stellar address, etc.): pass to parent
       onDetected(decoded);
       onClose();
     }
@@ -65,7 +65,7 @@ export default function QRScannerModal({ patientAddress, onDetected, onClose, on
         stopFnRef.current = () => { void qr.stop().catch(() => null); };
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
-        // Camera permission denied or not supported — show file upload fallback
+        // Camera permission denied or not supported: show file upload fallback
         setStatus('error');
         setErrMsg(msg.includes('permission') || msg.includes('NotAllowed')
           ? 'Camera access denied. Use the upload option below.'
