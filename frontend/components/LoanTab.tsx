@@ -305,15 +305,6 @@ export default function LoanTab({ address, vault }: Props) {
                 </p>
               )}
 
-              <div className="flex justify-end">
-                <LiveRateButton
-                  phpPerXlm={xlmRate.phpPerXlm}
-                  source={xlmRate.source}
-                  loading={xlmRate.loading}
-                  onRefresh={xlmRate.refresh}
-                />
-              </div>
-
               {/* Preset amounts */}
               <div className="flex gap-2 flex-wrap">
                 {PRESETS.map(n => (
@@ -378,6 +369,15 @@ export default function LoanTab({ address, vault }: Props) {
                       <span className="font-semibold text-slate-800">{row.value}</span>
                     </div>
                   ))}
+                  <div className="flex justify-end pt-1">
+                    <LiveRateButton
+                      phpPerXlm={xlmRate.phpPerXlm}
+                      source={xlmRate.source}
+                      loading={xlmRate.loading}
+                      onRefresh={xlmRate.refresh}
+                      className="!border-blue-100 !bg-blue-100/70 !text-blue-700 hover:!bg-blue-100"
+                    />
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>

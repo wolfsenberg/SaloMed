@@ -136,14 +136,24 @@ export default function FreighterTopUpModal({ address, onClose, onSuccess }: Pro
                   </div>
                 </div>
 
-                <div className="flex justify-end">
-                  <LiveRateButton
-                    phpPerXlm={rate.phpPerXlm}
-                    source={rate.source}
-                    loading={rate.loading}
-                    onRefresh={rate.refresh}
-                  />
-                </div>
+                {parsedXlm > 0 && (
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold text-blue-700">{parsedXlm.toFixed(4)} XLM</p>
+                      <p className="text-xs text-blue-400">you deposit</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-blue-600">₱{parsedPhp.toFixed(2)}</p>
+                      <LiveRateButton
+                        phpPerXlm={rate.phpPerXlm}
+                        source={rate.source}
+                        loading={rate.loading}
+                        onRefresh={rate.refresh}
+                        className="mt-1 !border-blue-100 !bg-blue-100/70 !text-blue-700 hover:!bg-blue-100"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
                   <ArrowDownToLine size={14} className="text-slate-400 shrink-0 mt-0.5" />

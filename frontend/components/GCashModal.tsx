@@ -196,29 +196,21 @@ export default function GCashModal({ beneficiaryAddress, onClose, onSuccess }: P
                         <p className="text-xs font-semibold text-blue-700">
                           ₱{parsedPhp.toLocaleString('en-PH', { minimumFractionDigits: 2 })} PHP
                         </p>
-                        <p className="text-xs text-blue-400">
-                          ₱{rate.phpPerXlm.toFixed(2)} = 1 XLM
-                          {!rate.isLive && (
-                            <span className="ml-1 text-amber-600 font-semibold">· indicative</span>
-                          )}
-                        </p>
+                        <p className="text-xs text-blue-400">you receive</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-bold text-[#007DFF]">{xlmAmount}</p>
-                        <p className="text-xs text-blue-400">XLM to your vault</p>
+                        <p className="text-lg font-bold text-[#007DFF]">{xlmAmount} XLM</p>
+                        <LiveRateButton
+                          phpPerXlm={rate.phpPerXlm}
+                          source={rate.source}
+                          loading={rate.loading}
+                          onRefresh={rate.refresh}
+                          className="mt-1 !border-blue-100 !bg-blue-100/70 !text-blue-700 hover:!bg-blue-100"
+                        />
                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
-
-                <div className="flex justify-end">
-                  <LiveRateButton
-                    phpPerXlm={rate.phpPerXlm}
-                    source={rate.source}
-                    loading={rate.loading}
-                    onRefresh={rate.refresh}
-                  />
-                </div>
 
                 <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
                   <ArrowDownToLine size={16} className="text-slate-400 shrink-0" />

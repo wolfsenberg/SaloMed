@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Award, Coins, CreditCard, Star, Lock, RefreshCw, Globe,
+  Award, Coins, CreditCard, Star, RefreshCw, Globe,
   TrendingUp, ShieldCheck, Link, ArrowLeftRight, Wallet,
 } from 'lucide-react';
 import { HealthVault } from '@/lib/contract';
@@ -74,7 +74,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
     return (
       <div className="flex flex-col items-center justify-center min-h-[65vh] px-6 gap-6">
         <div className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center shadow-sm">
-          <Lock size={36} className="text-blue-400" />
+          <Wallet size={36} className="text-blue-400" />
         </div>
 
         <div className="text-center space-y-2">
@@ -94,14 +94,14 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
             className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-semibold text-sm transition-all disabled:opacity-60 shadow-sm flex items-center justify-center gap-2"
           >
             <Link size={15} />
-            {connecting ? t('common_connecting') : t('common_connect_wallet')}
+            {connecting ? t('common_connecting') : t('common_connect_freighter')}
           </button>
-          <p className="text-[11px] text-amber-600 text-center">
+          <p className="text-[11px] text-slate-400 text-center">
             {t('vault_connect_notice')}
           </p>
 
           <p className="text-[11px] text-slate-400 text-center pt-1">
-            {t('vault_secured_on_stellar')} {networkBadgeLabel()}
+            {t('vault_secured_on_stellar')}
           </p>
         </div>
       </div>

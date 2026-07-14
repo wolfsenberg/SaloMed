@@ -216,12 +216,13 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
                   <p className="text-xs text-blue-400 mt-1">
                     ≈ {fmtAsset(payload.amount_usdc)} XLM
                   </p>
-                  <div className="mt-3 flex justify-end">
+                  <div className="mt-3 flex justify-center">
                     <LiveRateButton
                       phpPerXlm={rate.phpPerXlm}
                       source={rate.source}
                       loading={rate.loading}
                       onRefresh={rate.refresh}
+                      className="!border-blue-100 !bg-blue-100/80 !text-blue-700 hover:!bg-blue-100"
                     />
                   </div>
                 </div>

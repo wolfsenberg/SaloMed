@@ -107,6 +107,9 @@ export default function PayModal({ patientAddress, amountXlm, vault, onClose, on
               {showPhp ? `₱${amountPhp.toFixed(2)}` : amountXlm.toFixed(2)}
               <span className="text-sm font-normal text-blue-200 ml-1.5">{showPhp ? 'PHP' : 'XLM'}</span>
             </span>
+            <span className="text-xs text-blue-200 mt-0.5">
+              {showPhp ? `≈ ${amountXlm.toFixed(2)} XLM` : `≈ ₱${amountPhp.toFixed(2)} PHP`}
+            </span>
           </div>
           <button
             onClick={() => setShowPhp(!showPhp)}
@@ -117,12 +120,13 @@ export default function PayModal({ patientAddress, amountXlm, vault, onClose, on
           </button>
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex justify-end -mt-1">
           <LiveRateButton
             phpPerXlm={rate.phpPerXlm}
             source={rate.source}
             loading={rate.loading}
             onRefresh={rate.refresh}
+            className="!border-blue-100 !bg-blue-50/80 !text-blue-600 hover:!bg-blue-100"
           />
         </div>
 

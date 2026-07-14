@@ -265,24 +265,32 @@ export default function RemittanceForm({ ofwAddress, vault, onSuccess, onSwitchT
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">{showPhp ? 'PHP' : 'XLM'}</span>
           </div>
           {amountAsset > 0 && (
-            <p className="text-xs text-slate-400 text-right mt-1">
+            <p className="mt-1 text-xs text-slate-400 text-right">
               {showPhp ? `= ${fmtAsset(amountAsset)} XLM` : `≈ ₱${fmtPhp(amountPhp)}`}
             </p>
           )}
-          <div className="mt-2 flex justify-end">
-            <LiveRateButton
-              phpPerXlm={rate.phpPerXlm}
-              source={rate.source}
-              loading={rate.loading}
-              onRefresh={rate.refresh}
-            />
-          </div>
         </div>
 
         <div className="bg-slate-50 rounded-xl p-3 text-xs space-y-2">
           <div className="flex justify-between"><span>{t('remit_locked_balance')}</span><strong>{fmtAsset(vaultBalance)} XLM</strong></div>
           <div className="flex justify-between"><span>{t('remit_family_fee')}</span><strong>{t('remit_free')}</strong></div>
-          <div className="flex justify-between"><span>{t('remit_beneficiary_receives')}</span><strong>{fmtAsset(breakdown.recipientReceives)} XLM</strong></div>
+          <div className="flex justify-between gap-3">
+            <span>{t('remit_beneficiary_receives')}</span>
+            <div className="text-right">
+              <strong>{fmtAsset(breakdown.recipientReceives)} XLM</strong>
+              {amountAsset > 0 && (
+                <div className="mt-1 flex justify-end">
+                  <LiveRateButton
+                    phpPerXlm={rate.phpPerXlm}
+                    source={rate.source}
+                    loading={rate.loading}
+                    onRefresh={rate.refresh}
+                    className="!border-blue-100 !bg-blue-100/70 !text-blue-700 hover:!bg-blue-100"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
           <p className="text-slate-400">{t('remit_fee_note')}</p>
         </div>
 

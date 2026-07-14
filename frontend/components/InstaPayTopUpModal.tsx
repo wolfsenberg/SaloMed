@@ -2,13 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Loader2, CheckCircle, CreditCard, ExternalLink, AlertCircle, Zap } from 'lucide-react';
+import { X, Loader2, CheckCircle, CreditCard, ExternalLink, AlertCircle, Zap, RefreshCw } from 'lucide-react';
 import { saveTx } from '@/lib/transactions';
 import { pdaxInitiateDeposit, pdaxConfirm, pdaxQuote, PdaxQuoteResult } from '@/lib/api';
 import { fmtAsset, fmtPhp } from '@/lib/format';
 import { explorerTxUrl, networkBadgeLabel } from '@/lib/stellar-links';
 import { getRuntimeStatus, RuntimeMode } from '@/lib/runtime';
-import LiveRateButton from '@/components/LiveRateButton';
 
 interface Props {
   beneficiaryAddress: string;
@@ -252,33 +251,27 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
                         </div>
                         <div className="text-right">
                           <p className="text-lg font-bold text-[#007DFF]">{fmtAsset(assetOut)} XLM</p>
-                          <span className={`inline-block text-[10px] font-semibold rounded-full px-2 py-0.5 ${
+                          <button
+                            type="button"
+                            onClick={refreshQuote}
+                            disabled={quoteLoading}
+                            className={`inline-flex items-center gap-1 text-[10px] font-semibold rounded-full px-2 py-0.5 transition-colors disabled:opacity-60 ${
                             rateSource === 'pdax_live' || rateSource === 'coingecko_live'
-                              ? 'text-blue-700 bg-blue-100'
-                              : 'text-amber-700 bg-amber-100'
+                              ? 'text-blue-700 bg-blue-100 hover:bg-blue-200'
+                              : 'text-amber-700 bg-amber-100 hover:bg-amber-200'
                           }`}>
+                            <RefreshCw size={9} className={quoteLoading ? 'animate-spin' : ''} />
                             {rateSource === 'pdax_live'
                               ? `Live PDAX rate: ₱${fmtPhp(quote?.rate ?? 0)}/XLM`
                               : rateSource === 'coingecko_live'
                                 ? `Live market rate: ₱${fmtPhp(quote?.rate ?? 0)}/XLM`
                                 : 'Indicative rate'}
-                          </span>
+                          </button>
                         </div>
                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
-
-                {parsedPhp >= 100 && (
-                  <div className="flex justify-end">
-                    <LiveRateButton
-                      phpPerXlm={quote?.rate ?? 0}
-                      source={rateSource}
-                      loading={quoteLoading}
-                      onRefresh={refreshQuote}
-                    />
-                  </div>
-                )}
 
                 <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
                   <CreditCard size={14} className="text-slate-400 shrink-0" />
