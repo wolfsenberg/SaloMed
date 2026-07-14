@@ -54,7 +54,7 @@ function FeatureChip({
 export default function OnboardingSlides({ onComplete, liveSettlementEnabled = false }: Props) {
   const [current, setCurrent] = useState(0);
   const { t } = useTranslation();
-  const mockCardClass = 'w-60 rounded-[1.75rem] bg-white/95 p-4 text-slate-900 shadow-2xl ring-1 ring-white/70';
+  const mockCardClass = 'w-60 rounded-2xl bg-white/95 p-4 text-slate-900 shadow-2xl ring-1 ring-white/70';
 
   const SLIDES = [
     {
@@ -63,7 +63,7 @@ export default function OnboardingSlides({ onComplete, liveSettlementEnabled = f
           <div className={mockCardClass}>
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50">
                   <Image src="/SaloMed_logo.png" alt="SaloMed" width={24} height={24} className="object-contain" />
                 </div>
                 <div>
@@ -96,7 +96,7 @@ export default function OnboardingSlides({ onComplete, liveSettlementEnabled = f
     {
       visual: (
         <SceneFrame>
-          <div className="w-60 rounded-[1.75rem] bg-white/95 p-3.5 text-slate-900 shadow-2xl ring-1 ring-white/70">
+          <div className="w-60 rounded-2xl bg-white/95 p-3.5 text-slate-900 shadow-2xl ring-1 ring-white/70">
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Everyday flow</p>
@@ -110,7 +110,7 @@ export default function OnboardingSlides({ onComplete, liveSettlementEnabled = f
                 { label: 'Scan', Icon: QrCode, color: 'bg-blue-50 text-blue-600' },
                 { label: 'Pay', Icon: SmartphoneNfc, color: 'bg-violet-50 text-violet-600' },
               ].map(item => (
-                <div key={item.label} className="rounded-2xl bg-slate-50 px-2 py-2.5 text-center">
+                <div key={item.label} className="rounded-xl bg-slate-50 px-2 py-2.5 text-center">
                   <div className={`mx-auto mb-1 flex h-8 w-8 items-center justify-center rounded-xl ${item.color}`}>
                     <item.Icon size={16} />
                   </div>
@@ -118,7 +118,7 @@ export default function OnboardingSlides({ onComplete, liveSettlementEnabled = f
                 </div>
               ))}
             </div>
-            <div className="mt-3 rounded-2xl bg-slate-50 p-3">
+            <div className="mt-3 rounded-xl bg-slate-50 p-3">
               <div className="flex items-center justify-between text-xs font-bold">
                 <span>PHP 850</span>
                 <span className="text-blue-600">75.6 XLM</span>
@@ -148,8 +148,8 @@ export default function OnboardingSlides({ onComplete, liveSettlementEnabled = f
       visual: (
         <SceneFrame>
           <div className="flex items-center gap-2.5">
-            <div className="w-24 rounded-[1.5rem] bg-white/95 p-3 text-center text-slate-900 shadow-2xl ring-1 ring-white/70">
-              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50">
+            <div className="w-24 rounded-2xl bg-white/95 p-3 text-center text-slate-900 shadow-2xl ring-1 ring-white/70">
+              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50">
                 <Globe size={21} className="text-blue-600" />
               </div>
               <p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">Sender</p>
@@ -159,12 +159,12 @@ export default function OnboardingSlides({ onComplete, liveSettlementEnabled = f
               initial={{ x: -6, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               transition={{ delay: 0.2 }}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/95 shadow-xl ring-1 ring-white/70"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/95 shadow-xl ring-1 ring-white/70"
             >
               <Send size={18} className="text-blue-600" />
             </motion.div>
-            <div className="w-24 rounded-[1.5rem] bg-white/95 p-3 text-center text-slate-900 shadow-2xl ring-1 ring-white/70">
-              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-50">
+            <div className="w-24 rounded-2xl bg-white/95 p-3 text-center text-slate-900 shadow-2xl ring-1 ring-white/70">
+              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
                 <Pill size={21} className="text-emerald-600" />
               </div>
               <p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">Family</p>
@@ -194,16 +194,16 @@ export default function OnboardingSlides({ onComplete, liveSettlementEnabled = f
               <Zap size={20} className="text-yellow-500" />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-2xl bg-blue-50 p-3">
+              <div className="rounded-xl bg-blue-50 p-3">
                 <p className="text-lg font-bold leading-none text-blue-700">Fast</p>
                 <p className="text-[10px] font-semibold text-blue-500">confirmation</p>
               </div>
-              <div className="rounded-2xl bg-emerald-50 p-3">
+              <div className="rounded-xl bg-emerald-50 p-3">
                 <p className="text-lg font-bold leading-none text-emerald-700">Low</p>
                 <p className="text-[10px] font-semibold text-emerald-500">network fees</p>
               </div>
             </div>
-            <div className="mt-3 flex items-center gap-2 rounded-2xl bg-slate-50 p-2.5">
+            <div className="mt-3 flex items-center gap-2 rounded-xl bg-slate-50 p-2.5">
               <ShieldCheck size={15} className="text-blue-600" />
               <p className="text-[11px] font-semibold text-slate-500">Activity appears in Vault Activity.</p>
             </div>
@@ -233,13 +233,13 @@ export default function OnboardingSlides({ onComplete, liveSettlementEnabled = f
                 ['Silver', '5%'],
                 ['Gold', '2%'],
               ].map(([label, value]) => (
-                <div key={label} className="rounded-2xl bg-slate-50 p-2">
+                <div key={label} className="rounded-xl bg-slate-50 p-2">
                   <p className="text-[10px] font-bold text-slate-400">{label}</p>
                   <p className="text-sm font-bold leading-tight text-blue-600">{value}</p>
                 </div>
               ))}
             </div>
-            <div className="mt-3 flex items-center gap-2 rounded-2xl bg-amber-50 p-2.5">
+            <div className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 p-2.5">
               <HandCoins size={16} className="text-amber-600" />
               <p className="text-[11px] font-semibold text-amber-700">Points improve support options.</p>
             </div>
