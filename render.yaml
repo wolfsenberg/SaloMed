@@ -23,7 +23,7 @@ services:
           name: salomed-db
           property: connectionString
       - key: SALOMED_MODE
-        value: demo
+        value: stellar_testnet
       - key: SALOMED_ASSET_CODE
         value: XLM
       - key: PHP_PER_XLM
