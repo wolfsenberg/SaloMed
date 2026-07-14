@@ -11,6 +11,7 @@ import { loadTxs, Transaction, saveTx } from '@/lib/transactions';
 import { useTranslation } from '@/lib/i18n/LanguageContext';
 import LiveRateButton from '@/components/LiveRateButton';
 import { useXlmPhpRate } from '@/lib/use-xlm-php-rate';
+import { recordSaloRequest } from '@/lib/salo-requests';
 
 interface Props {
   address: string | null;
@@ -72,6 +73,17 @@ export default function LoanTab({ address, vault }: Props) {
         monthlyPhp:   monthly,
         interestRate: rate,
         status:       'pending',
+      });
+      void recordSaloRequest({
+        patientAddress: address,
+        amountAsset: parsedUsdc,
+        amountPhp: parsedPhp,
+        termMonths: selectedTerm,
+        monthlyPhp: monthly,
+        interestRate: rate,
+        saloPoints: vault.salo_points,
+        creditTier: vault.credit_tier,
+        pendingRequests: pendingLoans.length,
       });
     }
     setStep('done');

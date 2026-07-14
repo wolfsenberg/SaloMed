@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
+import json
+import os
+import time
 from decimal import Decimal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from compliance_policy import PolicyError, salo_underwriting_review, transaction_review, wallet_review
@@ -67,6 +73,28 @@ class SaloUnderwriteRequest(BaseModel):
     term_months: int = Field(default=6, ge=1, le=36)
 
 
+class SaloRequestRecordRequest(BaseModel):
+    patient_address: str = Field(min_length=56, max_length=56)
+    amount_asset: Decimal = Field(gt=0, max_digits=20, decimal_places=7)
+    amount_php: Decimal = Field(gt=0, max_digits=20, decimal_places=2)
+    term_months: int = Field(ge=1, le=36)
+    monthly_php: Decimal = Field(ge=0, max_digits=20, decimal_places=2)
+    interest_rate: Decimal = Field(ge=0, max_digits=5, decimal_places=2)
+    salo_points: int = Field(default=0, ge=0)
+    credit_tier: str = Field(min_length=1, max_length=16)
+    pending_requests: int = Field(default=0, ge=0, le=10)
+
+
+class SaloRequestDecisionRequest(BaseModel):
+    status: str = Field(min_length=1, max_length=16)
+    reviewer: str = Field(default="SaloMed Admin", max_length=64)
+
+
+class AdminLoginRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=64)
+    password: str = Field(min_length=1, max_length=128)
+
+
 # Allowed top-up method labels. Anything else is stored as NULL (generic top-up).
 _ALLOWED_TOPUP_SOURCES = {"gcash", "instapay", "freighter"}
 
@@ -107,6 +135,51 @@ def _policy_call(function, *args, **kwargs):
             },
         )
     return review
+
+
+def _admin_username() -> str:
+    return os.getenv("SALOMED_ADMIN_USERNAME", "salomed_admin").strip().lower()
+
+
+def _admin_password() -> str:
+    return os.getenv("SALOMED_ADMIN_PASSWORD", "salomed_admin_123")
+
+
+def _admin_secret() -> bytes:
+    return os.getenv("SALOMED_ADMIN_SESSION_SECRET", _admin_password()).encode("utf-8")
+
+
+def _b64_json(payload: dict) -> str:
+    raw = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+
+def _load_b64_json(value: str) -> dict:
+    padded = value + "=" * (-len(value) % 4)
+    return json.loads(base64.urlsafe_b64decode(padded.encode("ascii")))
+
+
+def _admin_token(username: str) -> str:
+    body = _b64_json({"sub": username, "exp": int(time.time()) + 60 * 60 * 12})
+    signature = hmac.new(_admin_secret(), body.encode("ascii"), hashlib.sha256).hexdigest()
+    return f"{body}.{signature}"
+
+
+def _require_admin(authorization: str | None = Header(default=None)) -> dict:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail={"error": "ADMIN_AUTH_REQUIRED"})
+    token = authorization.removeprefix("Bearer ").strip()
+    try:
+        body, signature = token.split(".", 1)
+        expected = hmac.new(_admin_secret(), body.encode("ascii"), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(signature, expected):
+            raise ValueError("bad signature")
+        payload = _load_b64_json(body)
+        if payload.get("sub") != _admin_username() or int(payload.get("exp", 0)) < int(time.time()):
+            raise ValueError("expired or wrong subject")
+        return payload
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail={"error": "ADMIN_AUTH_INVALID"}) from exc
 
 
 def create_runtime_router(settings: RuntimeSettings, demo_ledger: "DemoLedger | PostgresLedger") -> APIRouter:
@@ -157,6 +230,68 @@ def create_runtime_router(settings: RuntimeSettings, demo_ledger: "DemoLedger | 
             pending_requests=body.pending_requests,
             term_months=body.term_months,
         )
+
+    @router.post("/api/v2/admin/login", tags=["Runtime"])
+    async def admin_login(body: AdminLoginRequest):
+        username = body.username.strip().lower()
+        if username != _admin_username() or not hmac.compare_digest(body.password, _admin_password()):
+            raise HTTPException(status_code=401, detail={"error": "INVALID_ADMIN_CREDENTIALS"})
+        return {"token": _admin_token(username), "username": username}
+
+    @router.post("/api/v2/salo/requests", tags=["Runtime"])
+    async def record_salo_request(body: SaloRequestRecordRequest):
+        review = _policy_call(
+            salo_underwriting_review,
+            address=body.patient_address,
+            amount_php=body.amount_php,
+            salo_points=body.salo_points,
+            pending_requests=body.pending_requests,
+            term_months=body.term_months,
+        )
+        import salo_request_store
+        row = salo_request_store.record(
+            patient_address=body.patient_address,
+            amount_asset=float(body.amount_asset),
+            amount_php=float(body.amount_php),
+            term_months=body.term_months,
+            monthly_php=float(body.monthly_php),
+            interest_rate=float(body.interest_rate),
+            salo_points=body.salo_points,
+            credit_tier=body.credit_tier,
+            review_decision=review.get("decision", "salomed_review"),
+            reason_codes=list(review.get("reason_codes") or []),
+        )
+        return {"recorded": True, "request": row, "review": review}
+
+    @router.get("/api/v2/salo/requests", tags=["Runtime"])
+    async def salo_requests(
+        _admin: dict = Depends(_require_admin),
+        status: str = Query("all", max_length=16),
+        limit: int = Query(100, ge=1, le=200),
+    ):
+        import salo_request_store
+        return {"requests": salo_request_store.list_requests(status, limit)}
+
+    @router.post("/api/v2/salo/requests/{request_id}/decision", tags=["Runtime"])
+    async def decide_salo_request(
+        request_id: str,
+        body: SaloRequestDecisionRequest,
+        _admin: dict = Depends(_require_admin),
+    ):
+        import salo_request_store
+        try:
+            row = salo_request_store.decide(request_id, body.status, body.reviewer)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"error": "INVALID_SALO_STATUS", "message": str(exc)},
+            ) from exc
+        if not row:
+            raise HTTPException(
+                status_code=404,
+                detail={"error": "SALO_REQUEST_NOT_FOUND", "message": "Salo request not found"},
+            )
+        return {"updated": True, "request": row}
 
     @router.get("/api/v2/providers", tags=["Runtime"])
     async def providers():
