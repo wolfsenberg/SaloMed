@@ -66,7 +66,7 @@ export default function LoanModal({ gapAmount, vault, onClose, onSuccess }: Prop
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Salo</h2>
-            <p className="text-xs text-slate-500">Health bill support for partner review</p>
+            <p className="text-xs text-slate-500">Health bill support for SaloMed review</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
             <X size={22} />

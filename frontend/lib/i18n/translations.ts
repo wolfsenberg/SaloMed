@@ -15,7 +15,7 @@ export const TRANSLATIONS = {
     vault_empty: 'Empty',
     vault_escrow: 'Escrow Balance',
     vault_cashback: 'SaloPoints',
-    vault_cashback_desc: 'Earned from healthcare payments. Points improve your Salo tier and partner benefits.',
+    vault_cashback_desc: 'Earned from healthcare payments. Points improve your Salo tier and Salo benefits.',
     vault_topup: 'Top up',
     vault_history: 'View History',
     vault_earn_title: 'How to Earn SaloPoints',
@@ -117,7 +117,7 @@ export const TRANSLATIONS = {
 
     // Salo
     loan_hero_title: 'Health Bill Support',
-    loan_hero_desc: 'Salo means support when your vault falls short. Requests are reviewed with trusted partners.',
+    loan_hero_desc: 'Salo means support when your vault falls short. Requests are reviewed by SaloMed.',
     loan_pending_one: 'Salo Request Pending',
     loan_pending_many: 'Multiple Salo Requests Pending',
     loan_pending_one_desc: 'Your {amount} application is recorded as pending.',
@@ -137,7 +137,7 @@ export const TRANSLATIONS = {
     loan_how_1: 'Request Salo to cover a medical bill gap',
     loan_how_2: 'Approved proceeds are reflected in the purpose-bound vault',
     loan_how_3: 'Repayment terms are shown in equal installments',
-    loan_how_4: 'Your SaloPoints tier can unlock better partner-reviewed rates over time',
+    loan_how_4: 'Your SaloPoints tier can unlock better review-based rates over time',
     loan_request: 'Request Salo',
     loan_request_limit: 'Request Limit Reached',
     loan_limit_desc: 'Maximum of 2 Salo requests are allowed at the same time to protect financial safety. Please wait for your current applications to be processed or settled.',
@@ -151,6 +151,14 @@ export const TRANSLATIONS = {
     loan_monthly_payment: 'Monthly payment ({months} mo)',
     loan_total_repayment: 'Total repayment',
     loan_total_interest: 'Total interest',
+    loan_review_title: 'Review checks',
+    loan_review_identity: 'Wallet identity',
+    loan_review_identity_value: 'Demo verified',
+    loan_review_open_requests: 'Open requests',
+    loan_review_payment_history: 'Payment history',
+    loan_review_payment_history_value: '{points} SaloPoints',
+    loan_review_salomed: 'SaloMed review',
+    loan_review_salomed_value: 'Required before release',
     loan_submitting: 'Submitting...',
     loan_request_with_terms: 'Request Salo: {amount}/mo for {months} months',
     loan_enter_amount: 'Enter an amount to continue',
@@ -158,7 +166,7 @@ export const TRANSLATIONS = {
     loan_done_desc: 'Your Salo request for {amount} (approx. {xlm} XLM) was saved locally on this device.',
     loan_done_term_rate: 'Term: {months} months · Rate: {rate}% p.a.',
     loan_done_status_title: 'Status: Recorded locally',
-    loan_done_status_desc: 'This request is saved on your device for partner review. Salo support release is not yet enabled.',
+    loan_done_status_desc: 'This request is saved on your device for SaloMed review. Salo support release is not yet enabled.',
     loan_back: 'Back to Salo',
 
     // Padala
@@ -212,7 +220,7 @@ export const TRANSLATIONS = {
     onboard_slide4_title: 'Powered by Stellar',
     onboard_slide4_desc: 'Stellar keeps settlement fast and low-cost, with confirmed activity visible in your Vault Activity.',
     onboard_slide5_title: 'SaloPoints and Salo',
-    onboard_slide5_desc: 'Healthcare payments earn SaloPoints for tier benefits. When a medical bill falls short, Salo gives partner-reviewed support options.',
+    onboard_slide5_desc: 'Healthcare payments earn SaloPoints for tier benefits. When a medical bill falls short, Salo gives review-based support options.',
 
     // Language Selection
     lang_select_title: 'Choose a Language',
@@ -247,7 +255,7 @@ export const TRANSLATIONS = {
     vault_empty: 'Empty',
     vault_escrow: 'Escrow Balance',
     vault_cashback: 'SaloPoints',
-    vault_cashback_desc: 'Earned from healthcare payments. Points improve your Salo tier and partner benefits.',
+    vault_cashback_desc: 'Earned from healthcare payments. Points improve your Salo tier and Salo benefits.',
     vault_topup: 'Top up',
     vault_history: 'View History',
     vault_earn_title: 'How to Earn SaloPoints',
@@ -349,7 +357,7 @@ export const TRANSLATIONS = {
 
     // Salo
     loan_hero_title: 'Health Bill Support',
-    loan_hero_desc: 'Salo means support when your vault falls short. Requests are reviewed with trusted partners.',
+    loan_hero_desc: 'Salo means support when your vault falls short. Requests are reviewed by SaloMed.',
     loan_pending_one: 'Salo Request Pending',
     loan_pending_many: 'Multiple Salo Requests Pending',
     loan_pending_one_desc: 'Your {amount} application is recorded as pending.',
@@ -369,7 +377,7 @@ export const TRANSLATIONS = {
     loan_how_1: 'Request Salo to cover a medical bill gap',
     loan_how_2: 'Approved proceeds are reflected in the purpose-bound vault',
     loan_how_3: 'Repayment terms are shown in equal installments',
-    loan_how_4: 'Your SaloPoints tier can unlock better partner-reviewed rates over time',
+    loan_how_4: 'Your SaloPoints tier can unlock better review-based rates over time',
     loan_request: 'Request Salo',
     loan_request_limit: 'Request Limit Reached',
     loan_limit_desc: 'Maximum of 2 Salo requests are allowed at the same time to protect financial safety. Please wait for your current applications to be processed or settled.',
@@ -383,6 +391,14 @@ export const TRANSLATIONS = {
     loan_monthly_payment: 'Monthly payment ({months} mo)',
     loan_total_repayment: 'Total repayment',
     loan_total_interest: 'Total interest',
+    loan_review_title: 'Review checks',
+    loan_review_identity: 'Wallet identity',
+    loan_review_identity_value: 'Demo verified',
+    loan_review_open_requests: 'Open requests',
+    loan_review_payment_history: 'Payment history',
+    loan_review_payment_history_value: '{points} SaloPoints',
+    loan_review_salomed: 'SaloMed review',
+    loan_review_salomed_value: 'Required before release',
     loan_submitting: 'Submitting...',
     loan_request_with_terms: 'Request Salo: {amount}/mo for {months} months',
     loan_enter_amount: 'Enter an amount to continue',
@@ -390,7 +406,7 @@ export const TRANSLATIONS = {
     loan_done_desc: 'Your Salo request for {amount} (approx. {xlm} XLM) was saved locally on this device.',
     loan_done_term_rate: 'Term: {months} months · Rate: {rate}% p.a.',
     loan_done_status_title: 'Status: Recorded locally',
-    loan_done_status_desc: 'This request is saved on your device for partner review. Salo support release is not yet enabled.',
+    loan_done_status_desc: 'This request is saved on your device for SaloMed review. Salo support release is not yet enabled.',
     loan_back: 'Back to Salo',
 
     // Remittance
@@ -444,7 +460,7 @@ export const TRANSLATIONS = {
     onboard_slide4_title: 'Powered by Stellar',
     onboard_slide4_desc: 'Stellar keeps settlement fast and low-cost, with confirmed activity visible in your Vault Activity.',
     onboard_slide5_title: 'SaloPoints and Salo',
-    onboard_slide5_desc: 'Healthcare payments earn SaloPoints for tier benefits. When a medical bill falls short, Salo gives partner-reviewed support options.',
+    onboard_slide5_desc: 'Healthcare payments earn SaloPoints for tier benefits. When a medical bill falls short, Salo gives review-based support options.',
 
     // Language Selection
     lang_select_title: 'Choose a Language',
@@ -479,7 +495,7 @@ export const TRANSLATIONS = {
     vault_empty: 'Walang Laman',
     vault_escrow: 'Escrow Balance',
     vault_cashback: 'SaloPoints',
-    vault_cashback_desc: 'Nakukuha tuwing healthcare payment. Pinapabuti nito ang iyong Salo tier at partner benefits.',
+    vault_cashback_desc: 'Nakukuha tuwing healthcare payment. Pinapabuti nito ang iyong Salo tier at Salo benefits.',
     vault_topup: 'Mag-top up',
     vault_history: 'Tingnan ang mga Transaksyon',
     vault_earn_title: 'Paano Makakuha ng SaloPoints',
@@ -581,7 +597,7 @@ export const TRANSLATIONS = {
 
     // Salo
     loan_hero_title: 'Suporta sa Bayaring Medikal',
-    loan_hero_desc: 'Ang Salo ay pansalo kapag kulang ang laman ng vault. Sinusuri ang mga hiling kasama ang trusted partners.',
+    loan_hero_desc: 'Ang Salo ay pansalo kapag kulang ang laman ng vault. Sinusuri ng SaloMed ang mga hiling.',
     loan_pending_one: 'Nakabinbing Hiling sa Salo',
     loan_pending_many: 'May Ilang Nakabinbing Hiling sa Salo',
     loan_pending_one_desc: 'Ang aplikasyon mong {amount} ay naka-record bilang nakabinbin.',
@@ -601,7 +617,7 @@ export const TRANSLATIONS = {
     loan_how_1: 'Humiling ng Salo para matakpan ang kulang sa medical bill',
     loan_how_2: 'Kapag aprubado, makikita ang pondo sa purpose-bound vault',
     loan_how_3: 'Makikita ang iskedyul ng bayad bilang pantay-pantay na hulog',
-    loan_how_4: 'Mas mababang rate na sinusuri ng partners ang maaaring ma-unlock gamit ang iyong SaloPoints tier',
+    loan_how_4: 'Mas mababang review-based rate ang maaaring ma-unlock gamit ang iyong SaloPoints tier',
     loan_request: 'Humiling ng Salo',
     loan_request_limit: 'Naabot na ang Limitasyon sa Hiling',
     loan_limit_desc: 'Hanggang 2 hiling sa Salo lang ang sabay-sabay para sa financial safety. Hintayin munang ma-process o ma-settle ang kasalukuyang aplikasyon.',
@@ -615,6 +631,14 @@ export const TRANSLATIONS = {
     loan_monthly_payment: 'Buwanang bayad ({months} buwan)',
     loan_total_repayment: 'Kabuuang babayaran',
     loan_total_interest: 'Kabuuang Interes',
+    loan_review_title: 'Mga review check',
+    loan_review_identity: 'Wallet identity',
+    loan_review_identity_value: 'Demo verified',
+    loan_review_open_requests: 'Open requests',
+    loan_review_payment_history: 'Payment history',
+    loan_review_payment_history_value: '{points} SaloPoints',
+    loan_review_salomed: 'SaloMed review',
+    loan_review_salomed_value: 'Kailangan bago i-release',
     loan_submitting: 'Isinusumite...',
     loan_request_with_terms: 'Humiling ng Salo: {amount}/buwan sa loob ng {months} buwan',
     loan_enter_amount: 'Maglagay ng halaga para magpatuloy',
@@ -622,7 +646,7 @@ export const TRANSLATIONS = {
     loan_done_desc: 'Ang hiling mong Salo na {amount} (tinatayang {xlm} XLM) ay na-save sa device na ito.',
     loan_done_term_rate: 'Tagal: {months} buwan. Rate ng interes: {rate}% p.a.',
     loan_done_status_title: 'Kalagayan: Naka-save sa device',
-    loan_done_status_desc: 'Naka-save ang hiling na ito sa device mo para sa partner review. Hindi pa naka-enable ang release ng Salo support.',
+    loan_done_status_desc: 'Naka-save ang hiling na ito sa device mo para sa SaloMed review. Hindi pa naka-enable ang release ng Salo support.',
     loan_back: 'Bumalik sa Salo',
 
     // Padala
@@ -676,7 +700,7 @@ export const TRANSLATIONS = {
     onboard_slide4_title: 'Pinapagana ng Stellar',
     onboard_slide4_desc: 'Mabilis at mababa ang gastos sa settlement gamit ang Stellar, habang makikita ang kumpirmadong activity sa Vault Activity.',
     onboard_slide5_title: 'SaloPoints at Salo',
-    onboard_slide5_desc: 'Ang healthcare payments ay nagbibigay ng SaloPoints para sa tier benefits. Kapag kulang ang pambayad sa medical bill, may partner-reviewed Salo support options.',
+    onboard_slide5_desc: 'Ang healthcare payments ay nagbibigay ng SaloPoints para sa tier benefits. Kapag kulang ang pambayad sa medical bill, may review-based Salo support options.',
 
     // Language Selection
     lang_select_title: 'Pumili ng Wika',

@@ -5,6 +5,7 @@ from decimal import Decimal
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from compliance_policy import PolicyError, salo_underwriting_review, transaction_review, wallet_review
 from salomed_runtime import DemoLedger, LedgerError, PostgresLedger, RuntimeMode, RuntimeSettings
 
 
@@ -47,6 +48,14 @@ class HistoryRecordRequest(BaseModel):
     source: str | None = Field(default=None, max_length=16)
 
 
+class SaloUnderwriteRequest(BaseModel):
+    address: str = Field(min_length=56, max_length=56)
+    amount_php: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+    salo_points: int = Field(default=0, ge=0)
+    pending_requests: int = Field(default=0, ge=0, le=10)
+    term_months: int = Field(default=6, ge=1, le=36)
+
+
 # Allowed top-up method labels. Anything else is stored as NULL (generic top-up).
 _ALLOWED_TOPUP_SOURCES = {"gcash", "instapay", "freighter"}
 
@@ -67,6 +76,26 @@ def _ledger_call(function, *args):
             status_code=exc.status_code,
             detail={"error": exc.code, "message": exc.message},
         ) from exc
+
+
+def _policy_call(function, *args, **kwargs):
+    try:
+        review = function(*args, **kwargs)
+    except PolicyError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"error": exc.code, "message": exc.message},
+        ) from exc
+    if review.get("decision") == "reject":
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "POLICY_REVIEW_BLOCKED",
+                "message": "This request needs manual review before it can continue.",
+                "review": review,
+            },
+        )
+    return review
 
 
 def create_runtime_router(settings: RuntimeSettings, demo_ledger: "DemoLedger | PostgresLedger") -> APIRouter:
@@ -102,6 +131,21 @@ def create_runtime_router(settings: RuntimeSettings, demo_ledger: "DemoLedger | 
             "history_source": "demo_ledger" if simulated else "soroban_contract_events",
             "stellar_tracking_enabled": stellar_tracking_enabled,
         }
+
+    @router.get("/api/v2/compliance/{address}", tags=["Runtime"])
+    async def compliance_status(address: str):
+        return _policy_call(wallet_review, address)
+
+    @router.post("/api/v2/salo/underwrite", tags=["Runtime"])
+    async def salo_underwrite(body: SaloUnderwriteRequest):
+        return _policy_call(
+            salo_underwriting_review,
+            address=body.address,
+            amount_php=body.amount_php,
+            salo_points=body.salo_points,
+            pending_requests=body.pending_requests,
+            term_months=body.term_months,
+        )
 
     @router.get("/api/v2/providers", tags=["Runtime"])
     async def providers():
@@ -156,6 +200,13 @@ def create_runtime_router(settings: RuntimeSettings, demo_ledger: "DemoLedger | 
         # on-ramp float). This is the fiat on-ramp credit path used by GCash /
         # InstaPay / Freighter top-ups. The method label is recorded on the row.
         method = _normalize_topup_source(body.source)
+        review = _policy_call(
+            transaction_review,
+            kind="topup",
+            address=body.beneficiary_address,
+            amount_php=body.amount_php,
+            source=method,
+        )
         if settings.mode is not RuntimeMode.DEMO:
             import stellar_bridge
             import pdax_service as pdax
@@ -204,17 +255,28 @@ def create_runtime_router(settings: RuntimeSettings, demo_ledger: "DemoLedger | 
                 "amount_asset": f"{asset_amount:.7f}",
                 "asset_code": settings.asset_code,
                 "source": method,
+                "review": review,
             }
-        return _ledger_call(
+        response = _ledger_call(
             demo_ledger.topup,
             body.beneficiary_address,
             body.amount_php,
             body.idempotency_key,
             method,
         )
+        response["review"] = review
+        return response
 
     @router.post("/api/v2/payments", tags=["Vault v2"])
     async def payment(body: PaymentRequest):
+        amount_php = body.amount_asset * settings.php_per_asset_decimal
+        review = _policy_call(
+            transaction_review,
+            kind="payment",
+            address=body.patient_address,
+            amount_php=amount_php,
+            counterparty=body.provider_id,
+        )
         if settings.mode is not RuntimeMode.DEMO:
             raise HTTPException(
                 status_code=409,
@@ -223,16 +285,26 @@ def create_runtime_router(settings: RuntimeSettings, demo_ledger: "DemoLedger | 
                     "message": "Use a patient-signed Soroban payment in Stellar mode",
                 },
             )
-        return _ledger_call(
+        response = _ledger_call(
             demo_ledger.payment,
             body.patient_address,
             body.provider_id,
             body.amount_asset,
             body.idempotency_key,
         )
+        response["review"] = review
+        return response
 
     @router.post("/api/v2/remittances", tags=["Vault v2"])
     async def remittance(body: RemittanceRequest):
+        amount_php = body.amount_asset * settings.php_per_asset_decimal
+        review = _policy_call(
+            transaction_review,
+            kind="remittance",
+            address=body.sender_address,
+            amount_php=amount_php,
+            counterparty=body.beneficiary_address,
+        )
         if settings.mode is not RuntimeMode.DEMO:
             raise HTTPException(
                 status_code=409,
@@ -241,12 +313,14 @@ def create_runtime_router(settings: RuntimeSettings, demo_ledger: "DemoLedger | 
                     "message": "Use a sender-signed Soroban deposit_remittance in Stellar mode",
                 },
             )
-        return _ledger_call(
+        response = _ledger_call(
             demo_ledger.remittance,
             body.sender_address,
             body.beneficiary_address,
             body.amount_asset,
             body.idempotency_key,
         )
+        response["review"] = review
+        return response
 
     return router

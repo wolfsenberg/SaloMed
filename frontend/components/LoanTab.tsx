@@ -382,6 +382,26 @@ export default function LoanTab({ address, vault }: Props) {
               )}
             </AnimatePresence>
 
+            {parsedPhp > 0 && (
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-3">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('loan_review_title')}</p>
+                {[
+                  { label: t('loan_review_identity'), value: t('loan_review_identity_value') },
+                  { label: t('loan_review_open_requests'), value: `${pendingLoans.length}/2` },
+                  { label: t('loan_review_payment_history'), value: t('loan_review_payment_history_value', { points: vault.salo_points }) },
+                  { label: t('loan_review_salomed'), value: t('loan_review_salomed_value') },
+                ].map(row => (
+                  <div key={row.label} className="flex items-center justify-between gap-3 text-xs">
+                    <span className="flex items-center gap-2 text-slate-500">
+                      <CheckCircle size={13} className="text-blue-500" />
+                      {row.label}
+                    </span>
+                    <span className="font-semibold text-slate-700 text-right">{row.value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <p className="text-xs text-slate-400 text-center">{t('common_demo_simulated')}</p>
 
             <button

@@ -62,6 +62,7 @@ export interface PdaxDepositResult {
   usdc_amount?: number;
   rate?: number;
   rate_source?: 'pdax_live' | 'coingecko_live' | 'indicative';
+  review?: Record<string, unknown>;
 }
 
 export interface PdaxConfirmResult {
@@ -72,6 +73,10 @@ export interface PdaxConfirmResult {
   asset_amount?: number;
   usdc_amount?: number;
   pdax_status?: string;
+  settlement_status?: 'pending' | 'credited' | 'failed';
+  retry_count?: number;
+  retryable?: boolean;
+  next_retry_at?: number | null;
 }
 
 export interface PdaxDepositStatusResult {
@@ -82,6 +87,11 @@ export interface PdaxDepositStatusResult {
   amount_php?: string | number | null;
   credited: boolean;
   tx_hash?: string | null;
+  settlement_status?: 'pending' | 'credited' | 'failed';
+  retry_count?: number;
+  last_error?: string;
+  next_retry_at?: number | null;
+  retryable?: boolean;
 }
 
 /** Live PDAX connectivity + institutional balances. */

@@ -245,14 +245,14 @@ export default function OnboardingSlides({ onComplete, liveSettlementEnabled = f
             </div>
           </div>
           <FeatureChip>
-            <Building2 size={13} className="text-blue-600" /> Partner review
+            <Building2 size={13} className="text-blue-600" /> SaloMed review
           </FeatureChip>
         </SceneFrame>
       ),
       tag: 'SaloPoints and Salo',
       title: t('onboard_slide5_title'),
       desc: liveSettlementEnabled
-        ? 'Earn SaloPoints from healthcare payments and use your activity to unlock better partner-reviewed Salo options.'
+        ? 'Earn SaloPoints from healthcare payments and use your activity to unlock review-based Salo options.'
         : t('onboard_slide5_desc'),
     },
   ];
