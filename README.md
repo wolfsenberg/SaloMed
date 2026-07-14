@@ -70,7 +70,7 @@ The SaloMed Vault separates health funds from everyday spending. Funds are reser
 Users interact with the app through patterns they already understand:
 
 * PHP-first balance display, with XLM available as a transparent alternate view.
-* GCash-style top up for familiar local behavior.
+* Local currency top up for familiar everyday funding behavior.
 * InstaPay via PDAX flow for PHP-to-XLM onboarding.
 * Freighter support for Stellar-native users.
 * QR and address-based payment flows for provider checkout.
@@ -269,7 +269,7 @@ Key improvements already made from review and testing:
 
 1. **Onboarding:** user learns that SaloMed is a purpose-bound health alkansya (health piggy bank).
 2. **Vault:** user sees their health balance in PHP, with XLM available as an alternate view.
-3. **Top Up:** user adds funds through GCash-style, InstaPay via PDAX, or Freighter flow.
+3. **Top Up:** user adds funds through local currency, InstaPay via PDAX, or Freighter flow.
 4. **Payment:** user pays a whitelisted hospital, clinic, or pharmacy.
 5. **Healthcare Remittance:** sender transfers health support to a loved one's SaloMed Vault.
 6. **Transactions:** user opens transaction details to see source, recipient, amount, XLM equivalent, and verification context.
