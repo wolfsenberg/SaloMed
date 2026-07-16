@@ -13,12 +13,26 @@ async function api(): Promise<FreighterApi | null> {
   }
 }
 
+function isStellarAddress(value: unknown): value is string {
+  return typeof value === 'string' && value.startsWith('G') && value.length === 56;
+}
+
 function extractAddress(res: unknown): string | null {
+  if (isStellarAddress(res)) return res;
   if (!res || typeof res !== 'object') return null;
   const r = res as Record<string, unknown>;
   if (r.error) { console.warn('[Freighter] error in response:', r.error); return null; }
-  const addr = r.address;
-  if (typeof addr === 'string' && addr.startsWith('G') && addr.length === 56) return addr;
+  const candidates = [
+    r.address,
+    r.publicKey,
+    r.public_key,
+    r.account,
+    r.accountId,
+    r.account_id,
+  ];
+  for (const candidate of candidates) {
+    if (isStellarAddress(candidate)) return candidate;
+  }
   return null;
 }
 
@@ -30,7 +44,12 @@ export async function connectWallet(): Promise<string | null> {
   // isConnected() only tells us if the extension is installed, not if it has
   // granted access, and checking it first can incorrectly block the popup.
   const res = await f.requestAccess();
-  const addr = extractAddress(res);
+  let addr = extractAddress(res);
+  if (!addr) {
+    // Freighter versions differ: some approval responses are only an access
+    // flag, with the address available through a follow-up getAddress call.
+    addr = extractAddress(await f.getAddress());
+  }
   if (!addr) throw new Error('Freighter connection was rejected or returned no address.');
   return addr;
 }
@@ -40,6 +59,15 @@ export async function signTransaction(xdr: string, signerAddress?: string): Prom
   if (!f) throw new Error('Freighter extension not found. Install it from freighter.app and refresh.');
 
   const passphrase = process.env.NEXT_PUBLIC_NETWORK_PASSPHRASE ?? 'Test SDF Network ; September 2015';
+  if (signerAddress) {
+    const activeAddress = extractAddress(await f.getAddress());
+    if (!activeAddress) {
+      throw new Error('Freighter returned no active account. Reconnect your wallet and try again.');
+    }
+    if (activeAddress.toUpperCase() !== signerAddress.toUpperCase()) {
+      throw new Error('Freighter active account changed. Reconnect your wallet so SaloMed uses the current address.');
+    }
+  }
 
   // signTransaction itself triggers the Freighter approval popup. We pass the
   // signer address (when known) so the extension targets the right account.

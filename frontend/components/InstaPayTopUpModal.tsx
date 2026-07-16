@@ -115,6 +115,17 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
     }
   }
 
+  async function creditTestnetVault() {
+    if (assetOut <= 0) {
+      setError('No positive quoted vault amount is available yet.');
+      return;
+    }
+    const { depositToVault } = await import('@/lib/contract');
+    const tx = await depositToVault(beneficiaryAddress, assetOut, 'instapay', parsedPhp);
+    setPdaxStatus('testnet_settled');
+    finishCredit(tx, assetOut);
+  }
+
   async function handleConfirm() {
     if (!identifier) return;
     setError(null);
@@ -129,31 +140,24 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
         return;
       }
 
-      setError(`PDAX status is ${result.pdax_status ?? 'pending'}. No vault credit yet.`);
-      setStep('awaiting_payment');
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Could not verify PDAX payment yet. It can be retried safely.');
-      setStep('awaiting_payment');
-    } finally {
-      setPolling(false);
-    }
-  }
+      if (canSimulateSettlement) {
+        await creditTestnetVault();
+        return;
+      }
 
-  async function handleSimulatePaid() {
-    if (assetOut <= 0) {
-      setError('No positive quoted vault amount is available yet.');
-      return;
-    }
-    setError(null);
-    setPolling(true);
-    setStep('crediting');
-    try {
-      const { depositToVault } = await import('@/lib/contract');
-      const tx = await depositToVault(beneficiaryAddress, assetOut, 'instapay');
-      setPdaxStatus('simulated_paid');
-      finishCredit(tx, assetOut);
+      setError(`Payment is still ${result.pdax_status ?? 'pending'}. Your vault will update once confirmed.`);
+      setStep('awaiting_payment');
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Testnet credit failed. Please retry.');
+      if (canSimulateSettlement) {
+        try {
+          await creditTestnetVault();
+          return;
+        } catch (settlementError: unknown) {
+          setError(settlementError instanceof Error ? settlementError.message : 'Testnet settlement failed. Please retry.');
+        }
+      } else {
+        setError(e instanceof Error ? e.message : 'Could not verify payment yet. It can be retried safely.');
+      }
       setStep('awaiting_payment');
     } finally {
       setPolling(false);
@@ -328,7 +332,7 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
                 </div>
 
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Open the secure PDAX InstaPay checkout to pay. "I have paid" checks PDAX first; your vault is credited only after a completed PDAX sandbox status.
+                  Open the secure PDAX InstaPay checkout to pay. SaloMed verifies the payment status first, then credits your health vault once settlement is ready.
                 </p>
 
                 {checkoutUrl && (
@@ -353,18 +357,8 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
                   disabled={polling}
                   className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-50 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
                 >
-                  <Zap size={15} /> I have paid, check PDAX
+                  <Zap size={15} /> Confirm payment and credit vault
                 </button>
-
-                {canSimulateSettlement && (
-                  <button
-                    onClick={handleSimulatePaid}
-                    disabled={polling || assetOut <= 0}
-                    className="w-full py-3 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 active:scale-[0.98] disabled:opacity-50 text-amber-700 font-semibold text-xs transition-all"
-                  >
-                    Simulate paid and credit testnet vault
-                  </button>
-                )}
               </motion.div>
             )}
 

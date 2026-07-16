@@ -51,6 +51,24 @@ export function parseSaloMedQR(raw: string): SaloMedQRPayload | null {
   return null;
 }
 
+function VaultSigningNote({ amountPhp, amountXlm }: { amountPhp: number; amountXlm: number }) {
+  return (
+    <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-3">
+      <div className="flex items-start gap-2">
+        <ShieldCheck size={15} className="mt-0.5 shrink-0 text-blue-600" />
+        <div className="space-y-1">
+          <p className="text-xs font-bold text-blue-800">You are signing a vault payment</p>
+          <p className="text-[11px] leading-relaxed text-blue-700">
+            Freighter may show only the network fee. SaloMed will deduct
+            {' '}<span className="font-semibold">PHP {fmtPhp(amountPhp)}</span>
+            {' '}(about {fmtAsset(amountXlm)} XLM) from your health vault after confirmation.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface Props {
   payload: SaloMedQRPayload;
   onClose: () => void;
@@ -158,7 +176,7 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
                   <CheckCircle size={32} className="text-emerald-500" />
                 </div>
                 <div className="text-center space-y-1">
-                  <h4 className="font-bold text-slate-900">Payment Processed!</h4>
+                  <h4 className="font-bold text-slate-900">Vault Payment Successful</h4>
                   <p className="text-sm text-slate-500">
                     <span className="font-semibold text-slate-700">
                       ₱{fmtPhp(phpValue)} PHP
@@ -257,6 +275,8 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
                   </p>
                 </div>
 
+                <VaultSigningNote amountPhp={phpValue} amountXlm={payload.amount_usdc} />
+
                 {/* Error */}
                 <AnimatePresence>
                   {error && (
@@ -286,9 +306,9 @@ export default function QRPaymentConfirmModal({ payload, onClose, onSuccess }: P
                     className="flex-[0.6] py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-60 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
                   >
                     {submitting ? (
-                      <><Loader2 size={16} className="animate-spin" /> Processing…</>
+                      <><Loader2 size={16} className="animate-spin" /> Waiting for Freighter...</>
                     ) : (
-                      <><CheckCircle size={15} /> Confirm & Pay</>
+                      <><CheckCircle size={15} /> Sign and Pay</>
                     )}
                   </button>
                 </div>
