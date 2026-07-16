@@ -13,7 +13,7 @@ import RemittanceForm from '@/components/RemittanceForm';
 import TransactionsTab from '@/components/TransactionsTab';
 import OnboardingSlides from '@/components/OnboardingSlides';
 import LanguageSelectionModal from '@/components/LanguageSelectionModal';
-import { connectWallet, getAddress as getFreighterAddress, isFreighterInstalled } from '@/lib/freighter';
+import { connectWallet, getAddress as getFreighterAddress, isFreighterInstalled, preloadFreighter } from '@/lib/freighter';
 import { getVault, HealthVault, EMPTY_VAULT } from '@/lib/contract';
 import { LanguageProvider, useTranslation } from '@/lib/i18n/LanguageContext';
 import { Language } from '@/lib/i18n/translations';
@@ -161,6 +161,8 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
   }, [address, refreshVault]);
 
   useEffect(() => {
+    preloadFreighter();
+
     getRuntimeStatus().then(setRuntime).catch(error => {
       setConnectError(error instanceof Error ? error.message : 'Runtime configuration unavailable.');
     });
@@ -366,6 +368,8 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
                 ) : (
                   <button
                     onClick={handleConnect}
+                    onPointerEnter={preloadFreighter}
+                    onFocus={preloadFreighter}
                     disabled={connecting}
                     className="w-full text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl py-3 transition-all disabled:opacity-60 shadow-sm"
                   >
@@ -438,6 +442,8 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
               ) : (
                 <button
                   onClick={handleConnect}
+                  onPointerEnter={preloadFreighter}
+                  onFocus={preloadFreighter}
                   disabled={connecting}
                   className="text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-full px-3 py-1.5 transition-colors disabled:opacity-60"
                 >

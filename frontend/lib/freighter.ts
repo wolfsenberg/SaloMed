@@ -3,13 +3,26 @@
 
 type FreighterApi = typeof import('@stellar/freighter-api');
 
+let apiPromise: Promise<FreighterApi | null> | null = null;
+let lastKnownAddress: string | null = null;
+
 async function api(): Promise<FreighterApi | null> {
   if (typeof window === 'undefined') return null;
+  if (apiPromise) return apiPromise;
+  apiPromise = import('@stellar/freighter-api')
+    .catch(e => {
+      console.error('[Freighter] import failed:', e);
+      apiPromise = null;
+      return null;
+    });
+  return apiPromise;
+}
+
+export function preloadFreighter(): void {
   try {
-    return await import('@stellar/freighter-api');
-  } catch (e) {
-    console.error('[Freighter] import failed:', e);
-    return null;
+    void api();
+  } catch {
+    // Best-effort warmup only.
   }
 }
 
@@ -36,6 +49,11 @@ function extractAddress(res: unknown): string | null {
   return null;
 }
 
+function rememberAddress(address: string | null): string | null {
+  lastKnownAddress = address ? address.toUpperCase() : null;
+  return lastKnownAddress;
+}
+
 // Opens the Freighter extension popup. Throws a readable message on failure.
 export async function connectWallet(): Promise<string | null> {
   const f = await api();
@@ -51,7 +69,7 @@ export async function connectWallet(): Promise<string | null> {
     addr = extractAddress(await f.getAddress());
   }
   if (!addr) throw new Error('Freighter connection was rejected or returned no address.');
-  return addr;
+  return rememberAddress(addr);
 }
 
 export async function signTransaction(xdr: string, signerAddress?: string): Promise<string | null> {
@@ -59,14 +77,8 @@ export async function signTransaction(xdr: string, signerAddress?: string): Prom
   if (!f) throw new Error('Freighter extension not found. Install it from freighter.app and refresh.');
 
   const passphrase = process.env.NEXT_PUBLIC_NETWORK_PASSPHRASE ?? 'Test SDF Network ; September 2015';
-  if (signerAddress) {
-    const activeAddress = extractAddress(await f.getAddress());
-    if (!activeAddress) {
-      throw new Error('Freighter returned no active account. Reconnect your wallet and try again.');
-    }
-    if (activeAddress.toUpperCase() !== signerAddress.toUpperCase()) {
-      throw new Error('Freighter active account changed. Reconnect your wallet so SaloMed uses the current address.');
-    }
+  if (signerAddress && lastKnownAddress && lastKnownAddress !== signerAddress.toUpperCase()) {
+    throw new Error('Freighter active account changed. Reconnect your wallet so SaloMed uses the current address.');
   }
 
   // signTransaction itself triggers the Freighter approval popup. We pass the
@@ -112,15 +124,16 @@ export async function isFreighterInstalled(): Promise<boolean> {
 
 export async function getAddress(): Promise<string | null> {
   const f = await api();
-  if (!f) return null;
+  if (!f) return rememberAddress(null);
   try {
     // isConnected shape differs between v5 (boolean) and v6 ({ isConnected: boolean })
     const conn = await f.isConnected();
     const isConn = typeof conn === 'boolean' ? conn : (conn as { isConnected: boolean }).isConnected;
-    if (!isConn) return null;
-    return extractAddress(await f.getAddress());
+    if (!isConn) return rememberAddress(null);
+    return rememberAddress(extractAddress(await f.getAddress()));
   } catch (e) {
     console.error('[Freighter] getAddress error:', e);
+    rememberAddress(null);
     return null;
   }
 }
