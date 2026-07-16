@@ -41,8 +41,8 @@ jobs:
 
       # Keep the Soroban 25.x toolchain deterministic. Newer Linux Rust
       # releases can break older transitive deps such as ethnum.
-      - name: Install Rust 1.85.0
-        uses: dtolnay/rust-toolchain@1.85.0
+      - name: Install Rust 1.91.0
+        uses: dtolnay/rust-toolchain@1.91.0
         with:
           targets: wasm32v1-none
 
@@ -53,8 +53,8 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             contracts/salomed/target
-          key: ${{ runner.os }}-rust-1.85.0-contract-release-${{ hashFiles('contracts/salomed/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-rust-1.85.0-contract-release-
+          key: ${{ runner.os }}-rust-1.91.0-contract-release-${{ hashFiles('contracts/salomed/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-rust-1.91.0-contract-release-
 
       - name: Run contract tests
         working-directory: contracts/salomed
