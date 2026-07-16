@@ -15,6 +15,10 @@ from compliance_policy import PolicyError, salo_underwriting_review, transaction
 from salomed_runtime import DemoLedger, LedgerError, PostgresLedger, RuntimeMode, RuntimeSettings
 
 
+LIVE_RATE_SOURCES = {"pdax_live", "coingecko_live"}
+STRICT_RATE_MODES = {RuntimeMode.PDAX_UAT, RuntimeMode.PDAX_PROD}
+
+
 class TopUpRequest(BaseModel):
     beneficiary_address: str
     amount_php: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
@@ -448,7 +452,8 @@ def create_runtime_router(settings: RuntimeSettings, demo_ledger: "DemoLedger | 
                 fallback_rate=float(settings.php_per_asset_decimal),
             )
             asset_amount = float(quote.get("asset_amount") or 0)
-            if quote.get("source") not in {"pdax_live", "coingecko_live"} or asset_amount <= 0:
+            rate_source = str(quote.get("source") or "")
+            if asset_amount <= 0 or (settings.mode in STRICT_RATE_MODES and rate_source not in LIVE_RATE_SOURCES):
                 raise HTTPException(
                     status_code=503,
                     detail={"error": "RATE_UNAVAILABLE",
@@ -475,6 +480,7 @@ def create_runtime_router(settings: RuntimeSettings, demo_ledger: "DemoLedger | 
                 "amount_php": f"{body.amount_php:.2f}",
                 "amount_asset": f"{asset_amount:.7f}",
                 "asset_code": settings.asset_code,
+                "rate_source": rate_source,
                 "source": method,
                 "review": review,
             }

@@ -208,7 +208,7 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
                 className="space-y-4"
               >
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Fund your vault with pesos through PDAX InstaPay. Your payment is converted to XLM at the live rate and credited to your locked health vault on Stellar.
+                  Fund your vault with pesos through PDAX InstaPay. Your payment is converted to XLM and credited to your health-dedicated vault on Stellar.
                 </p>
 
                 <div className="space-y-2">
@@ -386,7 +386,7 @@ export default function InstaPayTopUpModal({ beneficiaryAddress, onClose, onSucc
                 <div>
                   <p className="font-bold text-slate-900 text-lg">Vault credited!</p>
                   <p className="text-xs text-slate-500 mt-1">
-                    {fmtAsset(creditedAsset ?? assetOut)} XLM added to your locked health vault.
+                    {fmtAsset(creditedAsset ?? assetOut)} XLM added to your health-dedicated vault.
                   </p>
                 </div>
 

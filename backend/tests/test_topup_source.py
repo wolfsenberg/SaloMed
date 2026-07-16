@@ -26,10 +26,10 @@ BENEFICIARY = "GAXXWLECCE644QVYLKRHCDWDH5V7KMYG3GZEDPEB7C7LIQFPQ43ZBFEK"
 HASH = "a" * 64
 
 
-def _stellar_settings(tmp_path: Path) -> RuntimeSettings:
+def _runtime_settings(tmp_path: Path, mode: RuntimeMode = RuntimeMode.STELLAR_TESTNET) -> RuntimeSettings:
     # Construct the dataclass directly to bypass from_env() validation.
     return RuntimeSettings(
-        mode=RuntimeMode.STELLAR_TESTNET,
+        mode=mode,
         asset_code="XLM",
         contract_id="CA6X5ZJ24LBJBCRHSAJK5EXB7CMEED2X2JTDLTPBOZC3SM4ABZYNIRCG",
         network="testnet",
@@ -42,18 +42,22 @@ def _stellar_settings(tmp_path: Path) -> RuntimeSettings:
     )
 
 
-@pytest.fixture
-def client(tmp_path, monkeypatch):
+def _make_client(tmp_path, monkeypatch, mode: RuntimeMode = RuntimeMode.STELLAR_TESTNET) -> TestClient:
     # Point the address-keyed history index at a fresh temp SQLite DB.
     monkeypatch.setenv("SALOMED_DB_PATH", str(tmp_path / "history.sqlite3"))
     monkeypatch.delenv("DATABASE_URL", raising=False)
     history_store._USE_PG = False
     history_store._INITIALIZED = False
-    settings = _stellar_settings(tmp_path)
+    settings = _runtime_settings(tmp_path, mode)
     ledger = DemoLedger(str(tmp_path / "demo.sqlite3"), settings.php_per_asset_decimal)
     app = FastAPI()
     app.include_router(create_runtime_router(settings, ledger))
     return TestClient(app)
+
+
+@pytest.fixture
+def client(tmp_path, monkeypatch):
+    return _make_client(tmp_path, monkeypatch)
 
 
 def _mock_quote(source: str = "pdax_live", asset_amount: float = 66.44, rate: float = 7.526):
@@ -137,7 +141,31 @@ def test_topup_bridge_not_configured_leaves_no_row(client, monkeypatch):
     assert history_store.history(BENEFICIARY) == []
 
 
-def test_topup_rate_unavailable_blocks_and_never_credits(client, monkeypatch):
+def test_stellar_testnet_indicative_rate_can_credit_demo_deploy(client, monkeypatch):
+    monkeypatch.setattr(stellar_bridge, "is_bridge_configured", lambda: True)
+    credited = {"amount": None}
+
+    def _credit(addr, amt):
+        credited["amount"] = amt
+        return HASH
+
+    monkeypatch.setattr(stellar_bridge, "credit_vault_usdc", _credit)
+    monkeypatch.setattr(pdax_service, "get_php_to_asset_quote",
+                        _mock_quote(source="configured_indicative", asset_amount=44.6428571, rate=11.20))
+
+    resp = client.post("/api/v2/topups", json={
+        "beneficiary_address": BENEFICIARY, "amount_php": "500.00",
+        "idempotency_key": "topup-testnet-indicative", "source": "instapay"})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["transaction_id"] == HASH
+    assert body["rate_source"] == "configured_indicative"
+    assert credited["amount"] == pytest.approx(44.6428571)
+
+
+def test_pdax_mode_rate_unavailable_blocks_and_never_credits(tmp_path, monkeypatch):
+    client = _make_client(tmp_path, monkeypatch, RuntimeMode.PDAX_UAT)
     monkeypatch.setattr(stellar_bridge, "is_bridge_configured", lambda: True)
     called = {"credited": False}
 
