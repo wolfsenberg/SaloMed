@@ -105,11 +105,13 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: backend/requirements.txt
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
 
       - name: Install backend dependencies
         working-directory: backend
-        run: pip install -r requirements.txt "pytest>=8.2.0"
+        run: pip install -r requirements-dev.txt
 
       - name: Syntax-check backend
         working-directory: backend
