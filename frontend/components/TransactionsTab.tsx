@@ -36,6 +36,13 @@ const activityStyle = {
     amount: 'text-violet-700',
     link: 'text-violet-700 hover:text-violet-800',
   },
+  padalaReceived: {
+    labelKey: 'history_tx_padala',
+    Icon: ArrowDownLeft,
+    icon: 'bg-indigo-50 text-indigo-600',
+    amount: 'text-indigo-700',
+    link: 'text-indigo-700 hover:text-indigo-800',
+  },
   loan: {
     labelKey: 'history_tx_salo',
     Icon: HandCoins,
@@ -44,6 +51,13 @@ const activityStyle = {
     link: 'text-amber-700 hover:text-amber-800',
   },
 } as const;
+
+function getActivityStyle(transaction: Transaction) {
+  if (transaction.type === 'padala' && transaction.direction === 'received') {
+    return activityStyle.padalaReceived;
+  }
+  return activityStyle[transaction.type] ?? activityStyle.payment;
+}
 
 function statusLabel(status: Transaction['status']): string {
   return status.charAt(0).toUpperCase() + status.slice(1);
@@ -204,7 +218,7 @@ export default function TransactionsTab({ address }: Props) {
       <div className="space-y-2">
         {transactions.map(transaction => {
           const received = transaction.direction === 'received' || transaction.type === 'topup';
-          const style = activityStyle[transaction.type] ?? activityStyle.payment;
+          const style = getActivityStyle(transaction);
           const Icon = style.Icon;
           const label = transaction.providerName
             || transaction.recipientLabel

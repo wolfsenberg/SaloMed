@@ -13,7 +13,7 @@ import RemittanceForm from '@/components/RemittanceForm';
 import TransactionsTab from '@/components/TransactionsTab';
 import OnboardingSlides from '@/components/OnboardingSlides';
 import LanguageSelectionModal from '@/components/LanguageSelectionModal';
-import { connectWallet, isFreighterInstalled } from '@/lib/freighter';
+import { connectWallet, getAddress as getFreighterAddress, isFreighterInstalled, preloadFreighter } from '@/lib/freighter';
 import { getVault, HealthVault, EMPTY_VAULT } from '@/lib/contract';
 import { LanguageProvider, useTranslation } from '@/lib/i18n/LanguageContext';
 import { Language } from '@/lib/i18n/translations';
@@ -87,9 +87,14 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
   const prevTab = useRef<Tab>('vault');
   const contentRef = useRef<HTMLDivElement | null>(null);
+  const addressRef = useRef<string | null>(null);
 
   const { t, language, setLanguage, hasChosenLanguage } = useTranslation();
   const showFreighterInstallBanner = !address && !hasFreighter && !freighterBannerDismissed;
+
+  useEffect(() => {
+    addressRef.current = address;
+  }, [address]);
 
   // Sync initial tab from URL on mount, then lock down popstate so that
   // html5-qrcode (or any other lib) pushing/popping history doesn't navigate away.
@@ -156,6 +161,8 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
   }, [address, refreshVault]);
 
   useEffect(() => {
+    preloadFreighter();
+
     getRuntimeStatus().then(setRuntime).catch(error => {
       setConnectError(error instanceof Error ? error.message : 'Runtime configuration unavailable.');
     });
@@ -163,35 +170,47 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
     isFreighterInstalled().then(setHasFreighter);
   }, []);
 
-  // Persistent Connection: Restoration on page load
+  // Keep the connected account dynamic. Freighter is the source of truth; localStorage
+  // is only a convenience cache, never proof that the active wallet is still the same.
   useEffect(() => {
-    // 1. Prioritize manual disconnect flag
     const manualDisconnect = localStorage.getItem('salomed_manual_disconnect') === 'true';
     if (manualDisconnect) return;
 
-    // 2. Try to restore from localStorage immediately for zero-flicker UI
-    const savedAddr = localStorage.getItem('salomed_address');
-    if (savedAddr) {
-      setAddress(savedAddr);
-      void ensureFeeFunds(savedAddr);
-      refreshVault(savedAddr);
-    }
+    let cancelled = false;
 
-    // 3. Verify/Sync with Freighter in the background
-    const { getAddress } = require('@/lib/freighter');
-    getAddress().then((activeAddr: string | null) => {
-      if (activeAddr) {
-        // If Freighter is connected, ensure it's in sync
-        setAddress(activeAddr);
-        localStorage.setItem('salomed_address', activeAddr);
-        localStorage.removeItem('salomed_manual_disconnect');
-        refreshVault(activeAddr);
-      } else if (!savedAddr) {
-        // Only clear if we didn't have a saved one, to prevent flickering
-        // on slow extension loads.
-        setAddress(null);
+    const syncActiveWallet = async () => {
+      const activeAddr = await getFreighterAddress();
+      if (cancelled) return;
+
+      const normalized = activeAddr?.toUpperCase() ?? null;
+      const current = addressRef.current;
+
+      if (!normalized) {
+        localStorage.removeItem('salomed_address');
+        if (current) {
+          setVault(EMPTY_VAULT);
+          setAddress(null);
+        }
+        return;
       }
-    });
+
+      if (normalized !== current) {
+        setVault(EMPTY_VAULT);
+        setAddress(normalized);
+        localStorage.setItem('salomed_address', normalized);
+        localStorage.removeItem('salomed_manual_disconnect');
+        void ensureFeeFunds(normalized);
+        void refreshVault(normalized, true);
+      }
+    };
+
+    void syncActiveWallet();
+    const syncId = window.setInterval(() => void syncActiveWallet(), 3000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(syncId);
+    };
   }, [refreshVault]);
 
   function scrollContentToTop() {
@@ -232,7 +251,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
         setShowOnboarding(true);
         // Make sure the wallet can pay fees for payment/padala (Stellar modes).
         void ensureFeeFunds(addr);
-        await refreshVault(addr);
+        void refreshVault(addr, true);
       }
     } catch (e) {
       setConnectError(e instanceof Error ? e.message : 'Could not connect to Freighter.');
@@ -349,6 +368,8 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
                 ) : (
                   <button
                     onClick={handleConnect}
+                    onPointerEnter={preloadFreighter}
+                    onFocus={preloadFreighter}
                     disabled={connecting}
                     className="w-full text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl py-3 transition-all disabled:opacity-60 shadow-sm"
                   >
@@ -421,6 +442,8 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
               ) : (
                 <button
                   onClick={handleConnect}
+                  onPointerEnter={preloadFreighter}
+                  onFocus={preloadFreighter}
                   disabled={connecting}
                   className="text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-full px-3 py-1.5 transition-colors disabled:opacity-60"
                 >

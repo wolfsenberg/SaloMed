@@ -32,6 +32,24 @@ type PayFrom      = 'vault';
 const QUICK_XLM_AMT = [1, 5, 10, 25, 50];
 const QUICK_PHP_AMT = [50, 100, 250, 500, 1000];
 
+function VaultSigningNote({ amountPhp, amountXlm }: { amountPhp: number; amountXlm: number }) {
+  return (
+    <div className="w-full rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-left">
+      <div className="flex items-start gap-2">
+        <ShieldCheck size={15} className="mt-0.5 shrink-0 text-blue-600" />
+        <div className="space-y-1">
+          <p className="text-xs font-bold text-blue-800">You are signing a vault payment</p>
+          <p className="text-[11px] leading-relaxed text-blue-700">
+            Freighter may show only the network fee. SaloMed will deduct
+            {' '}<span className="font-semibold">PHP {amountPhp.toFixed(2)}</span>
+            {' '}(about {amountXlm.toFixed(2)} XLM) from your health vault after confirmation.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: Props) {
   const { t } = useTranslation();
   const [view, setView]                   = useState<View>('home');
@@ -238,10 +256,10 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
           <CheckCircle size={36} className="text-emerald-500" />
         </div>
         <div className="space-y-1">
-          <h3 className="text-xl font-bold text-slate-900">Payment Sent!</h3>
+          <h3 className="text-xl font-bold text-slate-900">Vault Payment Successful</h3>
           <p className="text-sm text-slate-500">
             <span className="font-semibold text-slate-700">{lastPaidAmount.toFixed(2)} XLM</span>
-            {' '}(≈ ₱{lastPaidPhp.toFixed(2)}) sent successfully.
+            {' '}(about PHP {lastPaidPhp.toFixed(2)}) deducted from your health vault.
           </p>
         </div>
         {txHash && (
@@ -624,8 +642,8 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                         <p className="text-sm font-bold text-slate-800">Ready to Scan</p>
                       </div>
                       <p className="text-xs font-semibold text-slate-500">{providerName}</p>
-                      <p className="text-2xl font-bold text-blue-600">{parsedXlm.toFixed(2)} XLM</p>
-                      <p className="text-xs text-slate-400">≈ ₱{parsedPhp.toFixed(2)} PHP</p>
+                      <p className="text-2xl font-bold text-blue-600">₱{parsedPhp.toFixed(2)}</p>
+                      <p className="text-xs text-slate-400">≈ {parsedXlm.toFixed(2)} XLM</p>
                       <p className="text-xs text-slate-400 max-w-[240px] mx-auto mt-1">
                         Show this QR to the cashier, or tap Confirm below once the cashier has scanned it.
                       </p>
@@ -650,6 +668,8 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                       )}
                     </AnimatePresence>
 
+                    <VaultSigningNote amountPhp={parsedPhp} amountXlm={parsedXlm} />
+
                     {/* Confirm payment button */}
                     <button
                       onClick={handleGeneratePay}
@@ -657,8 +677,8 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                       className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
                     >
                       {genSubmitting
-                        ? <><Loader2 size={15} className="animate-spin" /> Processing…</>
-                        : <><CheckCircle size={15} /> {t('pay_confirm_btn')}</>
+                        ? <><Loader2 size={15} className="animate-spin" /> Waiting for Freighter signature...</>
+                        : <><CheckCircle size={15} /> Sign and Pay from Vault</>
                       }
                     </button>
                   </div>
@@ -923,6 +943,10 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                 )}
               </AnimatePresence>
 
+              {manualParsed > 0 && manualParsed <= activeBalance && (
+                <VaultSigningNote amountPhp={manualParsedPhp} amountXlm={manualParsed} />
+              )}
+
               {/* Pay button */}
               <button
                 onClick={handleManualPay}
@@ -930,8 +954,8 @@ export default function PaymentTab({ address, vault, onSuccess, onSwitchTab }: P
                 className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
               >
                 {submitting
-                  ? <><Loader2 size={16} className="animate-spin" /> Sending…</>
-                  : <><Coins size={15} /> Send {manualParsed > 0 ? `${manualParsed.toFixed(2)} XLM` : 'Payment'}</>
+                  ? <><Loader2 size={16} className="animate-spin" /> Waiting for Freighter signature...</>
+                  : <><Coins size={15} /> Sign and Pay from Vault</>
                 }
               </button>
             </div>

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Building2, Coins, X, CheckCircle, Loader2, AlertCircle, Globe, ArrowLeftRight } from 'lucide-react';
+import { Building2, Coins, X, CheckCircle, Loader2, AlertCircle, Globe, ArrowLeftRight, ShieldCheck } from 'lucide-react';
 
 import { payHospital, calcPayment } from '@/lib/contract';
 import { saveTx } from '@/lib/transactions';
@@ -21,6 +21,24 @@ interface Props {
 
 function isValidStellarAddress(addr: string) {
   return addr.startsWith('G') && addr.length === 56;
+}
+
+function VaultSigningNote({ amountPhp, amountXlm }: { amountPhp: number; amountXlm: number }) {
+  return (
+    <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-3">
+      <div className="flex items-start gap-2">
+        <ShieldCheck size={15} className="mt-0.5 shrink-0 text-blue-600" />
+        <div className="space-y-1">
+          <p className="text-xs font-bold text-blue-800">You are signing a vault payment</p>
+          <p className="text-[11px] leading-relaxed text-blue-700">
+            Freighter may show only the network fee. SaloMed will deduct
+            {' '}<span className="font-semibold">PHP {amountPhp.toFixed(2)}</span>
+            {' '}(about {amountXlm.toFixed(2)} XLM) from your health vault after confirmation.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function PayModal({ patientAddress, amountXlm, vault, onClose, onSuccess, onSwitchTab }: Props) {
@@ -207,7 +225,7 @@ export default function PayModal({ patientAddress, amountXlm, vault, onClose, on
                 <CheckCircle size={24} className="text-emerald-600" />
               </div>
               <div className="space-y-1">
-                <p className="text-emerald-900 font-bold text-base">Payment Sent!</p>
+                <p className="text-emerald-900 font-bold text-base">Vault Payment Successful</p>
                 <p className="text-emerald-700 text-sm font-semibold">
                   {amountXlm.toFixed(2)} XLM (≈ ₱{amountPhp.toFixed(2)})
                 </p>
@@ -227,15 +245,18 @@ export default function PayModal({ patientAddress, amountXlm, vault, onClose, on
               <p className="text-slate-400 text-xs pt-2">Returning to dashboard…</p>
             </motion.div>
           ) : (
-            <button
-              onClick={handlePay}
-              disabled={submitting || isInsufficient}
-              className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50 disabled:grayscale text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
-            >
-              {submitting
-                ? <><Loader2 size={16} className="animate-spin" /> Submitting…</>
-                : isInsufficient ? 'Insufficient Balance' : 'Confirm Payment'}
-            </button>
+            <div className="space-y-3">
+              {!isInsufficient && <VaultSigningNote amountPhp={amountPhp} amountXlm={amountXlm} />}
+              <button
+                onClick={handlePay}
+                disabled={submitting || isInsufficient}
+                className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50 disabled:grayscale text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
+              >
+                {submitting
+                  ? <><Loader2 size={16} className="animate-spin" /> Waiting for Freighter...</>
+                  : isInsufficient ? 'Insufficient Balance' : 'Sign and Pay from Vault'}
+              </button>
+            </div>
           )}
         </AnimatePresence>
       </motion.div>

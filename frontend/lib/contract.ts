@@ -93,6 +93,7 @@ export async function depositToVault(
   userAddress: string,
   amountAsset: number,
   source?: TopUpSource,
+  amountPhpOverride?: number,
 ): Promise<string> {
   const runtime = await getRuntimeStatus();
   // Top-ups are funded by the SaloMed on-ramp float (admin) via the backend,
@@ -101,7 +102,7 @@ export async function depositToVault(
   // vault is credited with real, Explorer-traceable XLM. Returns a real tx hash
   // in Stellar mode; demo mode credits the durable ledger. The `source` records
   // which top-up method was used so history can show "Top-up via ...".
-  return demoTopUp(userAddress, amountAsset * Number(runtime.php_per_asset), source);
+  return demoTopUp(userAddress, amountPhpOverride ?? amountAsset * Number(runtime.php_per_asset), source);
 }
 
 /**

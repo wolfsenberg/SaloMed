@@ -16,8 +16,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      # Keep the Soroban 25.x toolchain deterministic. Newer Linux Rust
+      # releases can break older transitive deps such as ethnum.
+      - name: Install Rust 1.85.0
+        uses: dtolnay/rust-toolchain@1.85.0
         with:
           targets: wasm32v1-none
 
@@ -28,8 +30,8 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             contracts/salomed/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('contracts/salomed/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
+          key: ${{ runner.os }}-rust-1.85.0-cargo-${{ hashFiles('contracts/salomed/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-rust-1.85.0-cargo-
 
       - name: Run contract tests
         working-directory: contracts/salomed
@@ -107,7 +109,7 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: backend
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt "pytest>=8.2.0"
 
       - name: Syntax-check backend
         working-directory: backend
