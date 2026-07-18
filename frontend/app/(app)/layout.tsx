@@ -94,6 +94,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
 
   useEffect(() => {
     addressRef.current = address;
+    if (address) setConnectError(null);
   }, [address]);
 
   // Sync initial tab from URL on mount, then lock down popstate so that
@@ -196,6 +197,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
 
       if (normalized !== current) {
         setVault(EMPTY_VAULT);
+        setConnectError(null);
         setAddress(normalized);
         localStorage.setItem('salomed_address', normalized);
         localStorage.removeItem('salomed_manual_disconnect');
@@ -247,6 +249,7 @@ function AppContent({ children: _ }: { children: React.ReactNode }) {
       if (addr) {
         localStorage.setItem('salomed_address', addr);
         localStorage.removeItem('salomed_manual_disconnect');
+        setConnectError(null);
         setAddress(addr);
         setShowOnboarding(true);
         // Make sure the wallet can pay fees for payment/padala (Stellar modes).
