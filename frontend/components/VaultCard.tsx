@@ -16,6 +16,7 @@ import { fmtPhp, fmtXlm } from '@/lib/format';
 import { explorerAccountUrl, explorerContractUrl, networkBadgeLabel } from '@/lib/stellar-links';
 import { CONTRACT_ID } from '@/lib/config';
 import { useXlmPhpRate } from '@/lib/use-xlm-php-rate';
+import { vaultPhpValue } from '@/lib/vault-balance';
 
 interface Props {
   address: string | null;
@@ -68,7 +69,7 @@ export default function VaultCard({ address, vault, loading, connecting, onConne
   }, []);
 
   const xlmValue  = Number(vault.balance) / 10_000_000;
-  const phpValue  = xlmValue * rate.phpPerXlm;
+  const phpValue  = vaultPhpValue(vault.balance, runtime?.php_per_asset);
 
   if (!address) {
     return (
