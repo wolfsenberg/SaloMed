@@ -5,6 +5,7 @@ type FreighterApi = typeof import('@stellar/freighter-api');
 
 let apiPromise: Promise<FreighterApi | null> | null = null;
 let lastKnownAddress: string | null = null;
+const FREIGHTER_REQUEST_TIMEOUT_MS = 5_000;
 
 async function api(): Promise<FreighterApi | null> {
   if (typeof window === 'undefined') return null;
@@ -34,7 +35,6 @@ function extractAddress(res: unknown): string | null {
   if (isStellarAddress(res)) return res;
   if (!res || typeof res !== 'object') return null;
   const r = res as Record<string, unknown>;
-  if (r.error) { console.warn('[Freighter] error in response:', r.error); return null; }
   const candidates = [
     r.address,
     r.publicKey,
@@ -49,26 +49,67 @@ function extractAddress(res: unknown): string | null {
   return null;
 }
 
+function freighterErrorMessage(res: unknown): string | null {
+  if (!res || typeof res !== 'object') return null;
+  const error = (res as Record<string, unknown>).error;
+  if (!error) return null;
+  if (typeof error === 'string') return error;
+  if (typeof error !== 'object') return JSON.stringify(error);
+
+  const fields = error as Record<string, unknown>;
+  if (typeof fields.message === 'string') return fields.message;
+  if (typeof fields.title === 'string') return fields.title;
+  return JSON.stringify(error);
+}
+
+function throwFreighterError(res: unknown): void {
+  const message = freighterErrorMessage(res);
+  if (message) throw new Error(`Freighter: ${message}`);
+}
+
 function rememberAddress(address: string | null): string | null {
   lastKnownAddress = address ? address.toUpperCase() : null;
   return lastKnownAddress;
 }
 
+async function withFreighterTimeout<T>(
+  operation: Promise<T>,
+  message = 'Freighter did not respond. Unlock it, approve the popup, then try again.',
+  timeoutMs = FREIGHTER_REQUEST_TIMEOUT_MS,
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
 // Opens the Freighter extension popup. Throws a readable message on failure.
-export async function connectWallet(): Promise<string | null> {
+export async function connectWallet(timeoutMs = FREIGHTER_REQUEST_TIMEOUT_MS): Promise<string | null> {
   const f = await api();
   if (!f) throw new Error('Freighter extension not found — install it from freighter.app then refresh.');
   // requestAccess directly opens the popup — no isConnected pre-check needed.
   // isConnected() only tells us if the extension is installed, not if it has
   // granted access, and checking it first can incorrectly block the popup.
-  const res = await f.requestAccess();
+  const res = await withFreighterTimeout(f.requestAccess(), undefined, timeoutMs);
+  throwFreighterError(res);
   let addr = extractAddress(res);
   if (!addr) {
     // Freighter versions differ: some approval responses are only an access
     // flag, with the address available through a follow-up getAddress call.
-    addr = extractAddress(await f.getAddress());
+    const addressRes = await withFreighterTimeout(f.getAddress(), undefined, timeoutMs);
+    throwFreighterError(addressRes);
+    addr = extractAddress(addressRes);
   }
-  if (!addr) throw new Error('Freighter connection was rejected or returned no address.');
+  if (!addr) {
+    throw new Error('Freighter approved access but returned no address. Make sure an account is selected and unlocked.');
+  }
   return rememberAddress(addr);
 }
 
